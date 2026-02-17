@@ -1,0 +1,10 @@
+# MCMC Configuration File (quick sanity checks)
+
+[sampler]
+name = 'ensemble'    # ensemble or parallel_tempered
+num_walkers = 70
+burn_length = 50
+run_length  = 50
+ntemps      = 5
+workers     = 8
+checkpoint_interval = 20

@@ -10,6 +10,7 @@ from jetfit.models.fireball import FireballModel, StratifiedFireballModel
 from jetfit.models.jetsim import JetSimpy
 from jetfit.models.vegasafterglow import VegasAfterglowModel
 from jetfit.models.powerlawVegas import powerlawVegasModel
+from jetfit.models.bubbleVegas import BubbleVegasModel
             
 
 def model_factory(name: str):
@@ -34,6 +35,8 @@ def model_factory(name: str):
             return VegasAfterglowModel
         case 'powerlawVegasModel':
             return powerlawVegasModel
+        case 'BubbleVegasModel':
+            return BubbleVegasModel
         case _:
             raise ValueError(
                 f'Unknown model {name}.'
@@ -99,7 +102,7 @@ class Ampy:
     def run_mcmc(
         self, nwalkers, iterations, burn=0, sampler='ensemble',
         workers=None, ntemps=None, sampler_kw=None, run_kw=None,
-        resume=False
+        resume=False, checkpoint_path=None, checkpoint_interval=0
     ):
         """
         Runs the MCMC sampling routine.
@@ -134,11 +137,18 @@ class Ampy:
 
         resume : bool, optional, default=False
             Resume from a previous run?
+
+        checkpoint_path : str or Path, optional, default=None
+            Checkpoint path used by ``parallel_tempered`` resume workflow.
+
+        checkpoint_interval : int, optional, default=0
+            Save checkpoint every N production iterations for
+            ``parallel_tempered``. Set ``0`` to disable.
         """
         self.mcmc.run(
             nwalkers, iterations, burn, sampler,
             workers, ntemps, sampler_kw, run_kw,
-            resume
+            resume, checkpoint_path, checkpoint_interval
         )
         return self.mcmc
 

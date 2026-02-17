@@ -1,5 +1,8 @@
 import numpy as np
 from astropy import units as u
+import matplotlib
+
+matplotlib.use('Agg', force=True)
 from matplotlib import pyplot as plt
 from synphot import SpectralElement
 
@@ -248,12 +251,24 @@ def plot_density_profile(chain, log_prob, params, obs, model, model_kw=None, bes
     out_dir : Path
         The output directory.
     """
-    if model.__name__ in ('FireballModel', 'StratifiedFireballModel'):
+    required = ('smooth', 'radii')
+    if not all(hasattr(model, name) for name in required):
+        print(
+            f"WARNING: Skipping density profile for model '{model.__name__}'; "
+            f"missing required methods: {required}"
+        )
+        return
+
+    try:
         profiler = DensityProfiler(chain, log_prob, params, model, model_kw)
         profiler.profile(obs.times().min(), obs.times().max(), best_params=best)
-        # profiler.profile(obs.times().min(), 1.3739110279688314, best_params=best)
         profiler.plot_profile(out_dir)
         plt.close()
+    except Exception as exc:
+        print(
+            f"WARNING: Density profile plotting failed for model "
+            f"'{model.__name__}': {type(exc).__name__}: {exc}"
+        )
 
 
 # <editor-fold desc="Light Curve">
@@ -1111,7 +1126,7 @@ class DensityProfiler(Profiler):
 
     def plot_k(self, out_dir=None):
         """"
-        Plots the density power-law index profile.
+        Plots the effective density slope profile.
 
         Parameters
         ----------
@@ -1133,7 +1148,7 @@ class DensityProfiler(Profiler):
 
         ax.axvline(self.r_ref['best'][0], **self.r_ref_options)
         # ax.set_title('Power-Law Index Profile')
-        ax.set_ylabel(r'Power-Law Index k')
+        ax.set_ylabel(r'Effective Slope $k_{eff}$')
         ax.set_xlabel(r'Radius [cm]')
         ax.set_xscale('log')
 
@@ -1141,9 +1156,6 @@ class DensityProfiler(Profiler):
             save_plot_unique('k_profile', 'pdf', str(out_dir), dpi=1200)
         plt.close()
 # </editor-fold>
-
-
-
 
 
 

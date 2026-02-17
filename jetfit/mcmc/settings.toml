@@ -1,9 +1,10 @@
 # MCMC Configuration File
 
 [sampler]
-name = 'parallel_tempered'
+name = 'ensemble'    # ensemble or parallel_tempered
 num_walkers = 70
-burn_length = 50
-run_length  = 50
+burn_length = 2000   # long burn for production/server-like comparisons
+run_length  = 3000   # production length (total steps per walker = burn + run)
 ntemps      = 5
-workers     = 5
+workers     = 8      # M1 Max default: use performance cores, leave headroom for OS
+checkpoint_interval = 100  # save PT resume state every N production iterations (0 disables)

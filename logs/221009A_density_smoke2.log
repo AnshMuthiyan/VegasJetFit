@@ -1,0 +1,24 @@
+Multiprocessing start method: fork
+DEBUG: Multiprocessing method: fork
+DEBUG: Number of CPUs: 10
+DEBUG: Creating Ampy object...
+  obs_path: /Users/jkeohane/GRBs/VegasJetFit/jetfit/resources/grbs/221009A/221009Aclean.csv
+  params_path: /Users/jkeohane/GRBs/VegasJetFit/Ansh_Run/parameters_powerlaw.toml
+DEBUG: Ampy object created successfully!
+DEBUG: Preparing MCMC run...
+DEBUG: Sampler: parallel_tempered
+DEBUG: Starting MCMC run...
+  nwalkers: 40
+  iterations: 1
+  burn: 0
+  workers: 1
+  checkpoint: /Users/jkeohane/GRBs/VegasJetFit/jetfit/results/221009A_density_smoke2/pt_resume_state.npz
+  checkpoint interval: 1
+Temperature 0: 40 valid walkers out of 40
+[vegasafterglow][WARN] eps_e + eps_b >= 1 (1.347486811969221) -> invalid (energy fractions)
+check the data here
+Temperature 1: 39 valid walkers out of 40
+[vegasafterglow][WARN] eps_e + eps_b >= 1 (1.4079883825581714) -> invalid (energy fractions)
+check the data here
+Temperature 2: 39 valid walkers out of 40
+DEBUG: MCMC run completed successfully!

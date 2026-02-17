@@ -1,7 +1,10 @@
 import numpy as np
+import matplotlib
 
 from jetfit.core.utils import save_plot_unique
 from scripts.plot.base import latex
+
+matplotlib.use('Agg', force=True)
 
 try:
     import corner
@@ -64,6 +67,7 @@ def plot_trace(params, out_dir, sampler=None, chain=None) -> None:
     # Plot the trace plot
     az.plot_trace(inf_data)
     save_plot_unique('trace', 'png', out_dir)
+    save_plot_unique('trace', 'pdf', out_dir)
     plt.close()
 
 

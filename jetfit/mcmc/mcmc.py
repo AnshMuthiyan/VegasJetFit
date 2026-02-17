@@ -1,11 +1,18 @@
 import copy
-from contextlib import nullcontext
+import os
+import multiprocessing as mp
+from contextlib import contextmanager, nullcontext
+from pathlib import Path
 
 import emcee
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
+
+# Compatibility shim for older ptemcee releases on modern NumPy.
+if not hasattr(np, 'float'):
+    np.float = float  # type: ignore[attr-defined]
 
 try:
     import ptemcee
@@ -58,7 +65,8 @@ References
 def get_pool_context(workers=None, executor='process'):
     """
     If ``executor==process`` and ``workers>1``:
-        Returns ``ProcessPoolExecutor(max_workers=workers)``.
+        Returns a multiprocessing-based pool context (preferred),
+        with ``ProcessPoolExecutor`` as a fallback.
 
         Since processes need to load everything into memory, this
         should only be used if the likelihood calculation takes
@@ -93,12 +101,83 @@ def get_pool_context(workers=None, executor='process'):
     if workers and workers > 1:
 
         if executor == 'process':
-            return ProcessPoolExecutor(max_workers=workers)
+            try:
+                return _multiprocessing_pool_context(workers)
+            except Exception as exc:
+                print(
+                    "[get_pool_context] Failed to create multiprocessing pool "
+                    f"({type(exc).__name__}: {exc}). Trying ProcessPoolExecutor."
+                )
+
+            try:
+                pool = ProcessPoolExecutor(max_workers=workers)
+                _verify_pool_workers(pool, workers)
+                return pool
+            except Exception as exc:
+                print(
+                    "[get_pool_context] Failed to create process pool "
+                    f"({type(exc).__name__}: {exc}). Falling back to serial."
+                )
+                return nullcontext(None)
 
         if executor == 'thread':
             return ThreadPoolExecutor(max_workers=workers)
 
-    return nullcontext()
+    return nullcontext(None)
+
+
+def _pool_pid(_):
+    """Return worker PID; used to verify pool fan-out."""
+    return os.getpid()
+
+
+def _verify_pool_workers(pool, workers):
+    """
+    Probe a pool by mapping a trivial task and reporting unique worker PIDs.
+
+    This provides a runtime sanity check that process-based parallelization
+    is actually active.
+    """
+    if os.environ.get('JETFIT_POOL_PROBE', '1') != '1':
+        return
+
+    tasks = max(int(workers) * 2, 2)
+    try:
+        pids = list(pool.map(_pool_pid, range(tasks)))
+        unique = sorted(set(int(pid) for pid in pids))
+        print(
+            f"[get_pool_context] Active worker processes: "
+            f"{len(unique)}/{workers} (pids={unique})"
+        )
+    except Exception as exc:
+        print(
+            "[get_pool_context] Worker verification failed "
+            f"({type(exc).__name__}: {exc})."
+        )
+
+
+@contextmanager
+def _multiprocessing_pool_context(workers):
+    """
+    Build a multiprocessing pool using the configured start method.
+
+    Compared to ProcessPoolExecutor, multiprocessing.Pool is more robust
+    on some macOS/sandboxed environments.
+    """
+    ctx = mp.get_context()
+    start_method = ctx.get_start_method()
+    print(
+        "[get_pool_context] Using multiprocessing.Pool "
+        f"(workers={workers}, start_method={start_method})"
+    )
+
+    pool = ctx.Pool(processes=int(workers))
+    try:
+        _verify_pool_workers(pool, workers)
+        yield pool
+    finally:
+        pool.close()
+        pool.join()
 
 
 class PTSampler:
@@ -155,20 +234,68 @@ class PTSampler:
         log_l_args=(), log_p_args=(), log_l_kwargs=(), log_p_kwargs=(),
         pool=None, **kwargs
     ):
-        mapper = pool.map if pool is not None else map
+        # Keep constructor state so reset() can rebuild robustly across ptemcee variants.
+        self._ctor = {
+            'ntemps': ntemps,
+            'nwalkers': nwalkers,
+            'ndim': ndim,
+            'log_like': log_like,
+            'log_prior': log_prior,
+            'log_l_args': tuple(log_l_args),
+            'log_p_args': tuple(log_p_args),
+            'log_l_kwargs': dict(log_l_kwargs),
+            'log_p_kwargs': dict(log_p_kwargs),
+            'pool': pool,
+            'kwargs': dict(kwargs),
+        }
 
         # Initialize the sampler
-        self._sampler = ptemcee.Sampler(
-            nwalkers, ndim, log_like, log_prior,
-            log_l_args, log_p_args, log_l_kwargs, log_p_kwargs,
-            ptemcee.make_ladder(ndim, ntemps), mapper=mapper, **kwargs
-        )
+        self._sampler = self._new_sampler()
         self._chain = None
         self._iteration = 0
+        self._temp0_chain_override = None
+        self._temp0_logprob_override = None
 
         self._ndim = ndim
         self._ntemps = ntemps
         self._nwalkers = nwalkers
+        self._legacy_chain_api = callable(getattr(self._sampler, 'chain', None))
+
+    def _new_sampler(self):
+        """Create ptemcee sampler for either legacy or current API."""
+        c = self._ctor
+
+        # Newer ptemcee API (e.g. exposes default_beta_ladder).
+        if hasattr(ptemcee, 'default_beta_ladder'):
+            return ptemcee.Sampler(
+                c['nwalkers'],
+                c['ndim'],
+                c['log_like'],
+                c['log_prior'],
+                ntemps=c['ntemps'],
+                pool=c['pool'],
+                loglargs=list(c['log_l_args']),
+                logpargs=list(c['log_p_args']),
+                loglkwargs=dict(c['log_l_kwargs']),
+                logpkwargs=dict(c['log_p_kwargs']),
+                **c['kwargs'],
+            )
+
+        # Legacy ptemcee API.
+        mapper = c['pool'].map if c['pool'] is not None else map
+        return ptemcee.Sampler(
+            c['nwalkers'],
+            c['ndim'],
+            c['log_like'],
+            c['log_prior'],
+            c['log_l_args'],
+            c['log_p_args'],
+            c['log_l_kwargs'],
+            c['log_p_kwargs'],
+            ptemcee.make_ladder(c['ndim'], c['ntemps']),
+            mapper=mapper,
+            **c['kwargs'],
+        )
 
     @property
     def sampler(self):
@@ -200,11 +327,15 @@ class PTSampler:
 
     @property
     def acceptance_fraction(self):
-        return self.chain.jump_acceptance_ratio[0]
+        if self._legacy_chain_api:
+            return self.chain.jump_acceptance_ratio[0]
+        return self.sampler.acceptance_fraction[0]
 
     @property
     def swap_acceptance_fraction(self):
-        return self.chain.swap_acceptance_ratio[0]
+        if self._legacy_chain_api:
+            return self.chain.swap_acceptance_ratio[0]
+        return self.sampler.tswap_acceptance_fraction[0]
 
     @property
     def lnprobability(self):
@@ -230,11 +361,16 @@ class PTSampler:
         np.ndarray with shape [ntemps, nwalkers, ndim]
             The last samples.
         """
-        self._chain = self.sampler.chain(x0, **kwargs)
-        self._chain.run(iterations)
-        self._iteration = self._chain.length
+        if self._legacy_chain_api:
+            self._chain = self.sampler.chain(x0, **kwargs)
+            self._chain.run(iterations)
+            self._iteration = self._chain.length
+            return self.chain.x[-1]
 
-        return self.chain.x[-1]
+        self.sampler.run_mcmc(x0, iterations=iterations, **kwargs)
+        self._chain = self.sampler
+        self._iteration = int(self.sampler.time)
+        return self.sampler.chain[:, :, -1, :]
 
     def reset(self):
         """
@@ -244,16 +380,12 @@ class PTSampler:
         of. Overwriting with a new sampler is safer than
         attempting to reset attributes individually.
         """
-        self._sampler = ptemcee.Sampler(
-            self.sampler.nwalkers, self.sampler.ndim,
-            self.sampler.logl, self.sampler.logp,
-            self.sampler.logl_args, self.sampler.logp_args,
-            self.sampler.logl_kwargs, self.sampler.logp_kwargs,
-            ptemcee.make_ladder(self.ndim, self.ntemps),
-            mapper=self.sampler._mapper
-        )
+        self._sampler = self._new_sampler()
+        self._legacy_chain_api = callable(getattr(self._sampler, 'chain', None))
         self._chain = None
         self._iteration = 0
+        self._temp0_chain_override = None
+        self._temp0_logprob_override = None
 
     def save(self, path):
         """
@@ -267,7 +399,136 @@ class PTSampler:
         path : str
             The path to save the file.
         """
-        np.savez(path, chain=self.get_chain(), lnprob=self.get_log_prob(), betas=self.sampler.betas)
+        chain = (
+            self._temp0_chain_override
+            if self._temp0_chain_override is not None
+            else self.get_chain()
+        )
+        lnprob = (
+            self._temp0_logprob_override
+            if self._temp0_logprob_override is not None
+            else self.get_log_prob()
+        )
+        np.savez(path, chain=chain, lnprob=lnprob, betas=self.sampler.betas)
+
+    def set_temp0_overrides(self, chain, log_prob):
+        """
+        Override the temperature-0 chain/log-prob arrays.
+
+        Used when resuming ``parallel_tempered`` from checkpoints so the final
+        outputs include both pre-resume and post-resume samples.
+        """
+        if chain is None or log_prob is None:
+            self._temp0_chain_override = None
+            self._temp0_logprob_override = None
+            return
+
+        chain = np.asarray(chain)
+        log_prob = np.asarray(log_prob)
+
+        if chain.ndim != 3:
+            raise ValueError('Temp-0 chain override must have shape [steps, walkers, ndim].')
+        if log_prob.ndim != 2:
+            raise ValueError('Temp-0 log-prob override must have shape [steps, walkers].')
+        if chain.shape[:2] != log_prob.shape:
+            raise ValueError('Temp-0 chain/log-prob override shapes are inconsistent.')
+
+        self._temp0_chain_override = np.array(chain, copy=True)
+        self._temp0_logprob_override = np.array(log_prob, copy=True)
+        self._iteration = int(chain.shape[0])
+
+    def save_resume_state(
+        self, path, completed_iterations, target_iterations=None,
+        chain=None, lnprob=None
+    ):
+        """
+        Save resume state for ``parallel_tempered``.
+
+        The saved chain/log-prob are temperature-0 (the posterior chain used by
+        current analysis/plotting), while ``last_pos`` retains all temperatures
+        needed to continue sampling.
+        """
+        state_path = Path(path)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if chain is None:
+            chain = (
+                self._temp0_chain_override
+                if self._temp0_chain_override is not None
+                else self.get_chain()
+            )
+        if lnprob is None:
+            lnprob = (
+                self._temp0_logprob_override
+                if self._temp0_logprob_override is not None
+                else self.get_log_prob()
+            )
+
+        save_kw = {
+            'chain': chain,
+            'lnprob': lnprob,
+            'last_pos': self.get_last_sample(),
+            'completed_iterations': int(completed_iterations),
+            'betas': self.sampler.betas,
+        }
+        if target_iterations is not None:
+            save_kw['target_iterations'] = int(target_iterations)
+
+        np.savez(state_path, **save_kw)
+
+    @staticmethod
+    def load_resume_state(path):
+        """ Load ``parallel_tempered`` resume state from ``path``. """
+        state_path = Path(path)
+        with np.load(state_path, allow_pickle=False) as data:
+            required = ('chain', 'lnprob', 'last_pos')
+            missing = [k for k in required if k not in data.files]
+            if missing:
+                raise ValueError(
+                    f'{state_path} is missing required resume keys: {missing}'
+                )
+
+            chain = np.array(data['chain'], copy=True)
+            lnprob = np.array(data['lnprob'], copy=True)
+            last_pos = np.array(data['last_pos'], copy=True)
+
+            if chain.ndim != 3:
+                raise ValueError(
+                    f'{state_path} chain has unexpected shape {chain.shape}; '
+                    'expected [steps, walkers, ndim].'
+                )
+            if lnprob.ndim != 2:
+                raise ValueError(
+                    f'{state_path} lnprob has unexpected shape {lnprob.shape}; '
+                    'expected [steps, walkers].'
+                )
+            if chain.shape[:2] != lnprob.shape:
+                raise ValueError(
+                    f'{state_path} has inconsistent chain/log-prob shapes: '
+                    f'{chain.shape} vs {lnprob.shape}.'
+                )
+            if last_pos.ndim != 3:
+                raise ValueError(
+                    f'{state_path} last_pos has unexpected shape {last_pos.shape}; '
+                    'expected [ntemps, walkers, ndim].'
+                )
+
+            if 'completed_iterations' in data.files:
+                completed_iterations = int(data['completed_iterations'])
+            else:
+                completed_iterations = int(chain.shape[0])
+
+            target_iterations = None
+            if 'target_iterations' in data.files:
+                target_iterations = int(data['target_iterations'])
+
+            return {
+                'chain': chain,
+                'lnprob': lnprob,
+                'last_pos': last_pos,
+                'completed_iterations': completed_iterations,
+                'target_iterations': target_iterations,
+            }
 
     def draw_positions(self, params, models):
         """
@@ -342,16 +603,26 @@ class PTSampler:
 
     def get_autocorr_time(self):
         """ Returns the autocorrelation time for the 0th temperature. """
-        return self.chain.get_acts()[0]
+        if self._legacy_chain_api:
+            return self.chain.get_acts()[0]
+        return self.sampler.get_autocorr_time()[0]
 
     def get_last_sample(self):
         """ Returns last samples with shape [ntemps, nwalkers, ndim]. """
-        if self.chain is None:
+        if self._legacy_chain_api:
+            if self.chain is None:
+                raise AttributeError(
+                    'Tried to get the last sample, but there are no '
+                    'samples. Have you called `run_mcmc` yet?'
+                )
+            return self.chain.x[-1]
+
+        if self.sampler.chain is None:
             raise AttributeError(
                 'Tried to get the last sample, but there are no '
                 'samples. Have you called `run_mcmc` yet?'
             )
-        return self.chain.x[-1]
+        return self.sampler.chain[:, :, -1, :]
 
     def get_value(self, name, flat=False, thin=1, discard=0, temp=0):
         """
@@ -382,17 +653,50 @@ class PTSampler:
         -------
         np.ndarray
         """
-        if self.chain is None:
-            raise AttributeError(
-                f'Tried to get {name}, but there '
-                f'are no chains. Have you called '
-                f'`run_mcmc` yet?'
+        if temp == 0:
+            override = (
+                self._temp0_chain_override
+                if name == 'x'
+                else self._temp0_logprob_override
+                if name == 'logP'
+                else None
             )
+            if override is not None:
+                v = override[discard + thin - 1::thin]
+                if flat:
+                    s = list(v.shape[1:])
+                    s[0] = np.prod(v.shape[:2])
+                    return v.reshape(s)
+                return v
 
-        try:
-            v = getattr(self, name)
-        except AttributeError:
-            v = getattr(self.chain, name)
+        if self._legacy_chain_api:
+            if self.chain is None:
+                raise AttributeError(
+                    f'Tried to get {name}, but there '
+                    f'are no chains. Have you called '
+                    f'`run_mcmc` yet?'
+                )
+
+            try:
+                v = getattr(self, name)
+            except AttributeError:
+                v = getattr(self.chain, name)
+        else:
+            # Map legacy names onto newer ptemcee properties.
+            attr = {'x': 'chain', 'logP': 'logprobability'}.get(name, name)
+            v = getattr(self.sampler, attr, None)
+            if v is None:
+                raise AttributeError(
+                    f'Tried to get {name}, but there '
+                    f'are no chains. Have you called '
+                    f'`run_mcmc` yet?'
+                )
+
+            # New ptemcee stores shape as (ntemps, nwalkers, nsteps, ...).
+            if len(v.shape) == 4:
+                v = np.transpose(v, (2, 0, 1, 3))
+            else:
+                v = np.transpose(v, (2, 0, 1))
 
         if len(v.shape) == 4:
             # shape(iterations, ntemps, nwalkers, ndim)
@@ -623,7 +927,7 @@ class MCMC:
     def run(
         self, nwalkers, iterations, burn=0, sampler='ensemble',
         workers=None, ntemps=None, sampler_kw=None, run_kw=None,
-        resume=False
+        resume=False, checkpoint_path=None, checkpoint_interval=0
     ):
         """
         Runs the MCMC sampling routine.
@@ -658,37 +962,155 @@ class MCMC:
 
         resume : bool, optional, default=False
             Resume from a previous run?
+
+        checkpoint_path : str or Path, optional, default=None
+            Resume-state path for ``parallel_tempered`` runs.
+
+        checkpoint_interval : int, optional, default=0
+            Save resume-state every N production iterations for
+            ``parallel_tempered``. Set ``0`` to disable periodic saves.
         """
+        run_options = dict(run_kw or {})
+
         with get_pool_context(workers) as pool:
             self.set_sampler(
                 sampler, nwalkers, pool, ntemps, **(sampler_kw or {})
             )
 
-            start_pos = self.start_positions(resume)
+            is_pt = isinstance(self.sampler, PTSampler)
+            checkpoint = (
+                Path(checkpoint_path)
+                if (is_pt and checkpoint_path is not None)
+                else None
+            )
 
-            if burn < 1:
-                self.start_run_pos = start_pos
+            checkpoint_interval = int(checkpoint_interval or 0)
+            if checkpoint_interval < 0:
+                raise ValueError('checkpoint_interval must be >= 0.')
 
-            else:
-                self.start_burn_pos = start_pos
+            resumed_chain = None
+            resumed_log_prob = None
+            completed_iterations = 0
+            resumed_from_checkpoint = False
 
-                # Run burn in and save the last position
-                self.start_run_pos = (
-                    self.sampler.run_mcmc(
-                        self.start_burn_pos, burn, **(run_kw or {})
+            if is_pt and resume:
+                if checkpoint is None:
+                    raise ValueError(
+                        'Resume for parallel_tempered requires a checkpoint_path.'
                     )
+                if not checkpoint.exists():
+                    raise FileNotFoundError(
+                        f'Cannot resume parallel_tempered run; checkpoint not found: '
+                        f'{checkpoint}'
+                    )
+
+                state = self.sampler.load_resume_state(checkpoint)
+                self.start_run_pos = state['last_pos']
+                resumed_chain = state['chain']
+                resumed_log_prob = state['lnprob']
+                completed_iterations = int(state['completed_iterations'])
+                resumed_from_checkpoint = True
+                burn = 0
+
+            if not resumed_from_checkpoint:
+                start_pos = self.start_positions(resume)
+
+                if burn < 1:
+                    self.start_run_pos = start_pos
+
+                else:
+                    self.start_burn_pos = start_pos
+
+                    # Run burn in and save the last position
+                    self.start_run_pos = (
+                        self.sampler.run_mcmc(
+                            self.start_burn_pos, burn, **run_options
+                        )
+                    )
+
+                    # Save the chain if desired for diagnostics. Cannot
+                    # save the entire sampler because deepcopy detaches
+                    # the pool which prevents multiprocessing/threading
+                    self.burn_chain = copy.deepcopy(self.sampler.get_chain())
+                    self.sampler.reset()
+
+            target_iterations = int(iterations)
+            remaining_iterations = target_iterations - completed_iterations
+            if remaining_iterations < 0:
+                raise ValueError(
+                    f'Resume checkpoint has {completed_iterations} iterations, '
+                    f'but current run_length is only {target_iterations}.'
                 )
 
-                # Save the chain if desired for diagnostics. Cannot
-                # save the entire sampler because deepcopy detaches
-                # the pool which prevents multiprocessing/threading
-                self.burn_chain = copy.deepcopy(self.sampler.get_chain())
-                self.sampler.reset()
+            if remaining_iterations == 0:
+                if (
+                    is_pt
+                    and resumed_chain is not None
+                    and resumed_log_prob is not None
+                ):
+                    self.sampler.set_temp0_overrides(resumed_chain, resumed_log_prob)
+                return
 
-            # Run production
-            self.sampler.run_mcmc(
-                self.start_run_pos, iterations, **(run_kw or {})
-            )
+            if is_pt and checkpoint is not None and checkpoint_interval > 0:
+                current_pos = self.start_run_pos
+                produced_iterations = 0
+
+                while produced_iterations < remaining_iterations:
+                    step = min(
+                        checkpoint_interval,
+                        remaining_iterations - produced_iterations
+                    )
+                    current_pos = self.sampler.run_mcmc(
+                        current_pos, step, **run_options
+                    )
+                    produced_iterations = int(self.sampler.iteration)
+
+                    if (
+                        resumed_chain is not None
+                        and resumed_log_prob is not None
+                    ):
+                        combined_chain = np.concatenate(
+                            (resumed_chain, self.sampler.get_chain()),
+                            axis=0,
+                        )
+                        combined_log_prob = np.concatenate(
+                            (resumed_log_prob, self.sampler.get_log_prob()),
+                            axis=0,
+                        )
+                    else:
+                        combined_chain = None
+                        combined_log_prob = None
+
+                    self.sampler.save_resume_state(
+                        checkpoint,
+                        completed_iterations=completed_iterations + produced_iterations,
+                        target_iterations=target_iterations,
+                        chain=combined_chain,
+                        lnprob=combined_log_prob,
+                    )
+            else:
+                # Run production
+                self.sampler.run_mcmc(
+                    self.start_run_pos, remaining_iterations, **run_options
+                )
+
+            if is_pt and resumed_chain is not None and resumed_log_prob is not None:
+                combined_chain = np.concatenate(
+                    (resumed_chain, self.sampler.get_chain()),
+                    axis=0,
+                )
+                combined_log_prob = np.concatenate(
+                    (resumed_log_prob, self.sampler.get_log_prob()),
+                    axis=0,
+                )
+                self.sampler.set_temp0_overrides(combined_chain, combined_log_prob)
+
+            if is_pt and checkpoint is not None:
+                self.sampler.save_resume_state(
+                    checkpoint,
+                    completed_iterations=int(self.sampler.get_chain().shape[0]),
+                    target_iterations=target_iterations,
+                )
 
 
 class MCMCModels:

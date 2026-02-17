@@ -6,6 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import astropy.units as u
+import matplotlib
+
+matplotlib.use('Agg', force=True)
 from matplotlib import pyplot as plt
 
 from jetfit.core.structs import ScaleType
@@ -227,6 +230,7 @@ class MCMCSettingsReader(TOMLReader):
         self.run_length = sampler.get('run_length')
         self.ntemps = sampler.get('ntemps')
         self.workers = sampler.get('workers')
+        self.checkpoint_interval = sampler.get('checkpoint_interval', 0)
 
     def validate(self) -> None:
         """ Validates that the MCMC settings file is valid. """
@@ -239,6 +243,11 @@ class MCMCSettingsReader(TOMLReader):
         self.validate_value('burn_length', sampler.get('burn_length'), int)
         self.validate_value('run_length',  sampler.get('run_length'),  int)
         self.validate_value('num_walkers', sampler.get('num_walkers'), int)
+
+        checkpoint_interval = sampler.get('checkpoint_interval', 0)
+        self.validate_value('checkpoint_interval', checkpoint_interval, int)
+        if checkpoint_interval < 0:
+            raise ValueError('checkpoint_interval must be >= 0.')
 
 
 # <editor-fold desc="Math">

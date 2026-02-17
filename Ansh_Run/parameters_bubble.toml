@@ -1,0 +1,350 @@
+# MCMC Parameter Configuriation File
+name = 'BubbleVegasModel'
+
+#-------------- MODEL --------------
+#---------------- E ----------------
+[[model]]
+name  = "E52"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -2.0
+    upper = 4.0
+    initial_guess = 2.133
+    initial_sigma = 0.5
+
+#-------------- MODEL --------------
+#--------------- lf0 ---------------
+[[model]]
+name  = "lf0"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = 1.69
+    upper = 3.0
+    initial_guess = 2.08
+    initial_sigma = 0.25
+
+#-------------- MODEL --------------
+#---------------- nt ---------------
+[[model]]
+name  = "nt"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 6.0
+    initial_guess = 0.72
+    initial_sigma = 0.9
+
+#-------------- MODEL --------------
+#--------------- nism --------------
+[[model]]
+name  = "nism"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 6.0
+    initial_guess = -2.0
+    initial_sigma = 1.0
+
+#-------------- MODEL --------------
+#---------------- rt ---------------
+[[model]]
+name  = "rt"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = 15.0
+    upper = 20.0
+    initial_guess = 17.5
+    initial_sigma = 0.25
+
+#-------------- MODEL --------------
+#-------------- eps_e --------------
+[[model]]
+name  = "eps_e"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 0.0
+    initial_guess = -0.267
+    initial_sigma = 0.5
+
+#-------------- MODEL --------------
+#-------------- eps_b --------------
+[[model]]
+name  = "eps_b"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 0.0
+    initial_guess = -3.64
+    initial_sigma = 1.50
+
+#-------------- MODEL --------------
+#---------------- p ----------------
+[[model]]
+name  = "p"
+scale = "linear"
+
+[model.prior]
+    type  = "uniform"
+    lower = 2.0
+    upper = 3.0
+    initial_guess = 2.347
+    initial_sigma = 0.03
+
+#-------------- MODEL --------------
+#---------------- z ----------------
+[[model]]
+name  = "z"
+scale = "linear"
+value = 0.151
+
+#-------------- MODEL --------------
+#---------------- dL ---------------
+[[model]]
+name  = "dl28"
+scale = "linear"
+value = 0.229
+
+#-------------- MODEL --------------
+#--------------- hmf ---------------
+[[model]]
+name  = "hmf"
+scale = "linear"
+value = 0.7
+
+#------------- Model ---------------
+#-------------- theta_c ------------
+[[model]]
+name="theta_c"
+scale="linear"
+value = 1.5
+
+#------------- Model ---------------
+#-------------- theta_v ------------
+[[model]]
+name="theta_v"
+scale="linear"
+value = 0.0
+
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+[[extinction]]
+name  = "ebv_source_frame"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = 0.0
+    upper = 0.5
+    initial_guess = 0.17417943396787333
+    initial_sigma = 0.05
+
+#----------- EXTINCTION ------------
+#------------ milky_way ------------
+[[extinction]]
+name  = "ebv_milky_way"
+scale = "linear"
+value = 1.3021
+
+#----------- CALIBRATION -----------
+#-------------- R-band -------------
+[[offsets]]
+name  = "r2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.3
+
+#----------- CALIBRATION -----------
+#-------------- I-band -------------
+[[offsets]]
+name  = "i2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.3
+
+#----------- CALIBRATION -----------
+#-------------- g-band -------------
+[[offsets]]
+name  = "g_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+#----------- CALIBRATION -----------
+#-------------- r-band -------------
+[[offsets]]
+name  = "r_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+#----------- CALIBRATION -----------
+#-------------- i-band -------------
+[[offsets]]
+name  = "i_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+#----------- CALIBRATION -----------
+#-------------- z-band -------------
+[[offsets]]
+name  = "z_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.04
+
+#----------- CALIBRATION -----------
+#-------------- J-band -------------
+#[[offsets]]
+#name  = "J_offset"
+#scale = "linear"
+
+#[offsets.prior]
+#    type  = "gaussian"
+#    mu    = 0.0
+#    sigma = 0.04
+
+#----------- CALIBRATION -----------
+#-------------- H-band -------------
+#[[offsets]]
+#name  = "H_offset"
+#scale = "linear"
+
+#[offsets.prior]
+#    type  = "gaussian"
+#    mu    = 0.0
+ #   sigma = 0.05
+
+#----------- CALIBRATION -----------
+#-------------- K-band -------------
+#[[offsets]]
+#name  = "K_offset"
+#scale = "linear"
+
+#[offsets.prior]
+#    type  = "gaussian"
+#    mu    = 0.0
+#    sigma = 0.06
+
+#----------- HOST GALAXY -----------
+#-------------- g-band -------------
+#[[host]]
+#name  = "g_host"
+#scale = "log"
+
+#[host.prior]
+#    type = "uniform"
+#    lower = -4.5
+#    upper = -3.0
+
+#----------- HOST GALAXY -----------
+#-------------- r-band -------------
+#[[host]]
+#name  = "r_host"
+#scale = "log"
+
+#[host.prior]
+#    type = "uniform"
+#    lower = -4.5
+#    upper = -3.0
+
+#----------- CALIBRATION -----------
+#------------- uvm2-band -----------
+#[[offsets]]
+#name  = "uvm2_offset"
+#scale = "linear"
+
+#[offsets.prior]
+#    type  = "gaussian"
+#    mu    = 0.0
+#    sigma = 0.03
+
+#----------- CALIBRATION -----------
+#------------ uvw1-band ------------
+#[[offsets]]
+#name  = "uvw1_offset"
+#scale = "linear"
+
+#[offsets.prior]
+#    type  = "gaussian"
+#    mu    = 0.0
+#    sigma = 0.04
+
+#----------- CALIBRATION -----------
+#----------- uvot-u-band -----------
+[[offsets]]
+name  = "uvot-u_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+#----------- CALIBRATION -----------
+#----------- uvot-b-band -----------
+[[offsets]]
+name  = "uvot-b_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.02
+
+#----------- CALIBRATION -----------
+#------------ uvot-v-band ----------
+[[offsets]]
+name  = "uvot-v_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.02
+
+#--------------- SLOP --------------
+#--------------- slop --------------
+[[slop]]
+name  = "slop"
+scale = "linear"
+
+[slop.prior]
+    type  = "uniform"
+    lower = 0.0
+    upper = 0.2
+    initial_guess = 0.05
+    initial_sigma = 0.05

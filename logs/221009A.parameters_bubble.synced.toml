@@ -1,0 +1,228 @@
+name = 'BubbleVegasModel'
+
+[[model]]
+name = 'E52'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = -2.0
+upper = 4.0
+
+[[model]]
+name = 'lf0'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = 1.69
+upper = 3.0
+
+[[model]]
+name = 'nt'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = -6.0
+upper = 6.0
+initial_guess = 0.72
+initial_sigma = 0.9
+
+[[model]]
+name = 'nism'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = -6.0
+upper = 6.0
+initial_guess = -2.0
+initial_sigma = 1.0
+
+[[model]]
+name = 'rt'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = 15.0
+upper = 20.0
+initial_guess = 17.5
+initial_sigma = 0.25
+
+[[model]]
+name = 'eps_e'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = -6.0
+upper = 0.0
+
+[[model]]
+name = 'eps_b'
+scale = 'log'
+
+[model.prior]
+type = 'uniform'
+lower = -6.0
+upper = 0.0
+
+[[model]]
+name = 'p'
+scale = 'linear'
+
+[model.prior]
+type = 'uniform'
+lower = 2.0
+upper = 3.0
+
+[[model]]
+name = 'z'
+scale = 'linear'
+value = 0.151
+
+[[model]]
+name = 'dl28'
+scale = 'linear'
+value = 0.229
+
+[[model]]
+name = 'hmf'
+scale = 'linear'
+value = 0.7
+
+[[model]]
+name = 'theta_c'
+scale = 'linear'
+value = 1.5
+
+[[model]]
+name = 'theta_v'
+scale = 'linear'
+value = 0.0
+
+[[extinction]]
+name = 'rv_milky_way'
+scale = 'log'
+
+[extinction.prior]
+type = 'milkywayrv'
+
+[[extinction]]
+name = 'ebv_source_frame'
+scale = 'linear'
+
+[extinction.prior]
+type = 'uniform'
+lower = 0.0
+upper = 0.5
+initial_guess = 0.05
+initial_sigma = 0.05
+
+[[extinction]]
+name = 'ebv_milky_way'
+scale = 'linear'
+value = 1.3021
+
+[[offsets]]
+name = 'g_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.03
+
+[[offsets]]
+name = 'r_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.03
+
+[[offsets]]
+name = 'i_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.03
+
+[[offsets]]
+name = 'z_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.04
+
+[[offsets]]
+name = 'r2_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.03
+
+[[offsets]]
+name = 'i2_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.03
+
+[[offsets]]
+name = 'z2_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.04
+
+[[offsets]]
+name = 'uvot-u_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.03
+
+[[offsets]]
+name = 'uvot-b_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.02
+
+[[offsets]]
+name = 'uvot-v_offset'
+scale = 'linear'
+
+[offsets.prior]
+type = 'gaussian'
+mu = 0.0
+sigma = 0.02
+
+[[slop]]
+name = 'slop'
+scale = 'linear'
+
+[slop.prior]
+type = 'uniform'
+lower = 0.0
+upper = 0.2
+initial_guess = 0.05
+initial_sigma = 0.05

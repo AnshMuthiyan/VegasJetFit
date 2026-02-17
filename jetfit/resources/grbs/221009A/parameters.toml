@@ -153,13 +153,16 @@ value = 0.229
 [[model]]
 name="theta_c"
 scale="linear"
+value = 1.5
 
-[model.prior]
-    type  = "uniform"
-    lower = 0.001
-    upper = 0.2
-    initial_guess = 0.1
-    initial_sigma = 0.01
+
+
+#[model.prior]
+ #   type  = "uniform"
+ #   lower = 0.001
+ #   upper = 0.2
+ #   initial_guess = 0.1
+ #   initial_sigma = 0.01
 
 
 #------------- Model ----------

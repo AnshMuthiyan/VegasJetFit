@@ -1,15 +1,17 @@
 import argparse
 import json
 import os
+import sys
+import multiprocessing as mp
 from pathlib import Path
+
+# Use a non-interactive matplotlib backend for batch runs.
+os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import emcee
 
 from jetfit.ampy import Ampy
 from jetfit.core import utils
-from scripts.plot import diagnose
-from scripts.plot import visualize
-from scripts.plot import histogram
 
 
 def parse_args():
@@ -20,8 +22,64 @@ def parse_args():
     parser.add_argument('--model',   help='Path to the model TOML file.')
     parser.add_argument('--obs',     help='Path to the input observation file.')
     parser.add_argument('--results', help='Path the the results directory.')
-    parser.add_argument('--resume',  help='Continue from previous run?')
+    parser.add_argument('--resume',  action='store_true', help='Continue from previous run?')
+    parser.add_argument(
+        '--skip-plots',
+        action='store_true',
+        help='Skip all plotting outputs (useful for short preflight checks).',
+    )
+    parser.add_argument(
+        '--workers',
+        type=int,
+        default=None,
+        help='Override worker count from mcmc settings (1 disables multiprocessing).',
+    )
+    parser.add_argument(
+        '--start-method',
+        default=os.environ.get('JETFIT_MP_START_METHOD', 'auto'),
+        choices=('auto', 'fork', 'spawn', 'forkserver'),
+        help='Multiprocessing start method. Default comes from JETFIT_MP_START_METHOD or auto.',
+    )
     return parser.parse_args()
+
+
+def _resolve_start_method(requested):
+    """Resolve start method with macOS-friendly defaults."""
+    methods = mp.get_all_start_methods()
+
+    if requested and requested != 'auto':
+        if requested not in methods:
+            raise ValueError(
+                f'Unsupported multiprocessing start method: {requested}. '
+                f'Available: {methods}'
+            )
+        return requested
+
+    if sys.platform == 'darwin':
+        if 'fork' in methods:
+            return 'fork'
+        if 'spawn' in methods:
+            return 'spawn'
+
+    return methods[0]
+
+
+def configure_multiprocessing(start_method):
+    """Configure multiprocessing start method once at process startup."""
+    method = _resolve_start_method(start_method)
+    current = mp.get_start_method(allow_none=True)
+
+    if current is None:
+        mp.set_start_method(method)
+        current = method
+    elif current != method:
+        print(
+            f"WARNING: multiprocessing start method already set to '{current}', "
+            f"requested '{method}'. Using '{current}'."
+        )
+
+    print(f"Multiprocessing start method: {current}")
+    return current
 
 
 def log(ampy, out_dir):
@@ -72,6 +130,12 @@ def plot_results(ampy, results_dir, event):
     event : str
         The event name.
     """
+    # Import plotting modules lazily so no plotting/network deps are loaded
+    # during compute-only runs (e.g., preflight with --skip-plots).
+    from scripts.plot import diagnose
+    from scripts.plot import visualize
+    from scripts.plot import histogram
+
     params = ampy.mcmc.params
 
     # Plot the lines!
@@ -92,7 +156,10 @@ def plot_results(ampy, results_dir, event):
     diagnose.plot_trace(params, out_dir=results_dir, sampler=ampy.mcmc.sampler)
 
 
-def main(obs_path, params_path, mcmc_path, results_dir, event, resume=False):
+def main(
+    obs_path, params_path, mcmc_path, results_dir, event,
+    resume=False, workers_override=None, skip_plots=False
+):
     """
     Run MCMC using AMPy.
 
@@ -114,9 +181,7 @@ def main(obs_path, params_path, mcmc_path, results_dir, event, resume=False):
         The name of the event to model.
 
     resume : bool, optional, default=False
-        Resume from a previous run? Only supported for
-        ``EnsembleSampler`` since ``PTSampler`` does not
-        use a ``backend``.
+        Resume from a previous run.
 
     Returns
     -------
@@ -126,20 +191,30 @@ def main(obs_path, params_path, mcmc_path, results_dir, event, resume=False):
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
+    print(f"DEBUG: Multiprocessing method: {mp.get_start_method(allow_none=True)}")
+    print(f"DEBUG: Number of CPUs: {mp.cpu_count()}")
+
     # Create the AMPy object
-    # print(f"DEBUG: Creating Ampy object...")
-    # print(f"  obs_path: {obs_path}")
-    # print(f"  params_path: {params_path}")
+    print(f"DEBUG: Creating Ampy object...")
+    print(f"  obs_path: {obs_path}")
+    print(f"  params_path: {params_path}")
     ampy = Ampy(obs_path, params_path)
-    # print(f"DEBUG: Ampy object created successfully!")
+    print(f"DEBUG: Ampy object created successfully!")
 
     # Prepare the MCMC run
-    # print(f"DEBUG: Preparing MCMC run...")
+    print(f"DEBUG: Preparing MCMC run...")
     mcmc_params = utils.MCMCSettingsReader(mcmc_path)
     sampler_name = mcmc_params.data['sampler']['name']
-    # print(f"DEBUG: Sampler: {sampler_name}")
+    print(f"DEBUG: Sampler: {sampler_name}")
+    workers = (
+        mcmc_params.workers
+        if workers_override is None
+        else max(1, int(workers_override))
+    )
 
     sampler_kw, run_kw = {}, {}
+    checkpoint_path = None
+    checkpoint_interval = int(getattr(mcmc_params, 'checkpoint_interval', 0) or 0)
 
     # Output progress bar and save samples in real-time
     if sampler_name == 'ensemble':
@@ -149,24 +224,34 @@ def main(obs_path, params_path, mcmc_path, results_dir, event, resume=False):
         if not resume:
             backend.reset(mcmc_params.num_walkers, len(ampy.mcmc.params.fitting))
         sampler_kw['backend'] = backend
+    elif sampler_name == 'parallel_tempered':
+        checkpoint_path = results_dir / 'pt_resume_state.npz'
 
     # Run the MCMC routine
-    # print(f"DEBUG: Starting MCMC run...")
-    # print(f"  nwalkers: {mcmc_params.num_walkers}")
-    # print(f"  iterations: {mcmc_params.run_length}")
-    # print(f"  burn: {mcmc_params.burn_length}")
+    print(f"DEBUG: Starting MCMC run...")
+    print(f"  nwalkers: {mcmc_params.num_walkers}")
+    print(f"  iterations: {mcmc_params.run_length}")
+    print(f"  burn: {mcmc_params.burn_length}")
+    print(f"  workers: {workers}")
+    if checkpoint_path is not None:
+        print(f"  checkpoint: {checkpoint_path}")
+        print(f"  checkpoint interval: {checkpoint_interval}")
+    
     try:
         ampy.run_mcmc(
             nwalkers=mcmc_params.num_walkers,
             iterations=mcmc_params.run_length,
             burn=mcmc_params.burn_length,
             sampler=sampler_name,
-            workers=mcmc_params.workers,
+            workers=workers,
             ntemps=mcmc_params.ntemps,
             run_kw=run_kw,
             sampler_kw=sampler_kw,
+            resume=resume,
+            checkpoint_path=checkpoint_path,
+            checkpoint_interval=checkpoint_interval,
         )
-        print(f"DEBUG: MCMC run completed!")
+        print(f"DEBUG: MCMC run completed successfully!")
     except Exception as e:
         print(f"DEBUG: MCMC run FAILED with error:")
         print(f"  {type(e).__name__}: {e}")
@@ -178,17 +263,19 @@ def main(obs_path, params_path, mcmc_path, results_dir, event, resume=False):
     if sampler_name == 'parallel_tempered':
         ampy.mcmc.sampler.save(results_dir / 'chain.npz')
 
-    # Log the best fitr results and some metadata
+    # Log the best fit results and some metadata
     log(ampy, results_dir)
 
     # Plot some things
-    plot_results(ampy, results_dir, event)
+    if not skip_plots:
+        plot_results(ampy, results_dir, event)
 
     return ampy
 
 
 if __name__ == "__main__":
     args = parse_args()
+    configure_multiprocessing(args.start_method)
 
     sub_dir = 'grbs'
 
@@ -197,6 +284,12 @@ if __name__ == "__main__":
         event_name = '080413B'
     else:
         event_name = args.event
+
+    results_path = (
+        Path(args.results)
+        if args.results is not None
+        else utils.get_results_path() / event_name
+    )
 
     # Run AMPy
     main(
@@ -220,14 +313,16 @@ if __name__ == "__main__":
                 else utils.get_input_csv_path(sub_dir, event_name),
 
             'results_dir':
-                Path(args.results)
-                if args.results is not None
-                else utils.get_results_path() / event_name,
+                results_path,
 
             'resume':
-                args.resume
-                if args.resume is not None
-                else False,
+                bool(args.resume),
+
+            'workers_override':
+                args.workers,
+
+            'skip_plots':
+                bool(args.skip_plots),
         }
     )
-    print(utils.get_results_path() / event_name)
+    print(results_path)
