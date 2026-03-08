@@ -1,0 +1,18 @@
+# MCMC Configuration File (negative-k moderate run <= ~24h for 3 GRBs, sequential)
+#
+# Calibrated from local speed tests on 2026-03-08 with bubble model on:
+# 080413B, 140506A, 210905A
+#
+# Notes:
+# - Keeps Ansh-style walker/temperature settings for comparability.
+# - Uses a short burn-in and moderate production chain.
+# - Runtime target assumes minimizer is disabled during this batch.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 150
+run_length = 700
+ntemps = 10
+workers = 8
+checkpoint_interval = 100
