@@ -81,6 +81,27 @@ scale = "log"
     initial_guess = -3.64
     initial_sigma = 1.50
 
+#-----------MOdel------------------
+#------------k_e-------------------
+[[model]]
+name = "k_e"
+scale = "linear"
+value =2.0
+
+#-------------MODEL --------------
+#-----------------k_g-------------
+[[model]]
+name = "k_g"
+scale = "linear"
+value = 2.0
+
+#---------------MODEL ------------
+#----------------s-----------------
+[[model]]
+name = "s"
+scale = "linear"
+value = 4.0
+
 #-------------- MODEL --------------
 #---------------- p ----------------
 [[model]]
@@ -156,10 +177,10 @@ scale="linear"
 
 [model.prior]
     type  = "uniform"
-    lower = 0.001
-    upper = 0.2
-    initial_guess = 0.1
-    initial_sigma = 0.01
+    lower = 0.0
+    upper = 1
+    initial_guess = 0.86
+    initial_sigma = 0.3
 
 
 #------------- Model ----------
@@ -167,7 +188,13 @@ scale="linear"
 [[model]]
 name="theta_v"
 scale="linear"
-value = 0.0
+
+[model.prior]
+	type = "uniform"
+	lower = 0.0
+	upper = 1.0
+	initial_guess= 0.01
+	initial_sigma = 0.1
 
 
 #----------- EXTINCTION ------------

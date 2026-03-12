@@ -97,15 +97,16 @@ class powerlawVegasModel:
         eps_b,
         p,
         z,
-        dl28,
+        dL28,
         n017,  # number density at r = 10^17 cm [cm^-3] (log scale in parameters.toml)
         k,
+        k_e,
+        k_g,
+        s,
         hmf = 0.7,     # density power-law index: n(r) = n017 * (r/r0)^(-k)
         n_ism=None,
         A_star=None,
-        k_e=None,
-        k_g=None,
-        jet_type='tophat',
+        jet_type='powerlaw',
         medium_type='powerlaw',
         ref_radius=1.0e17,
 
@@ -127,7 +128,7 @@ class powerlawVegasModel:
         self.p = p
         self.z = z
         self.hmf = hmf
-        self.lumi_dist = dl28 * 1e28  # dl28 is linear multiplier, convert to cm
+        self.lumi_dist = dL28 * 1e28  # dl28 is linear multiplier, convert to cm
         self.jet_type = jet_type
         self.medium_type = medium_type
         self.n017 = n017           # Already linear (JetFit converted from log10)
@@ -136,6 +137,7 @@ class powerlawVegasModel:
         self.A_star = A_star
         self.k_e = k_e
         self.k_g = k_g
+        self.s = s
         self.ref_radius = ref_radius  # Reference radius [cm]
 
 
@@ -317,7 +319,8 @@ class powerlawVegasModel:
                 E_iso=self.E_iso52,
                 Gamma0=self.lf0,
                 k_e=self.k_e,
-                k_g=self.k_g
+                k_g=self.k_g,
+                s = self.s,
             )
         else:
             raise ValueError(f"Unknown jet_type: {self.jet_type}")
