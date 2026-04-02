@@ -1,0 +1,16 @@
+# MCMC Configuration File (Dylan-smoothed restart campaign)
+#
+# Requested April 2026 restart:
+# - parallel-tempered sampler
+# - 5 temperatures
+# - 100 walkers
+# - 2000 burn-in + 2000 production
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 2000
+run_length = 2000
+ntemps = 5
+workers = 8
+checkpoint_interval = 100
