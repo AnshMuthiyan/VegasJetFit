@@ -1,0 +1,491 @@
+From eb288506fd32e355e50e63908c758f8e45de08e6 Mon Sep 17 00:00:00 2001
+From: Jonathan Keohane <jkeohane@hsc.edu>
+Date: Tue, 7 Apr 2026 17:24:54 -0400
+Subject: [PATCH] Publish Dylan smoothing engine updates
+
+---
+ pybind/pymodel.cpp                     | 16 ++---
+ pybind/pymodel.h                       |  8 +--
+ src/environment/medium.h               | 26 +++++++
+ src/radiation/inverse-compton.h        | 62 +++++++++++++++++
+ src/radiation/smooth-power-law-syn.cpp | 94 ++++++++++++++++++--------
+ src/radiation/smooth-power-law-syn.h   | 19 +++---
+ src/radiation/synchrotron.cpp          | 49 ++++++++++++++
+ src/radiation/synchrotron.h            |  6 ++
+ tests/code-comparison/code-comp.cpp    |  2 +-
+ 9 files changed, 230 insertions(+), 52 deletions(-)
+
+diff --git a/pybind/pymodel.cpp b/pybind/pymodel.cpp
+index 01a2540..b527d5a 100644
+--- a/pybind/pymodel.cpp
++++ b/pybind/pymodel.cpp
+@@ -250,16 +250,16 @@ void PyModel::single_evo_details(Shock const& shock, Coord const& coord, Observe
+ 
+     auto syn_e = generate_syn_electrons(shock, coord);
+ 
+-    auto syn_ph = generate_syn_photons(shock, syn_e, coord);
++    auto syn_ph = generate_syn_photons(shock, syn_e, coord, medium_);
+ 
+     if (rad.ssc) {
+         if (rad.kn) {
+-            KN_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++            KN_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+         } else {
+-            Thomson_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++            Thomson_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+         }
+     } else if (rad.rad.cmb_cooling) {
+-        CMB_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++        CMB_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+     }
+     save_electron_details(syn_e, details);
+     save_photon_details(syn_ph, details, shock);
+@@ -480,16 +480,16 @@ auto PyModel::sky_image(PyArray const& t_obs, double nu_obs, double fov, size_t
+         observer.observe(coord, shock, obs_setup.lumi_dist, obs_setup.z);
+ 
+         auto syn_e = generate_syn_electrons(shock, coord);
+-        auto syn_ph = generate_syn_photons(shock, syn_e, coord);
++        auto syn_ph = generate_syn_photons(shock, syn_e, coord, medium_);
+ 
+         if (rad.ssc) {
+             if (rad.kn) {
+-                KN_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++                KN_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+             } else {
+-                Thomson_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++                Thomson_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+             }
+         } else if (rad.rad.cmb_cooling) {
+-            CMB_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++            CMB_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+         }
+ 
+         auto img = observer.sky_image(coord, shock, t_arr, nu_cgs, syn_ph, npixel, pix_size);
+diff --git a/pybind/pymodel.h b/pybind/pymodel.h
+index cfa361d..0538fce 100644
+--- a/pybind/pymodel.h
++++ b/pybind/pymodel.h
+@@ -831,19 +831,19 @@ void PyModel::single_shock_emission(Shock const& shock, Coord const& coord, Arra
+ 
+     auto syn_ph = [&] {
+         AFTERGLOW_PROFILE_SCOPE(syn_photons);
+-        return generate_syn_photons(shock, syn_e, coord);
++        return generate_syn_photons(shock, syn_e, coord, medium_);
+     }();
+ 
+     if (rad.ssc) {
+         AFTERGLOW_PROFILE_SCOPE(cooling);
+         if (rad.kn) {
+-            KN_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++            KN_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+         } else {
+-            Thomson_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++            Thomson_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+         }
+     } else if (rad.rad.cmb_cooling) {
+         AFTERGLOW_PROFILE_SCOPE(cooling);
+-        CMB_cooling(syn_e, syn_ph, shock, coord, obs_setup.z);
++        CMB_cooling(syn_e, syn_ph, shock, coord, medium_, obs_setup.z);
+     }
+ 
+     {
+diff --git a/src/environment/medium.h b/src/environment/medium.h
+index b570fb3..e3f7806 100644
+--- a/src/environment/medium.h
++++ b/src/environment/medium.h
+@@ -6,6 +6,7 @@
+ //                            |___/                                            |___/
+ 
+ #pragma once
++#include <algorithm>
+ #include <cmath>
+ #include <utility>
+ #include <variant>
+@@ -148,6 +149,31 @@ inline Real medium_rho(MediumVariant const& mv, Real phi, Real theta, Real r) {
+     return std::visit([&](auto const& m) { return m.rho(phi, theta, r); }, mv);
+ }
+ 
++template <typename MediumT>
++inline Real medium_local_k(MediumT const& medium, Real phi, Real theta, Real r) {
++    const Real r_safe = std::max(r, 1e-30 * unit::cm);
++    const Real r_lo = std::max(r_safe * 0.95, 1e-30 * unit::cm);
++    const Real r_hi = r_safe * 1.05;
++
++    const Real rho_lo = medium.rho(phi, theta, r_lo);
++    const Real rho_hi = medium.rho(phi, theta, r_hi);
++    if (!(rho_lo > 0) || !(rho_hi > 0) || !std::isfinite(rho_lo) || !std::isfinite(rho_hi)) {
++        return 2.0;
++    }
++
++    const Real log_r_span = std::log(r_hi) - std::log(r_lo);
++    if (log_r_span == 0) {
++        return 2.0;
++    }
++
++    const Real k_eff = -(std::log(rho_hi) - std::log(rho_lo)) / log_r_span;
++    return std::isfinite(k_eff) ? k_eff : 2.0;
++}
++
++inline Real medium_local_k(MediumVariant const& mv, Real phi, Real theta, Real r) {
++    return std::visit([&](auto const& m) { return medium_local_k(m, phi, theta, r); }, mv);
++}
++
+ /**
+  * <!-- ************************************************************************************** -->
+  * @namespace evn
+diff --git a/src/radiation/inverse-compton.h b/src/radiation/inverse-compton.h
+index 93872ec..b17cfb1 100644
+--- a/src/radiation/inverse-compton.h
++++ b/src/radiation/inverse-compton.h
+@@ -609,24 +609,86 @@ void IC_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons
+     generate_syn_photons(photons, shock, electrons, coord);
+ }
+ 
++template <typename Electrons, typename Photons, typename Updater>
++void IC_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
++                Coord const& coord, MediumVariant const& medium, Updater&& update_gamma_c, Real redshift = 0.0) {
++    const size_t phi_size = electrons.shape()[0];
++    const size_t t_size = electrons.shape()[2];
++
++    const size_t phi_compute = (coord.symmetry != Symmetry::structured) ? 1 : phi_size;
++
++    for (size_t i = 0; i < phi_compute; ++i) {
++        for (size_t j : coord.theta_reps) {
++            const size_t k_inj = shock.injection_idx(i, j);
++
++            for (size_t k = 0; k < t_size; ++k) {
++                const Real t_com = shock.t_comv(i, j, k);
++                const Real B = shock.B(i, j, k);
++
++                auto& elec = electrons(i, j, k);
++                auto& Ys = elec.Ys;
++                const Real p = elec.p;
++                const Real gamma_c_last = electrons(i, j, k > 0 ? k - 1 : 0).gamma_c;
++
++                update_gamma_c(elec.gamma_c, Ys, shock.rad, B, t_com, elec.gamma_m, gamma_c_last, redshift);
++
++                update_gamma_M(elec.gamma_M, Ys, p, B);
++
++                if (k >= k_inj) {
++                    auto const& inj = electrons(i, j, k_inj - 1);
++                    const Real dt_comv = t_com - shock.t_comv(i, j, k_inj - 1);
++                    elec.gamma_c = cool_after_crossing(inj.gamma_c, inj.gamma_m, elec.gamma_m, t_com, B, 0);
++
++                    elec.gamma_M = cool_after_crossing(inj.gamma_M, inj.gamma_m, elec.gamma_m, dt_comv, B, 0);
++                }
++
++                const Real I_nu_peak = compute_syn_I_peak(B, p, elec.column_den);
++                elec.gamma_a = compute_syn_gamma_a(B, I_nu_peak, elec.gamma_m, elec.gamma_c, elec.gamma_M, p);
++                elec.regime = determine_regime(elec.gamma_a, elec.gamma_c, elec.gamma_m);
++                elec.Y_c = Ys.gamma_spectrum(elec.gamma_c);
++            }
++        }
++    }
++    broadcast_symmetry(electrons, coord);
++    generate_syn_photons(photons, shock, electrons, coord, medium);
++}
++
+ template <typename Electrons, typename Photons>
+ void Thomson_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
+                      Coord const& coord, Real redshift) {
+     IC_cooling(electrons, photons, shock, coord, update_gamma_c_Thomson, redshift);
+ }
+ 
++template <typename Electrons, typename Photons>
++void Thomson_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
++                     Coord const& coord, MediumVariant const& medium, Real redshift) {
++    IC_cooling(electrons, photons, shock, coord, medium, update_gamma_c_Thomson, redshift);
++}
++
+ template <typename Electrons, typename Photons>
+ void KN_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
+                 Coord const& coord, Real redshift) {
+     IC_cooling(electrons, photons, shock, coord, update_gamma_c_KN, redshift);
+ }
+ 
++template <typename Electrons, typename Photons>
++void KN_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
++                Coord const& coord, MediumVariant const& medium, Real redshift) {
++    IC_cooling(electrons, photons, shock, coord, medium, update_gamma_c_KN, redshift);
++}
++
+ template <typename Electrons, typename Photons>
+ void CMB_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
+                  Coord const& coord, Real redshift) {
+     IC_cooling(electrons, photons, shock, coord, update_gamma_c_CMB, redshift);
+ }
+ 
++template <typename Electrons, typename Photons>
++void CMB_cooling(ElectronGrid<Electrons>& electrons, PhotonGrid<Photons>& photons, Shock const& shock,
++                 Coord const& coord, MediumVariant const& medium, Real redshift) {
++    IC_cooling(electrons, photons, shock, coord, medium, update_gamma_c_CMB, redshift);
++}
++
+ template <typename Photon>
+ Real inverse_compton_correction(Photon const& ph, Real nu) {
+     return (1. + ph.Y_c) / (1 + ph.Ys.nu_spectrum(nu));
+diff --git a/src/radiation/smooth-power-law-syn.cpp b/src/radiation/smooth-power-law-syn.cpp
+index 4439aa3..4f3cdd4 100644
+--- a/src/radiation/smooth-power-law-syn.cpp
++++ b/src/radiation/smooth-power-law-syn.cpp
+@@ -7,6 +7,36 @@
+ 
+ #include "smooth-power-law-syn.h"
+ 
++#include <algorithm>
++
++namespace {
++inline Real clamp_smoothing(Real s) noexcept {
++    return std::max(s, 0.05);
++}
++
++inline Real log2_sum(Real a, Real b) noexcept {
++    const Real hi = std::max(a, b);
++    const Real lo = std::min(a, b);
++    return hi + log2_softplus(lo - hi);
++}
++
++inline Real gs02_s12_slow(Real k, Real p) noexcept {
++    return clamp_smoothing(1.84 - 0.040 * k - (0.40 - 0.010 * k) * p);
++}
++
++inline Real gs02_s23_slow(Real k, Real p) noexcept {
++    return clamp_smoothing(1.15 - 0.125 * k - (0.06 - 0.015 * k) * p);
++}
++
++inline Real gs02_s12_fast(Real /*k*/, Real /*p*/) noexcept {
++    return 0.597;
++}
++
++inline Real gs02_s23_fast(Real k, Real p) noexcept {
++    return clamp_smoothing(3.34 + 0.17 * k - (0.82 + 0.035 * k) * p);
++}
++} // namespace
++
+ //========================================================================================================
+ //                                  SmoothPowerLawSyn Class Methods
+ //========================================================================================================
+@@ -15,15 +45,13 @@ inline Real log2_smooth_one(Real log2_a, Real log2_b) noexcept {
+ }
+ 
+ Real SmoothPowerLawSyn::log2_optical_thin(Real log2_nu) const noexcept {
+-    if (log2_nu_m < log2_nu_c) {
+-        return (log2_nu - log2_nu_m) / 3.0 +
+-               log2_broken_power_ratio(log2_nu, log2_nu_m, diff_slope_m_slow_, smooth_m_slow_) +
+-               log2_broken_power_ratio(log2_nu, log2_nu_c, diff_slope_c_slow_, smooth_c_slow_);
+-    } else {
+-        return (log2_nu - log2_nu_c) / 3.0 +
+-               log2_broken_power_ratio(log2_nu, log2_nu_c, diff_slope_c_fast_, smooth_c_fast_) +
+-               log2_broken_power_ratio(log2_nu, log2_nu_m, diff_slope_m_fast_, smooth_m_fast_);
+-    }
++    const Real log2_x12 = log2_nu - log2_nu12_;
++    const Real log2_x23 = log2_nu - log2_nu23_;
++
++    const Real term1 = (s23_ / s12_) * log2_softplus(-s12_ * (b1_ - b2a_) * log2_x12) - s23_ * b2a_ * log2_x12;
++    const Real term2 = -s23_ * b2b_ * (log2_nu23_ - log2_nu12_) - s23_ * b3_ * log2_x23;
++
++    return -log2_sum(term1, term2) / s23_;
+ }
+ 
+ Real SmoothPowerLawSyn::log2_optical_thick(Real log2_nu) const noexcept {
+@@ -78,29 +106,37 @@ void SmoothPowerLawSyn::build() noexcept {
+     log2_nu_a = fast_log2(nu_a);
+     log2_nu_M = fast_log2(nu_M);
+ 
+-    // Uniform smoothing (spectral-index-dependent tuning disabled)
+-    smooth_m_slow_ = 1;
+-    smooth_c_slow_ = 1;
+-    smooth_m_fast_ = 1;
+-    smooth_c_fast_ = 1;
+     constexpr Real ln2 = std::numbers::ln2;
+     smooth_a_ = (3.5 * p - 1.5) / ln2;
+-
+-    // Precompute s*(beta_lo - beta_hi) for broken power law transitions
+-    diff_slope_m_slow_ = smooth_m_slow_ * (0.5 * p - 1.0 / 6.0);
+-    diff_slope_c_slow_ = smooth_c_slow_ * 0.5;
+-    diff_slope_m_fast_ = smooth_m_fast_ * 0.5 * (p - 1.0);
+-    diff_slope_c_fast_ = smooth_c_fast_ * 5.0 / 6.0;
+-
+     inv_nu_M_ = 1.0 / nu_M;
+-
+-    // Compute normalization
+-    if (nu_m < nu_c) {
+-        log2_norm_ = 1.0 / smooth_m_slow_;
+-    } else {
+-        log2_norm_ = 1.0 / smooth_c_fast_;
+-    }
+-    log2_thick_norm_ = log2_optical_thin_sharp(log2_nu_a) - log2_optical_thick_sharp(log2_nu_a);
++    log2_norm_ = 0;
++
++    log2_nu12_ = std::min(log2_nu_m, log2_nu_c);
++    log2_nu23_ = std::max(log2_nu_m, log2_nu_c);
++
++    const Real k = std::isfinite(k_eff) ? k_eff : 2.0;
++    const Real s12_slow = gs02_s12_slow(k, p);
++    const Real s23_slow = gs02_s23_slow(k, p);
++    const Real s12_fast = gs02_s12_fast(k, p);
++    const Real s23_fast = gs02_s23_fast(k, p);
++
++    b1_ = 1.0 / 3.0;
++    b3_ = -0.5 * p;
++
++    const bool fast = nu_m >= nu_c;
++    const Real s12_initial = fast ? s12_fast : s12_slow;
++    const Real s23_initial = fast ? s23_fast : s23_slow;
++    const Real nu_ratio = std::max(nu_m / std::max(nu_c, 1e-300), 1e-300);
++    const Real delta_b = 0.5 * p + 1.0 / 3.0;
++    const Real q12 = clamp_smoothing(s12_initial * delta_b);
++    const Real q23 = clamp_smoothing(s23_initial * delta_b);
++
++    s12_ = s12_fast + (s12_slow - s12_fast) / (1.0 + fast_pow(nu_ratio, q12));
++    s23_ = s23_fast + (s23_slow - s23_fast) / (1.0 + fast_pow(nu_ratio, q23));
++    b2a_ = -0.5 + (((1.0 - p) / 2.0) + 0.5) / (1.0 + fast_pow(nu_ratio, q12));
++    b2b_ = -0.5 + (((1.0 - p) / 2.0) + 0.5) / (1.0 + fast_pow(nu_ratio, q23));
++
++    log2_thick_norm_ = log2_optical_thin(log2_nu_a) - log2_optical_thick(log2_nu_a);
+ }
+ 
+ Real SmoothPowerLawSyn::compute_I_nu(Real nu) const noexcept {
+diff --git a/src/radiation/smooth-power-law-syn.h b/src/radiation/smooth-power-law-syn.h
+index f02b8b7..49ab6ab 100644
+--- a/src/radiation/smooth-power-law-syn.h
++++ b/src/radiation/smooth-power-law-syn.h
+@@ -22,6 +22,7 @@ struct SmoothPowerLawSyn {
+     Real nu_a{0};     ///< Self-absorption frequency
+     Real nu_M{0};     ///< Maximum photon frequency
+     Real p{2.3};      ///< Power-law index for the electron energy distribution
++    Real k_eff{2.0};  ///< Local effective density slope used for GS02-style smoothing
+ 
+     Real log2_I_nu_max{0}; ///< Log2 of I_nu_max (for computational efficiency)
+     Real log2_nu_m{0};     ///< Log2 of nu_m
+@@ -63,18 +64,16 @@ struct SmoothPowerLawSyn {
+   private:
+     Real log2_norm_{0};       ///< Cached spectral coefficient 0 in log2
+     Real log2_thick_norm_{0}; ///< Cached spectral coefficient 1 in log2
+-    Real smooth_m_fast_{1};   ///<
+-    Real smooth_c_fast_{1};   ///<
+-    Real smooth_m_slow_{1};   ///<
+-    Real smooth_c_slow_{1};   ///<
+     Real smooth_a_;           ///<
+-
+-    // Precomputed s*(beta_lo - beta_hi) for broken power law transitions
+-    Real diff_slope_m_slow_{0}; ///< smooth_m_slow_ * (1/3 - (1-p)/2)
+-    Real diff_slope_c_slow_{0}; ///< smooth_c_slow_ * ((1-p)/2 - (-p/2))
+-    Real diff_slope_m_fast_{0}; ///< smooth_m_fast_ * (1/3 - (-1/2))
+-    Real diff_slope_c_fast_{0}; ///< smooth_c_fast_ * (-1/2 - (-p/2))
+     Real inv_nu_M_{0};          ///< Cached 1/nu_M for division optimization
++    Real log2_nu12_{0};         ///< Lower optically thin break
++    Real log2_nu23_{0};         ///< Upper optically thin break
++    Real b1_{1.0 / 3.0};        ///< Low-frequency optically-thin slope
++    Real b2a_{-0.5};            ///< Middle slope below the upper break
++    Real b2b_{-0.5};            ///< Middle slope as seen by the upper break
++    Real b3_{-1.0};             ///< High-frequency optically-thin slope
++    Real s12_{1};               ///< Lower optically-thin smoothing parameter
++    Real s23_{1};               ///< Upper optically-thin smoothing parameter
+ 
+     /**
+      * <!-- ************************************************************************************** -->
+diff --git a/src/radiation/synchrotron.cpp b/src/radiation/synchrotron.cpp
+index 8b2c027..25eea7a 100644
+--- a/src/radiation/synchrotron.cpp
++++ b/src/radiation/synchrotron.cpp
+@@ -388,6 +388,17 @@ SynPhotonGrid generate_syn_photons(Shock const& shock, SynElectronGrid const& el
+     return photons;
+ }
+ 
++SynPhotonGrid generate_syn_photons(Shock const& shock, SynElectronGrid const& electrons, Coord const& coord,
++                                   MediumVariant const& medium) {
++    auto [phi_size, theta_size, t_size] = shock.shape();
++
++    SynPhotonGrid photons({phi_size, theta_size, t_size});
++
++    generate_syn_photons(photons, shock, electrons, coord, medium);
++
++    return photons;
++}
++
+ void generate_syn_photons(SynPhotonGrid& photons, Shock const& shock, SynElectronGrid const& electrons,
+                           Coord const& coord) {
+     auto [phi_size, theta_size, t_size] = shock.shape();
+@@ -421,3 +432,41 @@ void generate_syn_photons(SynPhotonGrid& photons, Shock const& shock, SynElectro
+ 
+     broadcast_symmetry(photons, coord);
+ }
++
++void generate_syn_photons(SynPhotonGrid& photons, Shock const& shock, SynElectronGrid const& electrons,
++                          Coord const& coord, MediumVariant const& medium) {
++    auto [phi_size, theta_size, t_size] = shock.shape();
++
++    photons.resize({phi_size, theta_size, t_size});
++
++    const size_t phi_compute = (coord.symmetry != Symmetry::structured) ? 1 : phi_size;
++
++    for (size_t i = 0; i < phi_compute; ++i) {
++        const Real phi = coord.phi(i);
++        for (size_t j : coord.theta_reps) {
++            for (size_t k = 0; k < t_size; ++k) {
++                auto& ph = photons(i, j, k);
++                auto& elec = electrons(i, j, k);
++                ph.p = elec.p;
++                ph.Ys = elec.Ys;
++                ph.Y_c = elec.Y_c;
++                ph.regime = elec.regime;
++
++                const Real B = shock.B(i, j, k);
++                const Real theta = shock.theta(i, j, k);
++                const Real r = shock.r(i, j, k);
++
++                ph.k_eff = medium_local_k(medium, phi, theta, r);
++                ph.nu_M = compute_syn_freq(elec.gamma_M, B);
++                ph.nu_m = compute_syn_freq(elec.gamma_m, B);
++                ph.nu_c = compute_syn_freq(elec.gamma_c, B);
++                ph.nu_a = compute_syn_freq(elec.gamma_a, B);
++                ph.I_nu_max = compute_syn_I_peak(B, elec.p, elec.column_den);
++
++                ph.build();
++            }
++        }
++    }
++
++    broadcast_symmetry(photons, coord);
++}
+diff --git a/src/radiation/synchrotron.h b/src/radiation/synchrotron.h
+index 601acf2..ab26c85 100644
+--- a/src/radiation/synchrotron.h
++++ b/src/radiation/synchrotron.h
+@@ -118,6 +118,9 @@ void generate_syn_electrons(SynElectronGrid& electrons, Shock const& shock, Coor
+  */
+ SynPhotonGrid generate_syn_photons(Shock const& shock, SynElectronGrid const& electrons, Coord const& coord);
+ 
++SynPhotonGrid generate_syn_photons(Shock const& shock, SynElectronGrid const& electrons, Coord const& coord,
++                                   MediumVariant const& medium);
++
+ /**
+  * <!-- ************************************************************************************** -->
+  * @brief Populates an existing photon grid with values based on shock and electron grid
+@@ -130,6 +133,9 @@ SynPhotonGrid generate_syn_photons(Shock const& shock, SynElectronGrid const& el
+ void generate_syn_photons(SynPhotonGrid& photons, Shock const& shock, SynElectronGrid const& electrons,
+                           Coord const& coord);
+ 
++void generate_syn_photons(SynPhotonGrid& photons, Shock const& shock, SynElectronGrid const& electrons,
++                          Coord const& coord, MediumVariant const& medium);
++
+ /**
+  * <!-- ************************************************************************************** -->
+  * @defgroup SynchrotronUpdates Synchrotron Update and Parameter Calculation
+diff --git a/tests/code-comparison/code-comp.cpp b/tests/code-comparison/code-comp.cpp
+index 1e47f06..ca4f7d7 100644
+--- a/tests/code-comparison/code-comp.cpp
++++ b/tests/code-comparison/code-comp.cpp
+@@ -69,7 +69,7 @@ void lc_gen(std::string folder_name, bool out = false) {
+ 
+     auto syn_e = generate_syn_electrons(f_shock, coord);
+ 
+-    auto syn_ph = generate_syn_photons(f_shock, syn_e, coord);
++    auto syn_ph = generate_syn_photons(f_shock, syn_e, coord, medium);
+ 
+     if (out) {
+         write_npz("coord", coord);
+-- 
+2.50.1 (Apple Git-155)
+
