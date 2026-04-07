@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from jetfit.core.utils import days_to_sec
@@ -5,9 +7,23 @@ from jetfit.core.utils import days_to_sec
 try:
     from VegasAfterglow import Model, ISM, Wind, Medium, TophatJet, GaussianJet, PowerLawJet
     from VegasAfterglow import Observer, Radiation
+    try:
+        from VegasAfterglow.native import gil_free
+    except ImportError:
+        gil_free = None
     _HAS_VEGASAFTERGLOW = True
 except ImportError:
     _HAS_VEGASAFTERGLOW = False
+    gil_free = None
+
+
+if gil_free is not None:
+    @gil_free
+    def power_law_medium_native(phi, theta, r, n017, k, r0, mass_scale):
+        r_safe = r if r > 1.0 else 1.0
+        return mass_scale * n017 * (r_safe / r0) ** (-k)
+else:
+    power_law_medium_native = None
 
 
 """
@@ -86,6 +102,11 @@ class powerlawVegasModel:
     ----------
     .. [1] VegasAfterglow: A Numerical Code for GRB Afterglow
     """
+
+    _REF_RADIUS_CM = 1.0e17
+    _PROTON_MASS_G = 1.67262192e-24
+    _HYDROGEN_MASS_FRACTION = 0.7
+    _WIND_ASTAR_NORM = 5.0e11
     
     def __init__(
         self,
@@ -142,6 +163,18 @@ class powerlawVegasModel:
         # Initialize VegasAfterglow components
         self._setup_model()
 
+    @classmethod
+    def _native_powerlaw_astar(cls, n017, ref_radius=None):
+        """Map n(r0)=n017 onto VegasAfterglow's native Wind(A_star, k) normalization."""
+        r0 = cls._REF_RADIUS_CM if ref_radius is None else float(ref_radius)
+        return (
+            cls._HYDROGEN_MASS_FRACTION
+            * cls._PROTON_MASS_G
+            * float(n017)
+            * r0 * r0
+            / cls._WIND_ASTAR_NORM
+        )
+
 
     def _convert_log_scales(self, params: dict) -> dict:
         """
@@ -178,6 +211,10 @@ class powerlawVegasModel:
 
     def _sanity_check_physical(self, params: dict) -> None:
         """Print warnings for common physical constraint violations."""
+        # Hot path during MCMC: keep warning I/O opt-in only.
+        if os.environ.get("JETFIT_VERBOSE_PHYSICS_WARNINGS", "0") != "1":
+            return
+
         ee = params.get("eps_e")
         eb = params.get("eps_b")
         if ee is not None and eb is not None:
@@ -234,7 +271,7 @@ class powerlawVegasModel:
         self._sanity_check_physical(params)
 
         # Reference radius: 10^17 cm
-        r0 = 1e17  # cm
+        r0 = self._REF_RADIUS_CM
         # print("[vegasafterglow] Setting up VegasAfterglow Model with parameters:")
         # print(f"  E_iso52: {self.E_iso52} erg")
         # print(f"  lf0: {self.lf0}")
@@ -275,9 +312,7 @@ class powerlawVegasModel:
 
             # Convert number density to mass density
             # rho = m_p * n, where m_p = 1.67262192e-24 g
-            X = 0.7  # Hydrogen mass fraction
-            m_p = 1.67262192e-24  # proton mass in g
-            rho = m_p * n * X
+            rho = self._PROTON_MASS_G * n * self._HYDROGEN_MASS_FRACTION
 
             return rho
 
@@ -291,8 +326,26 @@ class powerlawVegasModel:
                 raise ValueError("A_star must be specified for wind medium")
             medium = Wind(A_star=self.A_star)
         elif self.medium_type.lower() == 'powerlaw':
-            # Wrap the single power-law function in a Medium object
-            medium = Medium(rho=power_law_medium)
+            if os.environ.get("JETFIT_FORCE_PY_POWERLAW_MEDIUM") == "1":
+                medium = Medium(rho=power_law_medium)
+            elif os.environ.get("JETFIT_USE_VEGAS_NATIVE_POWERLAW") == "1":
+                native_astar = self._native_powerlaw_astar(self.n017, r0)
+                self.A_star = native_astar
+                try:
+                    medium = Wind(A_star=native_astar, n_ism=0.0, k=self.k)
+                except TypeError:
+                    medium = Medium(rho=power_law_medium)
+            elif power_law_medium_native is not None:
+                medium = Medium(
+                    rho=power_law_medium_native(
+                        n017=self.n017,
+                        k=self.k,
+                        r0=r0,
+                        mass_scale=self._PROTON_MASS_G * self._HYDROGEN_MASS_FRACTION,
+                    )
+                )
+            else:
+                medium = Medium(rho=power_law_medium)
         else:
             raise ValueError(f"Unknown medium_type: {self.medium_type}")
 
@@ -658,17 +711,17 @@ class powerlawVegasModel:
         np.ndarray of float
             Integrated flux [erg cm^-2 s^-1].
         """
-        # Use numerical integration over the band
-        # For now, use spectral index approximation
+        # Use spectral-index approximation.
+        # Reuse lower-band flux to avoid an extra VegasAfterglow call.
         sflux = self.spectral_flux(t, lower)
-        beta = self.spectral_index(t, lower, upper)
+        beta = self.spectral_index(t, lower, upper, flux_lower=sflux)
 
         return 1e-26 * (
             (sflux * lower / (beta + 1)) *
             (((upper / lower) ** (beta + 1)) - 1)
         )
 
-    def spectral_index(self, t, lower, upper, **kwargs):
+    def spectral_index(self, t, lower, upper, flux_lower=None, **kwargs):
         # print("Hi")
         """
         Calculate spectral index between two frequencies.
@@ -686,10 +739,12 @@ class powerlawVegasModel:
         np.ndarray of float
             Spectral index (dimensionless).
         """
-        flux_lower = self.spectral_flux(t, lower)
+        if flux_lower is None:
+            flux_lower = self.spectral_flux(t, lower)
         flux_upper = self.spectral_flux(t, upper)
 
-        return np.log10(flux_upper / flux_lower) / np.log10(upper / lower)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return np.log10(flux_upper / flux_lower) / np.log10(upper / lower)
 
     def model(self, obs, subset=None):
         """

@@ -24,7 +24,20 @@ else
 fi
 
 MCMC_SETTINGS="${MCMC_SETTINGS:-$RUN_PROFILE_DIR/mcmc_settings.toml}"
-OBS_CSV="${OBS_CSV:-$ROOT/VegasJetFit/jetfit/resources/grbs/$EVENT_NAME/${EVENT_NAME}clean.csv}"
+
+if [ -z "${OBS_CSV:-}" ]; then
+  obs_dir="$ROOT/VegasJetFit/jetfit/resources/grbs/$EVENT_NAME"
+  obs_clean="$obs_dir/${EVENT_NAME}clean.csv"
+  obs_plain="$obs_dir/${EVENT_NAME}.csv"
+
+  if [ -f "$obs_clean" ]; then
+    OBS_CSV="$obs_clean"
+  elif [ -f "$obs_plain" ]; then
+    OBS_CSV="$obs_plain"
+  else
+    OBS_CSV="$(find "$obs_dir" -maxdepth 1 -type f -name '*.csv' 2>/dev/null | sort | head -n 1 || true)"
+  fi
+fi
 POWERLAW_MODEL="${POWERLAW_MODEL:-$RUN_PROFILE_DIR/parameters_powerlaw.toml}"
 BUBBLE_MODEL="${BUBBLE_MODEL:-$RUN_PROFILE_DIR/parameters_bubble.toml}"
 SYNC_SHARED_PARAMS="${SYNC_SHARED_PARAMS:-1}"

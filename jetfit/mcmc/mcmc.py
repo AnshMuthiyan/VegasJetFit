@@ -972,7 +972,11 @@ class MCMC:
         """
         run_options = dict(run_kw or {})
 
-        with get_pool_context(workers) as pool:
+        executor = os.environ.get('JETFIT_POOL_EXECUTOR', 'process').strip().lower()
+        if executor not in ('process', 'thread'):
+            executor = 'process'
+
+        with get_pool_context(workers, executor=executor) as pool:
             self.set_sampler(
                 sampler, nwalkers, pool, ntemps, **(sampler_kw or {})
             )
@@ -1171,7 +1175,8 @@ class MCMCModels:
         try:
             modeled = self.model_afterglow(params)
         except Exception as e:
-            print(e)
+            if os.environ.get('JETFIT_DEBUG_MODEL_EXCEPTIONS', '0') == '1':
+                print(e)
             return np.array([np.nan])
 
         if np.isnan(modeled.min()):
@@ -1308,13 +1313,40 @@ def log_likelihood_fn(theta, params, models) -> float:
         Else, -np.inf.
     """
     p = params.samples_to_dict(theta)
+    m = p.get('model') or {}
+
+    # Cheap physical guards to avoid expensive model calls for clearly
+    # invalid proposals (important for long PT runs).
+    eps_e = m.get('eps_e')
+    eps_b = m.get('eps_b')
+    if (
+        eps_e is not None
+        and eps_b is not None
+        and np.isfinite(eps_e)
+        and np.isfinite(eps_b)
+        and (eps_e + eps_b) >= 1.0
+    ):
+        return -np.inf
+
+    p_idx = m.get('p')
+    if p_idx is not None and np.isfinite(p_idx) and p_idx < 2.0:
+        return -np.inf
+
+    theta_c = m.get('theta_c')
+    if theta_c is not None and np.isfinite(theta_c) and theta_c <= 0.0:
+        return -np.inf
+
+    lf0 = m.get('lf0')
+    if lf0 is not None and np.isfinite(lf0) and lf0 <= 1.0:
+        return -np.inf
 
     # Model the observed afterglow
     modeled = models.model(p)
 
     # A nan always results in -inf likelihood.
     if np.isnan(modeled.min()):
-        print("check the data here")
+        if os.environ.get('JETFIT_DEBUG_NAN_MODELED', '0') == '1':
+            print("check the data here")
         return -np.inf
 
     # Apply calibration offsets

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib
 
-from jetfit.core.utils import save_plot_unique
+from jetfit.core.utils import save_plot_unique, apply_plot_run_label
 from scripts.plot.base import latex
 
 matplotlib.use('Agg', force=True)
@@ -99,42 +99,73 @@ def plot_corner(chain, params, out_dir=None):
     # Split the parameters into groups (GRB physics, statistical, host)
     for p in params:
         name = p.name if p.group is None else f'{p.name} ({p.group})'
-
-        if name == 'lf0':
-            continue
+        lower = p.prior.lower
+        upper = p.prior.upper
+        valid_range = np.isfinite(lower) and np.isfinite(upper) and (lower < upper)
 
         if '_offset' in name or 'slop' in name:
-            np_ranges.append((p.prior.lower, p.prior.upper))
-            np_labels.append(latex(name))
-            np_pos.append(param_pos[name])
+            if valid_range:
+                np_ranges.append((lower, upper))
+                np_labels.append(latex(name))
+                np_pos.append(param_pos[name])
 
         elif '_host' in name:
-            h_ranges.append((p.prior.lower, p.prior.upper))
-            h_labels.append(latex(name))
-            h_pos.append(param_pos[name])
+            if valid_range:
+                h_ranges.append((lower, upper))
+                h_labels.append(latex(name))
+                h_pos.append(param_pos[name])
 
         else:
-            ranges.append((p.prior.lower, p.prior.upper))
-            labels.append(latex(name))
-            pos.append(param_pos[name])
+            if valid_range:
+                ranges.append((lower, upper))
+                labels.append(latex(name))
+                pos.append(param_pos[name])
 
-    # Physical parameters
-    if ranges:
-        fig = corner.corner(chain[:, pos], bins=bins, labels=labels, **OPTIONS,)
-        if out_dir: fig.savefig(out_dir / 'corner.pdf', dpi=300)
+    fig = None
+    np_fig = None
+    h_fig = None
 
-    # Non-physical parameters
-    if np_ranges:
-        np_fig = corner.corner(
-            chain[:, np_pos], bins=bins,
-            labels=np_labels, range=np_ranges, **OPTIONS
-        )
-        if out_dir:
-            np_fig.savefig(out_dir / 'corner_np.pdf', dpi=300)
+    def make_corner(data, labels, ranges=None):
+        try:
+            kwargs = {'bins': bins, 'labels': labels, **OPTIONS}
+            if ranges is not None:
+                kwargs['range'] = ranges
+            return corner.corner(data, **kwargs)
+        except ValueError:
+            # Some runs have nuisance chains outside prior ranges; retry without
+            # explicit ranges before giving up on that panel.
+            if ranges is not None:
+                try:
+                    return corner.corner(data, bins=bins, labels=labels, **OPTIONS)
+                except ValueError:
+                    return None
+            return None
 
-    # Host galaxy parameters
-    if h_ranges:
-        h_fig = corner.corner(chain[:, h_pos], bins=bins, labels=h_labels, **OPTIONS)
-        if out_dir: h_fig.savefig(out_dir / 'corner_host.pdf', dpi=300)
+    try:
+        # Physical parameters
+        if ranges:
+            fig = make_corner(chain[:, pos], labels, ranges)
+            if fig is not None:
+                apply_plot_run_label(fig, x=0.99, ha='right')
+                if out_dir:
+                    fig.savefig(out_dir / 'corner.pdf', dpi=300)
 
-    plt.close()
+        # Non-physical parameters
+        if np_ranges:
+            np_fig = make_corner(chain[:, np_pos], np_labels, np_ranges)
+            if np_fig is not None:
+                apply_plot_run_label(np_fig, x=0.99, ha='right')
+                if out_dir:
+                    np_fig.savefig(out_dir / 'corner_np.pdf', dpi=300)
+
+        # Host galaxy parameters
+        if h_ranges:
+            h_fig = make_corner(chain[:, h_pos], h_labels, h_ranges)
+            if h_fig is not None:
+                apply_plot_run_label(h_fig, x=0.99, ha='right')
+                if out_dir:
+                    h_fig.savefig(out_dir / 'corner_host.pdf', dpi=300)
+    finally:
+        for f in (fig, np_fig, h_fig):
+            if f is not None:
+                plt.close(f)

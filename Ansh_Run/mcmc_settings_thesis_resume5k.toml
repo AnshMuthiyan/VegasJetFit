@@ -1,0 +1,16 @@
+# MCMC Configuration File (resume short chains to a longer total run)
+#
+# This is compatible with the existing thesis_short checkpoints:
+# - same 5 temperatures
+# - same 100 walkers
+# - no new burn-in when resuming
+# - total production target = 5000 iterations
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 0
+run_length = 5000
+ntemps = 5
+workers = 8
+checkpoint_interval = 100

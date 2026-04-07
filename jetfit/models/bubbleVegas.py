@@ -1,3 +1,4 @@
+import math
 import numpy as np
 
 from jetfit.models.powerlawVegas import powerlawVegasModel
@@ -5,9 +6,30 @@ from jetfit.models.powerlawVegas import powerlawVegasModel
 try:
     from VegasAfterglow import Model, Medium, TophatJet
     from VegasAfterglow import Observer, Radiation
+    try:
+        from VegasAfterglow.native import gil_free
+    except ImportError:
+        gil_free = None
     _HAS_VEGASAFTERGLOW = True
 except ImportError:
     _HAS_VEGASAFTERGLOW = False
+    gil_free = None
+
+
+if gil_free is not None:
+    @gil_free
+    def bubble_medium_native(phi, theta, r, rt, r2, n_t, n_sh, n_ism, m_mol):
+        """GIL-free scalar bubble density profile for the VegasAfterglow hot loop."""
+        r_safe = r if r > 1.0 else 1.0
+        if r_safe < rt:
+            n = n_t * math.pow(rt / r_safe, 2.0)
+        elif r_safe < r2:
+            n = n_sh
+        else:
+            n = n_ism
+        return m_mol * n
+else:
+    bubble_medium_native = None
 
 
 class BubbleVegasModel(powerlawVegasModel):
@@ -18,8 +40,9 @@ class BubbleVegasModel(powerlawVegasModel):
            = n_sh,                        R_t <= r < R_2
            = n_ism,                       r >= R_2
 
-    where n_sh = max(4 n_t, 4 n_ism) and
-    R_2 = R_t * ((n_sh + 3 n_t) / (n_sh - n_ism))^(1/3).
+    where n_sh = 4 n_t at the termination shock (strong-shock jump condition).
+    R_2 is solved so the spherical shell mass integral matches the original
+    max-shell prescription used in Wind_Bubble_Model.py.
 
     Parameters are expected to be already converted to linear scale by JetFit.
     """
@@ -105,12 +128,23 @@ class BubbleVegasModel(powerlawVegasModel):
     @staticmethod
     def _bubble_shell(n_t, n_ism, r_t):
         """Return shell density n_sh and outer shell radius R_2."""
-        n_sh = max(4.0 * n_t, 4.0 * n_ism)
-        denom = n_sh - n_ism
-        if denom <= 0:
-            return n_sh, r_t
-        r2 = r_t * ((n_sh + 3.0 * n_t) / denom) ** (1.0 / 3.0)
-        return n_sh, max(r2, r_t)
+        n_sh = 4.0 * n_t
+        tiny = 1e-300
+
+        # Match the original bubble-shell total mass from Wind_Bubble_Model.py:
+        #   n_sh_old = max(4 n_t, 4 n_ism)
+        #   R2_old = R_t * ((n_sh_old + 3 n_t)/(n_sh_old - n_ism))^(1/3)
+        # and enforce:
+        #   ∫_{R_t}^{R2_new} n_sh * 4πr^2 dr = ∫_{R_t}^{R2_old} n_sh_old * 4πr^2 dr
+        n_sh_old = max(4.0 * n_t, 4.0 * n_ism)
+        denom_old = max(n_sh_old - n_ism, tiny)
+        ratio_old = (n_sh_old + 3.0 * n_t) / denom_old
+        r2_old = r_t * max(ratio_old, 1.0 + 1e-12) ** (1.0 / 3.0)
+
+        delta_old = max(r2_old**3 - r_t**3, 0.0)
+        r2_cubed = r_t**3 + (n_sh_old / max(n_sh, tiny)) * delta_old
+        r2 = max(r2_cubed, r_t**3 * (1.0 + 1e-12)) ** (1.0 / 3.0)
+        return n_sh, r2
 
     def _setup_model(self):
         """Initialize VegasAfterglow with a bubble medium profile."""
@@ -122,22 +156,36 @@ class BubbleVegasModel(powerlawVegasModel):
         n_ism = self.nism
         n_sh = self.n_sh
 
-        def bubble_medium(phi, theta, r):
-            r_arr = np.asarray(r, dtype=float)
-            r_safe = np.maximum(r_arr, 1.0)
-
-            n = np.where(
-                r_safe < rt,
-                n_t * (rt / r_safe) ** 2,
-                np.where(r_safe < r2, n_sh, n_ism),
+        if bubble_medium_native is not None:
+            medium = Medium(
+                rho=bubble_medium_native(
+                    rt=rt,
+                    r2=r2,
+                    n_t=n_t,
+                    n_sh=n_sh,
+                    n_ism=n_ism,
+                    m_mol=m_mol,
+                )
             )
+        else:
+            def bubble_medium(phi, theta, r):
+                r_arr = np.asarray(r, dtype=float)
+                r_safe = np.maximum(r_arr, 1.0)
 
-            # Match bubble-script convention: rho = mu * m_p * n.
-            rho = m_mol * n
+                n = np.where(
+                    r_safe < rt,
+                    n_t * (rt / r_safe) ** 2,
+                    np.where(r_safe < r2, n_sh, n_ism),
+                )
 
-            if np.ndim(r_arr) == 0:
-                return float(np.asarray(rho))
-            return rho
+                # Match bubble-script convention: rho = mu * m_p * n.
+                rho = m_mol * n
+
+                if np.ndim(r_arr) == 0:
+                    return float(np.asarray(rho))
+                return rho
+
+            medium = Medium(rho=bubble_medium)
 
         jet = TophatJet(theta_c=self.theta_c, E_iso=self.E_iso52, Gamma0=self.lf0)
         observer = Observer(
@@ -147,7 +195,7 @@ class BubbleVegasModel(powerlawVegasModel):
         )
         radiation = Radiation(eps_e=self.eps_e, eps_B=self.eps_b, p=self.p)
 
-        self.vegas_model = Model(jet=jet, medium=Medium(rho=bubble_medium), observer=observer, fwd_rad=radiation)
+        self.vegas_model = Model(jet=jet, medium=medium, observer=observer, fwd_rad=radiation)
 
     @property
     def is_valid(self) -> bool:

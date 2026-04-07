@@ -1,0 +1,14 @@
+# MCMC Configuration File (Bubble few-hours profile)
+#
+# Goal: keep bubble runs to a few hours on local Mac hardware.
+# This reduces total steps relative to thesis_short while keeping
+# walkers/temperatures/workers unchanged for comparable parallel behavior.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 100
+run_length = 100
+ntemps = 5
+workers = 8
+checkpoint_interval = 50

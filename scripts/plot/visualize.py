@@ -7,7 +7,12 @@ from matplotlib import pyplot as plt
 from synphot import SpectralElement
 
 from jetfit.core.structs import DataType
-from jetfit.core.utils import save_plot_unique, days_to_sec, sec_to_days
+from jetfit.core.utils import (
+    save_plot_unique,
+    days_to_sec,
+    sec_to_days,
+    apply_plot_run_label,
+)
 from jetfit.models.base import has_fts_transition, RadiationModel, SpectralIndexModel
 from jetfit.models.fireball import StratifiedFireballModel
 from jetfit.models.jetsim import JetSimpy
@@ -156,6 +161,184 @@ def plot_density_profile_ampy(ampy, out_dir=None):
         ampy.mcmc.params, ampy.obs, ampy.afterglow_model,
         model_kw=ampy.mcmc.models.afg_kw, out_dir=out_dir
     )
+
+
+def plot_spectrum_timeseries_ampy(
+    ampy,
+    params=None,
+    out_dir=None,
+    output_path=None,
+    ncurves=10,
+    nfreq=400,
+):
+    """
+    Plot a VegasAfterglow-style spectrum-timeseries figure for the
+    best-fit parameter set from a completed Ampy object.
+
+    Parameters
+    ----------
+    ampy : Ampy
+        The completed Ampy object.
+
+    params : dict, optional
+        Parameter dictionary in the same layout as ``best_fit.json``.
+        Defaults to the best sampled parameter set.
+
+    out_dir : Path, optional
+        Output directory used when ``output_path`` is not provided.
+
+    output_path : Path, optional
+        Exact destination for the PDF.
+
+    ncurves : int, optional
+        Number of time slices to plot.
+
+    nfreq : int, optional
+        Number of frequencies per spectrum.
+    """
+    if params is None:
+        params = ampy.get_best_params()
+
+    plot_spectrum_timeseries(
+        ampy.afterglow_model,
+        params,
+        ampy.obs,
+        model_kw=ampy.mcmc.models.afg_kw,
+        out_dir=out_dir,
+        output_path=output_path,
+        ncurves=ncurves,
+        nfreq=nfreq,
+    )
+
+
+def _format_seconds_label(time_days):
+    """Format a time in days as a compact scientific-notation seconds label."""
+    secs = float(days_to_sec(time_days))
+    if not np.isfinite(secs) or secs <= 0.0:
+        return f"{time_days:.3g} d"
+
+    exponent = int(np.floor(np.log10(secs)))
+    coefficient = secs / (10.0 ** exponent)
+    return rf"${coefficient:.1f} \times 10^{{{exponent}}}\ \mathrm{{s}}$"
+
+
+def _spectrum_frequency_grid(observation, model_obj, times, nfreq):
+    """Build a robust frequency grid spanning data and modeled break scales."""
+    freq_values = []
+
+    for datum in observation.data:
+        if datum.type == DataType.SPECTRAL_INDEX:
+            continue
+        freq = datum.frequency.to_value("Hz")
+        if np.isfinite(freq) and freq > 0.0:
+            freq_values.append(freq)
+
+    try:
+        spectrum = model_obj.spectrum(times)
+    except Exception:
+        spectrum = {}
+
+    for key in ("nu_a", "nu_m", "nu_c"):
+        values = np.atleast_1d(spectrum.get(key, np.array([])))
+        mask = np.isfinite(values) & (values > 0.0)
+        if mask.any():
+            freq_values.extend(values[mask].tolist())
+
+    if freq_values:
+        freq_min = max(min(freq_values) / 100.0, 1e6)
+        freq_max = min(max(freq_values) * 100.0, 1e25)
+    else:
+        freq_min, freq_max = 1e6, 1e22
+
+    if not np.isfinite(freq_min) or not np.isfinite(freq_max) or freq_min <= 0.0 or freq_min >= freq_max:
+        freq_min, freq_max = 1e6, 1e22
+
+    return np.geomspace(freq_min, freq_max, num=nfreq)
+
+
+def _fts_flag(model_obj, time_days):
+    """Determine whether the model is in a fast-to-slow transition at ``time_days``."""
+    if isinstance(model_obj, JetSimpy):
+        return False
+    try:
+        spec = model_obj.spectrum(np.atleast_1d(time_days))
+        return has_fts_transition(spec["nu_m"], spec["nu_c"])
+    except Exception:
+        return False
+
+
+def plot_spectrum_timeseries(
+    model,
+    params,
+    obs,
+    model_kw=None,
+    out_dir=None,
+    output_path=None,
+    ncurves=10,
+    nfreq=400,
+):
+    """
+    Plot stacked instantaneous spectra across the observed time span.
+
+    This is the VegasAfterglow-style frequency-vs-flux figure useful for
+    inspecting the sharpness of spectral breaks.
+    """
+    epoch = obs.epoch(mask=obs.flux_loc)
+    tmin = float(epoch[0])
+    tmax = float(epoch[1])
+    if not np.isfinite(tmin) or not np.isfinite(tmax) or tmin <= 0.0 or tmax <= 0.0:
+        raise ValueError("Observation epoch is invalid for spectrum-timeseries plotting.")
+
+    if np.isclose(tmin, tmax):
+        times = np.asarray([tmin], dtype=float)
+    else:
+        times = np.geomspace(tmin, tmax, num=max(2, int(ncurves)))
+
+    model_obj = model(**params.get("model"), **(model_kw or {}))
+    nu = _spectrum_frequency_grid(obs, model_obj, times, nfreq=max(100, int(nfreq)))
+
+    fig, ax = plt.subplots(figsize=(10, 7.5))
+    colors = plt.cm.viridis(np.linspace(0.02, 0.98, len(times)))
+
+    for color, time_days in zip(colors, times):
+        fts = _fts_flag(model_obj, time_days)
+        flux_mjy = np.asarray(model_obj.spectral_flux(time_days, nu, fts=fts), dtype=float).reshape(-1)
+        flux_cgs = flux_mjy * 1e-26
+        mask = np.isfinite(flux_cgs) & (flux_cgs > 0.0)
+        if not mask.any():
+            continue
+        ax.loglog(
+            nu[mask],
+            flux_cgs[mask],
+            color=color,
+            linewidth=1.6,
+            label=_format_seconds_label(time_days),
+        )
+
+    tref = float(np.sqrt(times[0] * times[-1]))
+    ref_spectrum = model_obj.spectrum(np.atleast_1d(tref))
+    for key, color in (("nu_a", "tab:blue"), ("nu_m", "tab:orange"), ("nu_c", "tab:green")):
+        values = np.atleast_1d(ref_spectrum.get(key, np.array([])))
+        if values.size == 0:
+            continue
+        value = float(values.flat[0])
+        if np.isfinite(value) and value > 0.0:
+            ax.axvline(value, color=color, linestyle="--", linewidth=2.0, alpha=0.9)
+
+    ax.set_title("Synchrotron Spectra")
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel(r"flux density (erg/cm$^2$/s/Hz)")
+    ax.grid(alpha=0.25, which="both")
+    ax.legend(loc="lower left", frameon=True, fancybox=False, framealpha=0.9)
+    fig.tight_layout()
+    apply_plot_run_label(fig)
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=300)
+    elif out_dir is not None:
+        save_plot_unique("spectrum_timeseries", "pdf", str(out_dir), dpi=300)
+
+    plt.close(fig)
 
 
 def plot_frequencies(chain, log_prob, obs, params, model, model_kw=None, best=None, out_dir=None):
@@ -334,7 +517,7 @@ def get_offset(d, data, offsets, positions):
 
 class LightCurvePlot:
     """ Plots the modeled light curve. """
-    def __init__(self, model, params, observation, meta=None, title='LC', dual=False):
+    def __init__(self, model, params, observation, meta=None, title=None, dual=False):
         self.model = model
         self.params = params
         self.observation = observation
@@ -355,7 +538,13 @@ class LightCurvePlot:
         else:
             fig, ax = plt.subplots(figsize=(8, 10))
 
-        # ax.set_title(title)
+        if title:
+            fig.suptitle(str(title), fontsize=14, y=0.965)
+            if dual:
+                fig.subplots_adjust(top=0.88, hspace=0)
+            else:
+                fig.subplots_adjust(top=0.86)
+
         ax.set_ylabel('Flux Density [mJy]')
         ax.set_xlabel('Time Since Trigger [days]')
         ax.set_yscale('log')
@@ -795,17 +984,19 @@ class FrequencyPlotter(Profiler):
         desired_rows = 4
         ncol = int((num_entries + desired_rows - 1) // desired_rows)
 
+        # Reserve headroom for the band legend and keep the legend fully inside
+        # the figure canvas so PDF exports do not clip the top section.
+        self.fig.tight_layout(rect=[0, 0, 1, 0.86])
         self.fig.legend(
             handles, labels,
-            mode='expand',
-            loc="upper center",
-            bbox_to_anchor=(0.0825, 1.01, .907, 0.01),
-            ncol=ncol,
+            loc='upper center',
+            bbox_to_anchor=(0.5, 0.995),
+            ncol=max(1, ncol),
             frameon=True,
             fancybox=False,
-            edgecolor="black"
+            edgecolor='black',
+            borderaxespad=0.2,
         )
-        plt.tight_layout(rect=[0, 0, 1, 0.9])  # leave space for legend
 
     def plot_dist(self, times, best=None, nsamps=None):
         """
@@ -1156,10 +1347,6 @@ class DensityProfiler(Profiler):
             save_plot_unique('k_profile', 'pdf', str(out_dir), dpi=1200)
         plt.close()
 # </editor-fold>
-
-
-
-
 
 
 

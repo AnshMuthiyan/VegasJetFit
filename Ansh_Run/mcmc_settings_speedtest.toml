@@ -1,0 +1,14 @@
+# MCMC Configuration File (speed-test profile)
+#
+# Purpose:
+# - lightweight end-to-end timing checks across many GRBs
+# - enough iterations to exercise parallel likelihood evaluation
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 60
+burn_length = 0
+run_length = 5
+ntemps = 5
+workers = 8
+checkpoint_interval = 0

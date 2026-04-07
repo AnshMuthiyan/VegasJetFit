@@ -1,0 +1,16 @@
+# MCMC Configuration File (Thesis-style full run)
+#
+# Dylan dissertation (Chapter 5.3):
+# - parallel-tempered sampler
+# - 10 temperatures
+# - 100 walkers
+# - 5000 burn-in + 5000 production
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 5000
+run_length = 5000
+ntemps = 10
+workers = 8
+checkpoint_interval = 100

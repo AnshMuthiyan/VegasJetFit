@@ -1,0 +1,15 @@
+# MCMC Configuration File (bubble checkpoint-first diagnostic)
+#
+# Purpose:
+# - get a first checkpoint immediately
+# - finish very quickly for triage-quality comparison
+# - allow minimizer to run right after MCMC
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 0
+run_length = 1
+ntemps = 5
+workers = 8
+checkpoint_interval = 1

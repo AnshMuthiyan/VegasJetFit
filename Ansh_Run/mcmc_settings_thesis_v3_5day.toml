@@ -1,0 +1,17 @@
+# MCMC Configuration File (Dylan-spectrum v3 5-day target)
+#
+# Chosen to stretch the eight-event Pauley-host queue to roughly five days
+# total based on observed v2 wall times:
+# - parallel-tempered sampler
+# - 10 temperatures
+# - 100 walkers
+# - 50,000 burn-in + 50,000 production
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 50000
+run_length = 50000
+ntemps = 10
+workers = 8
+checkpoint_interval = 1000

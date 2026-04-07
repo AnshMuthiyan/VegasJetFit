@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Convenience wrapper:
+# - top-hat runs (powerlawVegasModel backend)
+# - fixed theta_c=1.0 rad, theta_v=0.0
+# - thesis-style short MCMC profile
+# - defaults to Dylan's "quick" GRB tier
+
+ROOT="${ROOT:-$HOME/GRBs}"
+VEGAS_DIR="${VEGAS_DIR:-$ROOT/VegasJetFit}"
+RUN_PROFILE_DIR="${RUN_PROFILE_DIR:-$VEGAS_DIR/Ansh_Run}"
+
+TIER="${TIER:-quick}"
+GRBS="${GRBS:-}"   # optional override list
+
+MCMC_SETTINGS="${MCMC_SETTINGS:-$RUN_PROFILE_DIR/mcmc_settings_thesis_short.toml}"
+THETA_C="${THETA_C:-1.0}"
+THETA_V="${THETA_V:-0.0}"
+
+WORKERS="${WORKERS:-8}"
+ENABLE_PREFLIGHT="${ENABLE_PREFLIGHT:-1}"
+PREFLIGHT_BURN_LENGTH="${PREFLIGHT_BURN_LENGTH:-10}"
+PREFLIGHT_RUN_LENGTH="${PREFLIGHT_RUN_LENGTH:-10}"
+KEEP_AWAKE="${KEEP_AWAKE:-1}"
+RESUME="${RESUME:-0}"
+RUN_FOREGROUND="${RUN_FOREGROUND:-1}"
+CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-1}"
+DRY_RUN="${DRY_RUN:-0}"
+
+exec env \
+  ROOT="$ROOT" \
+  VEGAS_DIR="$VEGAS_DIR" \
+  RUN_PROFILE_DIR="$RUN_PROFILE_DIR" \
+  TIER="$TIER" \
+  GRBS="$GRBS" \
+  MODE="tophat" \
+  MCMC_SETTINGS="$MCMC_SETTINGS" \
+  THETA_C="$THETA_C" \
+  THETA_V="$THETA_V" \
+  WORKERS="$WORKERS" \
+  ENABLE_PREFLIGHT="$ENABLE_PREFLIGHT" \
+  PREFLIGHT_BURN_LENGTH="$PREFLIGHT_BURN_LENGTH" \
+  PREFLIGHT_RUN_LENGTH="$PREFLIGHT_RUN_LENGTH" \
+  KEEP_AWAKE="$KEEP_AWAKE" \
+  RESUME="$RESUME" \
+  RUN_FOREGROUND="$RUN_FOREGROUND" \
+  CONTINUE_ON_ERROR="$CONTINUE_ON_ERROR" \
+  DRY_RUN="$DRY_RUN" \
+  bash "$VEGAS_DIR/jwk_run_grb_batch.sh"

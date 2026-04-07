@@ -5,6 +5,25 @@ import numpy as np
 from enum import Enum
 
 
+def _row_band(row) -> str:
+    """
+    Return band/filter label from a CSV row.
+
+    Supports both legacy ``Filter`` and newer ``Band`` column names.
+    """
+    band = getattr(row, 'Filter', None)
+    if not isinstance(band, str):
+        band = getattr(row, 'Band', None)
+
+    if not isinstance(band, str):
+        raise AttributeError("row has no valid 'Filter' or 'Band' column")
+
+    band = band.strip()
+    if not band:
+        raise ValueError("row has empty band/filter label")
+    return band
+
+
 def q_e():
     """ The electron charge in cgs units. """
     return u.Quantity(4.8032e-10 * u.g**0.5 * u.cm**1.5 / u.s)
@@ -456,7 +475,7 @@ class SpectralFlux(FluxBase):
                 'lower': u.Quantity(row.ValueLower, row.ValueUnits),
                 'upper': u.Quantity(row.ValueUpper, row.ValueUnits),
                 'time': u.Quantity(row.Time, row.TimeUnits).to('d'),
-                'band': row.Filter.strip()
+                'band': _row_band(row)
             }
 
             wave = u.Quantity(row.Wave, row.WaveUnits)
@@ -703,7 +722,7 @@ class IntegratedFlux(FluxBase, Integrable):
                 'time': u.Quantity(row.Time, row.TimeUnits).to('d'),
                 'int_lower': u.Quantity(row.WaveLower, row.WaveUnits),
                 'int_upper': u.Quantity(row.WaveUpper, row.WaveUnits),
-                'band': row.Filter.strip(),
+                'band': _row_band(row),
             }
             return cls(**params)
 

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 import sys
 import multiprocessing as mp
 from pathlib import Path
@@ -140,7 +141,16 @@ def plot_results(ampy, results_dir, event):
 
     # Plot the lines!
     visualize.plot_frequencies_ampy(ampy, out_dir=results_dir)
-    visualize.plot_light_curve_ampy(ampy, title=f'{event} LC', out_dir=results_dir)
+    visualize.plot_spectrum_timeseries_ampy(
+        ampy,
+        out_dir=results_dir,
+        output_path=results_dir / 'spectrum_timeseries.pdf',
+    )
+    frequencies_pdf = results_dir / 'frequencies.pdf'
+    spectral_plot_pdf = results_dir / 'spectral_plot.pdf'
+    if frequencies_pdf.exists():
+        shutil.copyfile(frequencies_pdf, spectral_plot_pdf)
+    visualize.plot_light_curve_ampy(ampy, title=f'GRB {event}', out_dir=results_dir)
     visualize.plot_density_profile_ampy(ampy, out_dir=results_dir)
 
     # Plot the histograms!
@@ -190,6 +200,11 @@ def main(
     """
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
+
+    # Stamp all generated figures with event + run folder for easy identification.
+    run_folder = Path(results_dir).name
+    os.environ['JETFIT_PLOT_RUN_LABEL'] = f'GRB {event} | {run_folder}'
+    print(f"DEBUG: Plot label: {os.environ['JETFIT_PLOT_RUN_LABEL']}")
 
     print(f"DEBUG: Multiprocessing method: {mp.get_start_method(allow_none=True)}")
     print(f"DEBUG: Number of CPUs: {mp.cpu_count()}")

@@ -1,0 +1,17 @@
+# MCMC Configuration File (negative-k ~4h target per GRB)
+#
+# Calibrated from completed moderate24h batch timings on 2026-03-08:
+# 080413B: 24.1 min at 850 total iterations
+# 140506A: 21.5 min at 850 total iterations
+# 210905A: 19.3 min at 850 total iterations
+#
+# This profile scales total iterations to 9500 for ~3.5-4.5 hours per GRB.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 500
+run_length = 9000
+ntemps = 10
+workers = 8
+checkpoint_interval = 100

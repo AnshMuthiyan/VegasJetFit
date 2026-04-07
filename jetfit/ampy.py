@@ -10,6 +10,7 @@ from jetfit.models.fireball import FireballModel, StratifiedFireballModel
 from jetfit.models.jetsim import JetSimpy
 from jetfit.models.vegasafterglow import VegasAfterglowModel
 from jetfit.models.powerlawVegas import powerlawVegasModel
+from jetfit.models.powerlawVegasDylanSpectrum import powerlawVegasDylanSpectrumModel
 from jetfit.models.bubbleVegas import BubbleVegasModel
             
 
@@ -35,6 +36,8 @@ def model_factory(name: str):
             return VegasAfterglowModel
         case 'powerlawVegasModel':
             return powerlawVegasModel
+        case 'powerlawVegasDylanSpectrumModel':
+            return powerlawVegasDylanSpectrumModel
         case 'BubbleVegasModel':
             return BubbleVegasModel
         case _:

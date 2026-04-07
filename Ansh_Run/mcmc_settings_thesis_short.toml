@@ -1,0 +1,15 @@
+# MCMC Configuration File (Thesis-style short run)
+#
+# Dylan dissertation (Chapter 5.3, computationally reduced setting):
+# - 5 temperatures
+# - 100 walkers
+# - 1000 burn-in + 1000 production
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 1000
+run_length = 1000
+ntemps = 5
+workers = 8
+checkpoint_interval = 100

@@ -50,9 +50,61 @@ def save_plot_unique(filename_base, ext, directory, dpi=None):
         filename = f"{filename_base}.{ext}" if i == 0 else f"{filename_base}_{i}.{ext}"
         filepath = os.path.join(directory, filename)
         if not os.path.exists(filepath):
+            apply_plot_run_label(plt.gcf())
             plt.savefig(filepath, dpi=dpi)
             return
         i += 1
+
+
+def get_plot_run_label():
+    """
+    Returns the optional run label to stamp onto plots.
+
+    Label is sourced from environment variable:
+      - JETFIT_PLOT_RUN_LABEL
+    """
+    label = os.environ.get('JETFIT_PLOT_RUN_LABEL', '').strip()
+    return label or None
+
+
+def apply_plot_run_label(fig=None, label=None, x=0.01, y=0.995, ha='left', va='top'):
+    """
+    Adds a top-of-figure run label (event/folder) to saved plots.
+
+    This is intentionally lightweight so all generated artifacts can be
+    identified quickly when opened outside their result directory.
+    """
+    if fig is None:
+        fig = plt.gcf()
+    if fig is None:
+        return
+
+    if label is None:
+        label = get_plot_run_label()
+    if not label:
+        return
+
+    # Prevent duplicate overlays when save is retried with unique suffixes.
+    if getattr(fig, "_jetfit_plot_label_applied", False):
+        return
+
+    fig.text(
+        x,
+        y,
+        str(label),
+        ha=ha,
+        va=va,
+        fontsize=9,
+        color='black',
+        bbox={
+            'facecolor': 'white',
+            'alpha': 0.65,
+            'edgecolor': 'none',
+            'pad': 1.2,
+        },
+        zorder=1000,
+    )
+    fig._jetfit_plot_label_applied = True
 
 
 def get_best_index(sampler):
