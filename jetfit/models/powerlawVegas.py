@@ -98,6 +98,11 @@ class powerlawVegasModel:
     k_g : float, optional
         Lorentz factor power-law index for structured jets. Default=None.
 
+    smooth_fast_to_slow_transition : bool, optional
+        Enable the AMPy / Dutton (2025) smoothing across the full
+        fast-cooling to slow-cooling transition. This is the descriptive
+        native VegasAfterglow name for the historical ``fts=True`` option.
+
     References
     ----------
     .. [1] VegasAfterglow: A Numerical Code for GRB Afterglow
@@ -129,6 +134,7 @@ class powerlawVegasModel:
         jet_type='tophat',
         medium_type='powerlaw',
         ref_radius=1.0e17,
+        smooth_fast_to_slow_transition=False,
 
     ):
         if not _HAS_VEGASAFTERGLOW:
@@ -158,6 +164,7 @@ class powerlawVegasModel:
         self.k_e = k_e
         self.k_g = k_g
         self.ref_radius = ref_radius  # Reference radius [cm]
+        self.smooth_fast_to_slow_transition = bool(smooth_fast_to_slow_transition)
 
 
         # Initialize VegasAfterglow components
@@ -332,7 +339,7 @@ class powerlawVegasModel:
                 native_astar = self._native_powerlaw_astar(self.n017, r0)
                 self.A_star = native_astar
                 try:
-                    medium = Wind(A_star=native_astar, n_ism=0.0, k=self.k)
+                    medium = Wind(A_star=native_astar, n_ism=0.0, n0=np.inf, k_m=self.k)
                 except TypeError:
                     medium = Medium(rho=power_law_medium)
             elif power_law_medium_native is not None:
@@ -385,7 +392,8 @@ class powerlawVegasModel:
         radiation = Radiation(
             eps_e=self.eps_e,
             eps_B=self.eps_b,
-            p=self.p
+            p=self.p,
+            smooth_fast_to_slow_transition=self.smooth_fast_to_slow_transition,
         )
 
         # Create the model - Note: Model expects (jet, medium, observer, fwd_rad)
