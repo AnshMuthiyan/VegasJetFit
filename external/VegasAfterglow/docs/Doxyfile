@@ -1,0 +1,94 @@
+#---------------------------------------------------------------------------
+# Project
+#---------------------------------------------------------------------------
+PROJECT_NAME           = "VegasAfterglow"
+PROJECT_BRIEF          = "A high-performance C++ framework for modeling gamma-ray burst afterglows"
+PROJECT_LOGO           = "../assets/logo.svg"
+OUTPUT_DIRECTORY       = doxygen
+
+#---------------------------------------------------------------------------
+# Input
+#---------------------------------------------------------------------------
+INPUT                  = ../include ../pybind ../src
+FILE_PATTERNS          = *.c *.cc *.cpp *.h *.hh *.hpp *.tpp
+RECURSIVE              = YES
+INPUT_ENCODING         = UTF-8
+EXCLUDE                = ../external
+EXCLUDE_PATTERNS       = */external/* */build/* */dist/* */detail/* */internal/*
+EXCLUDE_SYMBOLS        = *__pad* *::_* *detail::* *internal::*
+
+#---------------------------------------------------------------------------
+# Extraction
+#---------------------------------------------------------------------------
+EXTRACT_ALL            = YES    # grab every symbol
+EXTRACT_PRIVATE        = NO     # hide private members
+EXTRACT_PACKAGE        = YES
+EXTRACT_STATIC         = YES    # free & static funcs
+EXTRACT_LOCAL_METHODS  = YES    # inline/impl in .cpp
+EXTRACT_ANON_NSPACES   = YES
+HIDE_UNDOC_MEMBERS     = NO     # show even undocumented
+HIDE_UNDOC_CLASSES     = NO
+
+# Documentation style options
+BRIEF_MEMBER_DESC      = YES    # show the one-line brief next to each member
+REPEAT_BRIEF           = YES    # repeat brief descriptions
+ALWAYS_DETAILED_SEC    = YES    # always include detailed section
+MULTILINE_CPP_IS_BRIEF = NO     # treat /** */ as full docs, not just brief
+JAVADOC_AUTOBRIEF      = YES    # first sentence becomes the brief automatically
+QT_AUTOBRIEF           = NO     # disable Qt-style auto-brief
+INHERIT_DOCS           = YES    # pull base-class docs into overrides
+TAB_SIZE               = 4
+
+# Template class options
+TEMPLATE_RELATIONS     = YES    # Document template relations
+INLINE_INFO            = YES    # Document inline functions
+EXTRACT_LOCAL_CLASSES  = YES    # Document local classes
+MARKDOWN_SUPPORT       = YES    # Enable Markdown support
+
+#---------------------------------------------------------------------------
+# Source browsing & inlining
+#---------------------------------------------------------------------------
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = YES    # show code + comments
+STRIP_CODE_COMMENTS    = NO
+VERBATIM_HEADERS       = YES
+
+#---------------------------------------------------------------------------
+# Diagrams & graphs
+#---------------------------------------------------------------------------
+HAVE_DOT               = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+DOT_GRAPH_MAX_NODES    = 200
+INTERACTIVE_SVG        = YES
+
+#---------------------------------------------------------------------------
+# HTML output
+#---------------------------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_TREEVIEW      = YES    # collapsible nav
+FULL_PATH_NAMES        = NO     # Don't prepend path to function declarations
+STRIP_FROM_PATH        = ../    # trim leading "../"
+SHOW_FILES             = YES
+SHOW_NAMESPACES        = YES
+
+#---------------------------------------------------------------------------
+# Other formats (optional)
+#---------------------------------------------------------------------------
+GENERATE_XML           = YES    # for Breathe/Sphinx
+XML_OUTPUT             = xml
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_DOCSET        = NO
+
+#---------------------------------------------------------------------------
+# Warnings & parsing
+#---------------------------------------------------------------------------
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = NO

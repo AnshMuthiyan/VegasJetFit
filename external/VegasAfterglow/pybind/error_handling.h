@@ -1,0 +1,41 @@
+//              __     __                            _      __  _                     _
+//              \ \   / /___   __ _   __ _  ___     / \    / _|| |_  ___  _ __  __ _ | |  ___ __      __
+//               \ \ / // _ \ / _` | / _` |/ __|   / _ \  | |_ | __|/ _ \| '__|/ _` || | / _ \\ \ /\ / /
+//                \ V /|  __/| (_| || (_| |\__ \  / ___ \ |  _|| |_|  __/| |  | (_| || || (_) |\ V  V /
+//                 \_/  \___| \__, | \__,_||___/ /_/   \_\|_|   \__|\___||_|   \__, ||_| \___/  \_/\_/
+//                            |___/                                            |___/
+
+#pragma once
+
+#include <stdexcept>
+#include <string>
+
+namespace afterglow {
+
+    class ValidationError final : public std::invalid_argument {
+      public:
+        explicit ValidationError(std::string const& message) : std::invalid_argument(message) {}
+        explicit ValidationError(char const* message) : std::invalid_argument(message) {}
+    };
+
+    class LogicError final : public std::logic_error {
+      public:
+        explicit LogicError(std::string const& message) : std::logic_error(message) {}
+        explicit LogicError(char const* message) : std::logic_error(message) {}
+    };
+
+#define AFTERGLOW_REQUIRE(condition, message)                                                                          \
+    do {                                                                                                               \
+        if (!(condition)) [[unlikely]] {                                                                               \
+            throw ::afterglow::ValidationError(message);                                                               \
+        }                                                                                                              \
+    } while (0)
+
+#define AFTERGLOW_ENSURE(condition, message)                                                                           \
+    do {                                                                                                               \
+        if (!(condition)) [[unlikely]] {                                                                               \
+            throw ::afterglow::LogicError(message);                                                                    \
+        }                                                                                                              \
+    } while (0)
+
+} // namespace afterglow

@@ -1,0 +1,105 @@
+name: Documentation Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'include/**'
+      - 'src/**'
+      - 'pybind/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements.txt
+
+      - name: Build documentation
+        run: |
+          cd docs
+          chmod +x build_docs.sh
+          ./build_docs.sh
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          publish_dir: ./docs/build/html
+          destination_dir: docs
+
+      - name: Create Wiki Content
+        run: |
+          # Install pandoc for HTML to Markdown conversion
+          sudo apt-get install -y pandoc
+
+          # Create a directory for wiki content
+          mkdir -p wiki_content
+
+          # Copy Home.md with proper formatting
+          cat > wiki_content/Home.md << 'EOL'
+          # VegasAfterglow Documentation
+
+          Welcome to the VegasAfterglow documentation wiki.
+
+          ## Documentation
+
+          The complete documentation is published to GitHub Pages. Please visit:
+
+          **[Full Documentation Site](https://yihanwangastro.github.io/VegasAfterglow/docs/)**
+
+          ## Quick Links
+
+          * [C++ API Reference](https://yihanwangastro.github.io/VegasAfterglow/docs/cpp_api.html)
+          * [Python API Reference](https://yihanwangastro.github.io/VegasAfterglow/docs/python_api.html)
+          * [Installation Guide](https://yihanwangastro.github.io/VegasAfterglow/docs/installation.html)
+          * [Quick Start Guide](https://yihanwangastro.github.io/VegasAfterglow/docs/quickstart.html)
+          * [Examples](https://yihanwangastro.github.io/VegasAfterglow/docs/examples/index.html)
+          * [Contributing Guide](https://yihanwangastro.github.io/VegasAfterglow/docs/contributing.html)
+
+          ## Building Documentation Locally
+
+          To build the documentation locally, please refer to the [docs/README.md](https://github.com/YihanWangAstro/VegasAfterglow/blob/main/docs/README.md) file in the main repository.
+          EOL
+
+          # Create sidebar navigation
+          cat > wiki_content/_Sidebar.md << 'EOL'
+          ## VegasAfterglow
+
+          * [Home](Home)
+          * [Documentation Site](https://yihanwangastro.github.io/VegasAfterglow/docs/)
+          EOL
+
+          # Create footer
+          cat > wiki_content/_Footer.md << 'EOL'
+          ---
+          Documentation generated automatically from the [VegasAfterglow repository](https://github.com/YihanWangAstro/VegasAfterglow).
+          EOL
+
+      - name: Push to Wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          path: wiki_content
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}

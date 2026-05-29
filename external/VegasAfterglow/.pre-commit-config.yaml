@@ -1,0 +1,90 @@
+repos:
+  # Python formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        files: ^VegasAfterglow/.*\.py$
+
+  # Python import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+        files: ^VegasAfterglow/.*\.py$
+
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ["--max-line-length=120", "--extend-ignore=E203,W503"]
+        files: ^VegasAfterglow/.*\.py$
+
+  # C++ formatting
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v17.0.6
+    hooks:
+      - id: clang-format
+        files: \.(cpp|hpp|c|h|cc|cxx)$
+        exclude: ^external/.*
+
+  # General file cleanup
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^external/.*
+      - id: end-of-file-fixer
+        exclude: ^external/.*
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+        exclude: ^validation/comprehensive_report\.pdf$
+
+  # Strip notebook outputs
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+
+  # Check for common issues
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+        exclude: ^external/.*
+
+  # RST code block syntax check
+  - repo: local
+    hooks:
+      - id: check-rst-python
+        name: Check Python syntax in RST code blocks
+        entry: python tests/python/check_rst_codeblocks.py
+        language: python
+        files: \.rst$
+        pass_filenames: true
+
+  # C++ unit tests and Python tests
+  - repo: local
+    hooks:
+      - id: cpp-unit-tests
+        name: C++ unit tests
+        entry: bash -c 'cd build && cmake .. -DAFTERGLOW_TESTS=ON -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1 && cmake --build . --target afterglow_tests -j8 >/dev/null 2>&1 && ./afterglow_tests --log_level=error'
+        language: system
+        pass_filenames: false
+        files: \.(cpp|hpp|c|h|cc|cxx)$
+        exclude: ^external/.*
+      - id: python-tests
+        name: Python tests
+        entry: bash -c 'pip install -e . -q && python -m pytest tests/ -x -q'
+        language: system
+        pass_filenames: false
+        files: \.(py|cpp|hpp|c|h|cc|cxx)$
+        exclude: ^(external|script|docs)/.*

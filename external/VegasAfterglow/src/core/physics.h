@@ -1,0 +1,229 @@
+//              __     __                            _      __  _                     _
+//              \ \   / /___   __ _   __ _  ___     / \    / _|| |_  ___  _ __  __ _ | |  ___ __      __
+//               \ \ / // _ \ / _` | / _` |/ __|   / _ \  | |_ | __|/ _ \| '__|/ _` || | / _ \\ \ /\ / /
+//                \ V /|  __/| (_| || (_| |\__ \  / ___ \ |  _|| |_|  __/| |  | (_| || || (_) |\ V  V /
+//                 \_/  \___| \__, | \__,_||___/ /_/   \_\|_|   \__|\___||_|   \__, ||_| \___/  \_/\_/
+//                            |___/                                            |___/
+
+#pragma once
+#include <cmath>
+
+#include "../util/macros.h"
+
+/**
+ * <!-- ************************************************************************************** -->
+ * @namespace physics
+ * @brief Contains physics functions organized into logical sub-namespaces.
+ * <!-- ************************************************************************************** -->
+ */
+namespace physics {
+
+    /**
+ * <!-- ************************************************************************************** -->
+ * @namespace physics::relativistic
+ * @brief Relativistic kinematics conversions.
+ * <!-- ************************************************************************************** -->
+ */
+    namespace relativistic {
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Converts Lorentz factor (gamma) to a velocity fraction (beta)
+ * @param gamma Lorentz factor
+ * @return Velocity fraction (beta = v/c)
+ * <!-- ************************************************************************************** -->
+ */
+        inline Real gamma_to_beta(Real gamma) noexcept {
+            return std::sqrt(gamma * gamma - 1) / gamma;
+        }
+
+    } // namespace relativistic
+
+    /**
+ * <!-- ************************************************************************************** -->
+ * @namespace physics::thermo
+ * @brief Thermodynamic functions.
+ * <!-- ************************************************************************************** -->
+ */
+    namespace thermo {
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes adiabatic index as a function of the Lorentz factor
+ * @param gamma Lorentz factor
+ * @return Adiabatic index
+ * <!-- ************************************************************************************** -->
+ */
+        inline constexpr Real adiabatic_idx(Real gamma) noexcept {
+            return 4.0 / 3.0 + 1 / (3 * gamma);
+        }
+
+    } // namespace thermo
+
+    /**
+ * <!-- ************************************************************************************** -->
+ * @namespace physics::scales
+ * @brief Characteristic length and time scales for GRB physics.
+ * <!-- ************************************************************************************** -->
+ */
+    namespace scales {
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the Sedov length—a characteristic scale for blast wave deceleration
+ * @param E_iso Isotropic equivalent energy
+ * @param n_ism ISM number density
+ * @return Sedov length
+ * @details The Sedov length is a characteristic scale defined as the cube root of (E_iso / (ρc²)),
+ *          where ρ is the ambient medium mass density
+ * <!-- ************************************************************************************** -->
+ */
+        inline Real sedov_length(Real E_iso, Real n_ism) {
+            return std::cbrt(E_iso / (4 * con::pi / 3 * n_ism * con::mp * con::c2));
+        }
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Returns the radius at which the reverse shock crosses, defined as the thick shell deceleration radius
+ * @param E_iso Isotropic equivalent energy
+ * @param n_ism ISM number density
+ * @param engine_dura Engine duration
+ * @return Reverse shock crossing radius
+ * <!-- ************************************************************************************** -->
+ */
+        inline Real RS_crossing_radius(Real E_iso, Real n_ism, Real engine_dura) {
+            const Real l = sedov_length(E_iso, n_ism);
+            return std::sqrt(std::sqrt(l * l * l * con::c * engine_dura));
+        }
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the deceleration radius of the shock.
+ * @details For a power-law external medium n(r)=n0*(r/r0)^(-k), the deceleration radius is the
+ *          maximum of the thin-shell and thick-shell estimates. Defaults (k=0, r0=1 cm) recover
+ *          the uniform-ISM expressions.
+ * @param E_iso Isotropic energy
+ * @param n0 Number density normalization at reference radius r0 [cm^-3]
+ * @param Gamma0 Initial Lorentz factor
+ * @param engine_dura Engine duration
+ * @param k Density power-law slope (default 0 = ISM)
+ * @param r0 Reference radius [cm] for n0 (default 1 cm)
+ * @return The deceleration radius
+ * <!-- ************************************************************************************** -->
+ */
+        Real dec_radius(Real E_iso, Real n0, Real Gamma0, Real engine_dura, Real k = 0.0, Real r0 = 1.0);
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the deceleration radius for the thin shell case.
+ * @details Uses the power-law formula:
+ *          R_dec = [ (3-k) E_iso / (4π n0 mp r0^k c^2 Gamma0^2) ]^(1/(3-k)).
+ *          Defaults (k=0, r0=1 cm) recover the ISM formula.
+ * @param E_iso Isotropic energy
+ * @param n0 Number density normalization at reference radius r0 [cm^-3]
+ * @param Gamma0 Initial Lorentz factor
+ * @param k Density power-law slope (default 0 = ISM)
+ * @param r0 Reference radius [cm] for n0 (default 1 cm)
+ * @return The thin shell deceleration radius
+ * <!-- ************************************************************************************** -->
+ */
+        Real thin_shell_dec_radius(Real E_iso, Real n0, Real Gamma0, Real k = 0.0, Real r0 = 1.0);
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the deceleration radius for the thick shell case.
+ * @details Uses the power-law formula:
+ *          R_dec = [ (3-k) E_iso engine_dura c / (4π n0 mp r0^k c^2) ]^(1/(4-k)).
+ *          Defaults (k=0, r0=1 cm) recover the ISM formula.
+ * @param E_iso Isotropic energy
+ * @param n0 Number density normalization at reference radius r0 [cm^-3]
+ * @param engine_dura Engine duration
+ * @param k Density power-law slope (default 0 = ISM)
+ * @param r0 Reference radius [cm] for n0 (default 1 cm)
+ * @return The thick shell deceleration radius
+ * <!-- ************************************************************************************** -->
+ */
+        Real thick_shell_dec_radius(Real E_iso, Real n0, Real engine_dura, Real k = 0.0, Real r0 = 1.0);
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the radius at which shell spreading becomes significant.
+ * @details Uses the formula: R_spread = Gamma0^2 * c * engine_dura
+ * @param Gamma0 Initial Lorentz factor
+ * @param engine_dura Engine duration
+ * @return The shell spreading radius
+ * <!-- ************************************************************************************** -->
+ */
+        Real shell_spreading_radius(Real Gamma0, Real engine_dura);
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the radius at which the reverse shock transitions.
+ * @details Based on the Sedov length, engine duration, and initial Lorentz factor.
+ *          Uses the formula: R_RS = (SedovLength^(1.5)) / (sqrt(c * engine_dura) * Gamma0^2)
+ * @param E_iso Isotropic energy
+ * @param n_ism ISM density
+ * @param Gamma0 Initial Lorentz factor
+ * @param engine_dura Engine duration
+ * @return The reverse shock transition radius
+ * <!-- ************************************************************************************** -->
+ */
+        Real RS_transition_radius(Real E_iso, Real n_ism, Real Gamma0, Real engine_dura);
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Computes the dimensionless parameter (ξ) that characterizes the shell geometry.
+ * @details This parameter helps determine whether the shell behaves as thick or thin.
+ *          Uses the formula: ξ = sqrt(Sedov_length / shell_width) * Gamma0^(-4/3)
+ * @param E_iso Isotropic energy
+ * @param n_ism ISM density
+ * @param Gamma0 Initial Lorentz factor
+ * @param engine_dura Engine duration
+ * @return The shell thickness parameter ξ
+ * <!-- ************************************************************************************** -->
+ */
+        Real shell_thickness_param(Real E_iso, Real n_ism, Real Gamma0, Real engine_dura);
+
+        /**
+ * <!-- ************************************************************************************** -->
+ * @brief Calculates the engine duration needed to achieve a specific shell thickness parameter.
+ * @details Uses the formula: T_engine = Sedov_l / (ξ^2 * Gamma0^(8/3) * c)
+ * @param E_iso Isotropic energy
+ * @param n_ism ISM density
+ * @param Gamma0 Initial Lorentz factor
+ * @param xi Target shell thickness parameter
+ * @return The required engine duration
+ * <!-- ************************************************************************************** -->
+ */
+        Real calc_engine_duration(Real E_iso, Real n_ism, Real Gamma0, Real xi);
+
+    } // namespace scales
+
+} // namespace physics
+
+//========================================================================================================
+//                                  template function implementation
+//========================================================================================================
+
+/**
+ * <!-- ************************************************************************************** -->
+ * @brief Parameters for radiation transport
+ * @details Parameters for radiation transport
+ * <!-- ************************************************************************************** -->
+ */
+struct RadParams {
+    Real eps_e{0.1};         ///< Electron energy fraction
+    Real eps_B{0.01};        ///< Magnetic field energy fraction
+    Real p{2.3};             ///< Electron energy distribution index
+    Real xi_e{1};            ///< Electron self-absorption parameter
+    bool cmb_cooling{false}; ///< Whether to include CMB IC cooling (redshift passed separately)
+    /**
+     * Mirror of the historical AMPy / JetFit ``fts=True`` option, renamed
+     * here to describe the physics directly. When enabled, the synchrotron
+     * spectrum is additionally smoothed using the fast-cooling to
+     * slow-cooling transition prescription from Dutton (2025, Ch. 5.3)
+     * and the corresponding AMPy implementation. This mirrors the
+     * historical explicit ``fts=True`` setting used in the local workflow.
+     */
+    bool smooth_fast_to_slow_transition{false};
+};
