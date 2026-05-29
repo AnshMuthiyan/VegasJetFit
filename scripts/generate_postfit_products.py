@@ -14,6 +14,7 @@ import importlib
 import json
 import math
 import os
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -850,6 +851,34 @@ def regenerate_density_profiles(results: Path, event: str, params: dict[str, Any
     )
 
 
+def maybe_generate_structjet_swept_mass_overlay(results: Path, model_name: str) -> None:
+    """Generate structured-jet swept-mass overlay products for PowerLawJet models."""
+    if "PowerlawJet" not in model_name:
+        return
+
+    script = Path(__file__).resolve().parent / "plot_structjet_swept_mass_diagnostics.py"
+    if not script.exists():
+        print(f"WARNING: missing structured-jet overlay script: {script}")
+        return
+
+    env = dict(os.environ)
+    root = Path(__file__).resolve().parents[1]
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{root}:{existing}" if existing else str(root)
+
+    cmd = [sys.executable, str(script), "--run-dir", str(results)]
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("WARNING: structured-jet swept-mass overlay generation failed.")
+        if proc.stdout.strip():
+            print(proc.stdout.strip())
+        if proc.stderr.strip():
+            print(proc.stderr.strip())
+    else:
+        if proc.stdout.strip():
+            print(proc.stdout.strip())
+
+
 def main() -> int:
     args = parse_args()
     results = args.results.expanduser().resolve()
@@ -865,6 +894,7 @@ def main() -> int:
 
     plot_mass_profile(results, event, params, model_name, source, nmap)
     plot_ampy_comparison(results, event, params, model_name, source, nmap)
+    maybe_generate_structjet_swept_mass_overlay(results, model_name)
     if not args.skip_density_replot:
         regenerate_density_profiles(results, event, params)
 
