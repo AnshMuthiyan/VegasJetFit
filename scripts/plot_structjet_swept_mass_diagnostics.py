@@ -139,11 +139,15 @@ def main() -> None:
     gamma0_core = float(model_params["lf0"])
     theta_c = float(model_params["theta_c"])
     k_e = float(model_params["k_e"])
+    k_g = float(model_params["k_g"])
 
     # dE/dOmega(theta) for VegasAfterglow PowerLawJet:
     # eps_k(theta) = (E_iso/4pi) / (1 + (theta/theta_c)^k_e)
     dE_dOmega = (e_iso / (4.0 * math.pi)) / (1.0 + np.power(theta_grid / max(theta_c, 1e-12), k_e))
-    dMej_dOmega = dE_dOmega / (gamma0_core * (C_CGS**2))
+    # Structured-jet local ejecta mass per solid angle must use Gamma0(theta),
+    # not a single core Gamma0 value.
+    gamma0_theta = (gamma0_core - 1.0) / (1.0 + np.power(theta_grid / max(theta_c, 1e-12), k_g)) + 1.0
+    dMej_dOmega = dE_dOmega / (gamma0_theta * (C_CGS**2))
 
     thresh1_local = dMej_dOmega[:, None] / np.clip(gamma, 1e-12, np.inf)
     thresh10_local = 10.0 * thresh1_local
