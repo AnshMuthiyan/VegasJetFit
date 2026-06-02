@@ -10,9 +10,12 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg", force=True)
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from matplotlib import pyplot as plt
 import numpy as np
 
+from jetfit.mcmc.parameters import Parameters
 from jetfit.models.powerlawJetVegasDylanSpectrum import PowerlawJetVegasDylanSpectrumModel
 
 
@@ -103,13 +106,156 @@ def interp_radius_at_time(t_days: np.ndarray, r_cm: np.ndarray, t_target_days: f
     return float(np.exp(np.interp(np.log(t_target_days), np.log(t), np.log(r))))
 
 
+def crossing_point_against_curve(
+    x: np.ndarray,
+    y: np.ndarray,
+    target: np.ndarray,
+) -> tuple[float, float]:
+    """Return first log-interpolated crossing of ``y`` above ``target``."""
+    xx = np.asarray(x, dtype=float)
+    yy = np.asarray(y, dtype=float)
+    tt = np.asarray(target, dtype=float)
+    m = np.isfinite(xx) & np.isfinite(yy) & np.isfinite(tt) & (xx > 0) & (yy > 0) & (tt > 0)
+    xx = xx[m]
+    yy = yy[m]
+    tt = tt[m]
+    if xx.size < 2:
+        return float("nan"), float("nan")
+
+    order = np.argsort(xx)
+    xx = xx[order]
+    yy = yy[order]
+    tt = tt[order]
+    delta = np.log(yy) - np.log(tt)
+    hit = np.where(delta >= 0.0)[0]
+    if hit.size == 0:
+        return float("nan"), float("nan")
+    idx = int(hit[0])
+    if idx == 0:
+        return float(xx[0]), float(tt[0])
+
+    x0 = float(xx[idx - 1])
+    x1 = float(xx[idx])
+    d0 = float(delta[idx - 1])
+    d1 = float(delta[idx])
+    if not (np.isfinite(d0) and np.isfinite(d1)) or d1 == d0:
+        return float(xx[idx]), float(tt[idx])
+    frac = float(np.clip(-d0 / (d1 - d0), 0.0, 1.0))
+    x_cross = float(np.exp(np.log(x0) + frac * (np.log(x1) - np.log(x0))))
+    y_cross = float(np.exp(np.interp(np.log(x_cross), np.log(xx), np.log(tt))))
+    return x_cross, y_cross
+
+
+def radial_data_range_from_core_tracks(
+    t_obs_days: np.ndarray,
+    r_cm: np.ndarray,
+    core_idx: np.ndarray,
+    obs_tmin_days: float,
+    obs_tmax_days: float,
+) -> tuple[float, float]:
+    """Map the observed time span through all core-angle radius tracks."""
+    vals: list[float] = []
+    for j in core_idx:
+        vals.extend(
+            [
+                interp_radius_at_time(t_obs_days[j], r_cm[j], obs_tmin_days),
+                interp_radius_at_time(t_obs_days[j], r_cm[j], obs_tmax_days),
+            ]
+        )
+    vals = [v for v in vals if np.isfinite(v) and v > 0]
+    if len(vals) < 2:
+        return float("nan"), float("nan")
+    return float(np.min(vals)), float(np.max(vals))
+
+
+def radial_data_range_for_track(
+    t_obs_days: np.ndarray,
+    r_cm: np.ndarray,
+    obs_tmin_days: float,
+    obs_tmax_days: float,
+) -> tuple[float, float]:
+    """Map the observed time span through one angular radius track."""
+    vals = [
+        interp_radius_at_time(t_obs_days, r_cm, obs_tmin_days),
+        interp_radius_at_time(t_obs_days, r_cm, obs_tmax_days),
+    ]
+    vals = [v for v in vals if np.isfinite(v) and v > 0]
+    if len(vals) < 2:
+        return float("nan"), float("nan")
+    return float(np.min(vals)), float(np.max(vals))
+
+
+def compute_local_crossings(
+    *,
+    t_days: np.ndarray,
+    r_cm: np.ndarray,
+    swept: np.ndarray,
+    threshold_1x: np.ndarray,
+    threshold_10x: np.ndarray,
+    theta_label: str,
+    source: str,
+) -> list[dict[str, float | str]]:
+    rows: list[dict[str, float | str]] = []
+    for threshold_label, threshold in (
+        ("deceleration_m_ej_over_gamma", threshold_1x),
+        ("bm_onset_10m_ej_over_gamma", threshold_10x),
+    ):
+        t_cross, m_t = crossing_point_against_curve(t_days, swept, threshold)
+        r_cross, m_r = crossing_point_against_curve(r_cm, swept, threshold)
+        rows.append(
+            {
+                "source": source,
+                "theta": theta_label,
+                "threshold": threshold_label,
+                "t_obs_days": t_cross,
+                "radius_cm": r_cross,
+                "mass_time_g_per_sr": m_t,
+                "mass_radius_g_per_sr": m_r,
+            }
+        )
+    return rows
+
+
+def load_final_walker_model_params(run_dir: Path) -> list[dict[str, float]]:
+    """Return final cold-chain model params for each walker, if a chain exists."""
+    chain_path = run_dir / "chain.npz"
+    model_path = run_dir / "model.toml"
+    if not chain_path.exists() or not model_path.exists():
+        return []
+
+    params = Parameters.from_toml(model_path)
+    with np.load(chain_path) as data:
+        chain = np.asarray(data["chain"], dtype=float)
+    if chain.ndim == 4:
+        # Parallel-tempered shape: step, temp, walker, dim. Use cold temp.
+        final = chain[-1, 0, :, :]
+    elif chain.ndim == 3:
+        # Cold-chain shape: step, walker, dim.
+        final = chain[-1, :, :]
+    else:
+        return []
+
+    out: list[dict[str, float]] = []
+    for theta in final:
+        if not np.all(np.isfinite(theta)):
+            continue
+        try:
+            payload = params.samples_to_dict(theta, cat="model", scale="linear")
+            model_params = payload.get("model", {})
+        except Exception:
+            continue
+        if model_params:
+            out.append({k: float(v) for k, v in model_params.items()})
+    return out
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Plot structured-jet swept-mass diagnostics for one run.")
     p.add_argument("--run-dir", type=Path, required=True)
     args = p.parse_args()
 
     run_dir = args.run_dir.expanduser().resolve()
-    campaign_dir = run_dir.parent
+    output_dir = run_dir
     event = run_dir.name
 
     min_json = run_dir / "minimized" / "minimized.json"
@@ -347,6 +493,346 @@ def main() -> None:
     )
     fig_cr.tight_layout(rect=(0, 0, 1, 0.97))
 
+    best_crossings: list[dict[str, float | str]] = []
+    best_crossings.extend(
+        compute_local_crossings(
+            t_days=t_obs_days[idx_axis],
+            r_cm=r_cm[idx_axis],
+            swept=m_sw_per_sr[idx_axis],
+            threshold_1x=thresh1_local[idx_axis],
+            threshold_10x=thresh10_local[idx_axis],
+            theta_label="theta=0",
+            source="best",
+        )
+    )
+    best_crossings.extend(
+        compute_local_crossings(
+            t_days=t_obs_days[idx_core],
+            r_cm=r_cm[idx_core],
+            swept=m_sw_per_sr[idx_core],
+            threshold_1x=thresh1_local[idx_core],
+            threshold_10x=thresh10_local[idx_core],
+            theta_label="theta=theta_c",
+            source="best",
+        )
+    )
+
+    def walker_crossings_for_params(sample_params: dict[str, float], source: str) -> list[dict[str, float | str]]:
+        try:
+            sample_model = PowerlawJetVegasDylanSpectrumModel(**sample_params)
+            sample_details = sample_model.vegas_model.details(
+                float(max(obs_tmin_days / 30.0, 1e-8) * SEC_PER_DAY),
+                float(max(obs_tmax_days * 30.0, obs_tmin_days) * SEC_PER_DAY),
+            )
+            sample_theta = np.asarray(sample_details.fwd.theta, dtype=float)[0, :, 0]
+            sample_t = np.asarray(sample_details.fwd.t_obs, dtype=float)[0, :, :] / SEC_PER_DAY
+            sample_r = np.asarray(sample_details.fwd.r, dtype=float)[0, :, :]
+            sample_gamma = np.asarray(sample_details.fwd.Gamma, dtype=float)[0, :, :]
+            sample_np = np.asarray(sample_details.fwd.N_p, dtype=float)[0, :, :]
+            sample_msw = MP_G * sample_np
+            sample_e_iso = float(sample_params["E52"]) * 1.0e52
+            sample_gamma0_core = float(sample_params["lf0"])
+            sample_theta_c = float(sample_params["theta_c"])
+            sample_k_e = float(sample_params["k_e"])
+            sample_k_g = float(sample_params["k_g"])
+            sample_dE_dOmega = (sample_e_iso / (4.0 * math.pi)) / (
+                1.0 + np.power(sample_theta / max(sample_theta_c, 1e-12), sample_k_e)
+            )
+            sample_gamma0_theta = (sample_gamma0_core - 1.0) / (
+                1.0 + np.power(sample_theta / max(sample_theta_c, 1e-12), sample_k_g)
+            ) + 1.0
+            sample_dMej_dOmega = sample_dE_dOmega / (sample_gamma0_theta * (C_CGS**2))
+            sample_thr1 = sample_dMej_dOmega[:, None] / np.clip(sample_gamma, 1e-12, np.inf)
+            sample_thr10 = 10.0 * sample_thr1
+            sample_idx_axis = int(np.argmin(np.abs(sample_theta - 0.0)))
+            sample_idx_core = int(np.argmin(np.abs(sample_theta - sample_theta_c)))
+
+            rows: list[dict[str, float | str]] = []
+            rows.extend(
+                compute_local_crossings(
+                    t_days=sample_t[sample_idx_axis],
+                    r_cm=sample_r[sample_idx_axis],
+                    swept=sample_msw[sample_idx_axis],
+                    threshold_1x=sample_thr1[sample_idx_axis],
+                    threshold_10x=sample_thr10[sample_idx_axis],
+                    theta_label="theta=0",
+                    source=source,
+                )
+            )
+            rows.extend(
+                compute_local_crossings(
+                    t_days=sample_t[sample_idx_core],
+                    r_cm=sample_r[sample_idx_core],
+                    swept=sample_msw[sample_idx_core],
+                    threshold_1x=sample_thr1[sample_idx_core],
+                    threshold_10x=sample_thr10[sample_idx_core],
+                    theta_label="theta=theta_c",
+                    source=source,
+                )
+            )
+            return rows
+        except Exception:
+            return []
+
+    walker_crossings: list[dict[str, float | str]] = []
+    for i, sample_params in enumerate(load_final_walker_model_params(run_dir)):
+        walker_crossings.extend(walker_crossings_for_params(sample_params, f"walker_{i:03d}"))
+
+    r_axis_lo, r_axis_hi = radial_data_range_for_track(
+        t_obs_days[idx_axis],
+        r_cm[idx_axis],
+        obs_tmin_days,
+        obs_tmax_days,
+    )
+    r_core_lo, r_core_hi = radial_data_range_for_track(
+        t_obs_days[idx_core],
+        r_cm[idx_core],
+        obs_tmin_days,
+        obs_tmax_days,
+    )
+
+    def _valid_crossing_rows(
+        rows: list[dict[str, float | str]],
+        theta_label: str,
+        threshold_label: str,
+    ) -> list[dict[str, float | str]]:
+        return [
+            row
+            for row in rows
+            if row["theta"] == theta_label
+            and row["threshold"] == threshold_label
+            and np.isfinite(float(row["t_obs_days"]))
+            and np.isfinite(float(row["radius_cm"]))
+        ]
+
+    def scatter_crossings(
+        ax,
+        rows: list[dict[str, float | str]],
+        *,
+        x_key: str,
+        y_key: str,
+        theta_label: str,
+        threshold_label: str,
+        color: str,
+        marker: str,
+        alpha: float,
+        size: float,
+        edgecolor: str | None = None,
+        zorder: float = 2.0,
+        label: str | None = None,
+    ):
+        sub = _valid_crossing_rows(rows, theta_label, threshold_label)
+        if not sub:
+            return None
+        return ax.scatter(
+            [float(row[x_key]) for row in sub],
+            [float(row[y_key]) for row in sub],
+            s=size,
+            marker=marker,
+            color=color,
+            alpha=alpha,
+            edgecolors=edgecolor if edgecolor is not None else "none",
+            linewidths=0.6 if edgecolor is not None else 0.0,
+            zorder=zorder,
+            label=label,
+        )
+
+    def add_walker_crossing_cloud(ax, *, x_key: str, y_key: str, axis_light: str, core_light: str) -> None:
+        # Marker semantics: circle = M_ej/Gamma crossing; square = 10 M_ej/Gamma crossing.
+        scatter_crossings(
+            ax,
+            walker_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=theta_c",
+            threshold_label="deceleration_m_ej_over_gamma",
+            color=core_light,
+            marker="o",
+            alpha=0.50,
+            size=24,
+            zorder=1.1,
+        )
+        scatter_crossings(
+            ax,
+            walker_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=theta_c",
+            threshold_label="bm_onset_10m_ej_over_gamma",
+            color=core_light,
+            marker="s",
+            alpha=0.50,
+            size=24,
+            zorder=1.1,
+        )
+        scatter_crossings(
+            ax,
+            walker_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=0",
+            threshold_label="deceleration_m_ej_over_gamma",
+            color=axis_light,
+            marker="o",
+            alpha=0.50,
+            size=24,
+            zorder=1.4,
+        )
+        scatter_crossings(
+            ax,
+            walker_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=0",
+            threshold_label="bm_onset_10m_ej_over_gamma",
+            color=axis_light,
+            marker="s",
+            alpha=0.50,
+            size=24,
+            zorder=1.4,
+        )
+
+    def add_best_crossings(ax, *, x_key: str, y_key: str, axis_color: str, core_color: str):
+        h_core_dec = scatter_crossings(
+            ax,
+            best_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=theta_c",
+            threshold_label="deceleration_m_ej_over_gamma",
+            color=core_color,
+            marker="o",
+            alpha=1.0,
+            size=72,
+            edgecolor="black",
+            zorder=6,
+        )
+        h_core_bm = scatter_crossings(
+            ax,
+            best_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=theta_c",
+            threshold_label="bm_onset_10m_ej_over_gamma",
+            color=core_color,
+            marker="s",
+            alpha=1.0,
+            size=72,
+            edgecolor="black",
+            zorder=6,
+        )
+        h_axis_dec = scatter_crossings(
+            ax,
+            best_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=0",
+            threshold_label="deceleration_m_ej_over_gamma",
+            color=axis_color,
+            marker="o",
+            alpha=1.0,
+            size=72,
+            edgecolor="black",
+            zorder=7,
+        )
+        h_axis_bm = scatter_crossings(
+            ax,
+            best_crossings,
+            x_key=x_key,
+            y_key=y_key,
+            theta_label="theta=0",
+            threshold_label="bm_onset_10m_ej_over_gamma",
+            color=axis_color,
+            marker="s",
+            alpha=1.0,
+            size=72,
+            edgecolor="black",
+            zorder=7,
+        )
+        return [h for h in (h_axis_dec, h_axis_bm, h_core_dec, h_core_bm) if h is not None]
+
+    def add_radial_data_spans(ax):
+        """Draw separate angular radial ranges with a neutral overlap span."""
+        intervals: dict[str, tuple[float, float]] = {}
+        if np.isfinite(r_core_lo) and np.isfinite(r_core_hi) and r_core_hi > r_core_lo:
+            intervals["core"] = (r_core_lo, r_core_hi)
+        if np.isfinite(r_axis_lo) and np.isfinite(r_axis_hi) and r_axis_hi > r_axis_lo:
+            intervals["axis"] = (r_axis_lo, r_axis_hi)
+
+        def span(lo: float, hi: float, color: str, alpha: float, zorder: float) -> None:
+            if np.isfinite(lo) and np.isfinite(hi) and hi > lo:
+                ax.axvspan(lo, hi, color=color, alpha=alpha, lw=0, zorder=zorder)
+
+        if "core" in intervals and "axis" in intervals:
+            core_lo, core_hi = intervals["core"]
+            axis_lo, axis_hi = intervals["axis"]
+            overlap_lo = max(core_lo, axis_lo)
+            overlap_hi = min(core_hi, axis_hi)
+
+            # Non-overlap portions retain their angular tint.
+            span(core_lo, min(core_hi, overlap_lo), cc, 0.12, 0.10)
+            span(max(core_lo, overlap_hi), core_hi, cc, 0.12, 0.10)
+            span(axis_lo, min(axis_hi, overlap_lo), c0, 0.12, 0.20)
+            span(max(axis_lo, overlap_hi), axis_hi, c0, 0.12, 0.20)
+
+            # The shared portion represents where both angular mappings agree.
+            span(overlap_lo, overlap_hi, "0.6", 0.17, 0.30)
+            return
+
+        if "core" in intervals:
+            span(*intervals["core"], cc, 0.12, 0.10)
+        if "axis" in intervals:
+            span(*intervals["axis"], c0, 0.12, 0.20)
+
+    def add_clean_overlay_legend(ax, *, radial_range: bool) -> None:
+        handles = [
+            Line2D([0], [0], color=c0, lw=2.2, ls="-", label=r"$\theta=0$: $dM_{\rm sw}/d\Omega$"),
+            Line2D([0], [0], color=c0, lw=1.9, ls=":", label=r"$\theta=0$: $(dM_{\rm ej}/d\Omega)/\Gamma$"),
+            Line2D([0], [0], color=c0, lw=1.9, ls="--", label=r"$\theta=0$: $10(dM_{\rm ej}/d\Omega)/\Gamma$"),
+            Line2D([0], [0], color=cc, lw=2.2, ls="-", label=r"$\theta=\theta_c$: $dM_{\rm sw}/d\Omega$"),
+            Line2D([0], [0], color=cc, lw=1.9, ls=":", label=r"$\theta=\theta_c$: $(dM_{\rm ej}/d\Omega)/\Gamma$"),
+            Line2D([0], [0], color=cc, lw=1.9, ls="--", label=r"$\theta=\theta_c$: $10(dM_{\rm ej}/d\Omega)/\Gamma$"),
+            Line2D([0], [0], marker="o", color="black", markerfacecolor="white", lw=0, ms=7, label="decel crossing"),
+            Line2D([0], [0], marker="s", color="black", markerfacecolor="white", lw=0, ms=7, label="BM-onset crossing"),
+        ]
+        handles.append(
+            Patch(
+                facecolor="0.6",
+                edgecolor="none",
+                alpha=0.17,
+                label="Data time range" if not radial_range else "Mapped data-range overlap",
+            )
+        )
+        ax.legend(
+            handles=handles,
+            fontsize=7.4,
+            ncol=3,
+            loc="lower right",
+            frameon=True,
+            framealpha=0.93,
+            fancybox=False,
+            borderpad=0.45,
+            handlelength=2.2,
+            handletextpad=0.55,
+            columnspacing=0.95,
+        )
+
+    def save_tight(fig, path: Path, *, dpi: int | None = None) -> None:
+        fig.savefig(path, dpi=dpi, bbox_inches="tight", pad_inches=0.045)
+
+    def add_grb_label(ax) -> None:
+        ax.text(
+            0.035,
+            0.875,
+            f"GRB {event}",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=15,
+            fontweight="semibold",
+            zorder=20,
+        )
+
     # ---- True single-axis overlays (all comparable curves on one plot) ----
     fig_ot, ax_ot = plt.subplots(figsize=(10.0, 6.8))
     ax_ot.set_xscale("log")
@@ -359,25 +845,27 @@ def main() -> None:
     right_t = ax_ot.secondary_yaxis("right", functions=(lambda g: g / MSUN_G, lambda ms: ms * MSUN_G))
     right_t.set_ylabel(r"Mass per solid angle [$M_\odot$ sr$^{-1}$]")
 
-    # Color mapping: red -> theta=0, blue -> theta=theta_c
-    c0 = "tab:red"
-    cc = "tab:blue"
+    # Color mapping requested 2026-06-01: swap the previous red/blue assignment.
+    c0 = "tab:blue"
+    cc = "tab:red"
+    c0_light = "lightskyblue"
+    cc_light = "lightpink"
 
-    h_red_sw, = ax_ot.plot(t_obs_days[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
-    h_blue_sw, = ax_ot.plot(t_obs_days[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
+    add_walker_crossing_cloud(ax_ot, x_key="t_obs_days", y_key="mass_time_g_per_sr", axis_light=c0_light, core_light=cc_light)
 
-    h_red_th1, = ax_ot.plot(t_obs_days[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_blue_th1, = ax_ot.plot(t_obs_days[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_ot.plot(t_obs_days[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, zorder=3, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
+    ax_ot.plot(t_obs_days[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, zorder=4, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
 
-    h_red_th10, = ax_ot.plot(t_obs_days[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_blue_th10, = ax_ot.plot(t_obs_days[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_ot.plot(t_obs_days[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, zorder=3, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_ot.plot(t_obs_days[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, zorder=4, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
+
+    ax_ot.plot(t_obs_days[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, zorder=3, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_ot.plot(t_obs_days[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, zorder=4, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
     ax_ot.set_xlabel("Observer time [days]")
     ax_ot.set_ylabel(r"Mass per solid angle [g sr$^{-1}$]")
-    ax_ot.set_title(f"{event} | Single-plot overlay (time): local diagnostics only")
-    # Matplotlib fills legends down columns first. Force left column to be all-red + data.
-    handles_t = [h_red_sw, h_red_th1, h_red_th10, h_data_t, h_blue_sw, h_blue_th1, h_blue_th10]
-    labels_t = [h.get_label() for h in handles_t]
-    ax_ot.legend(handles_t, labels_t, fontsize=8, ncol=2, loc="best")
+    add_grb_label(ax_ot)
+    add_best_crossings(ax_ot, x_key="t_obs_days", y_key="mass_time_g_per_sr", axis_color=c0, core_color=cc)
+    add_clean_overlay_legend(ax_ot, radial_range=False)
     fig_ot.tight_layout()
 
     fig_or, ax_or = plt.subplots(figsize=(10.0, 6.8))
@@ -390,43 +878,25 @@ def main() -> None:
     right_r = ax_or.secondary_yaxis("right", functions=(lambda g: g / MSUN_G, lambda ms: ms * MSUN_G))
     right_r.set_ylabel(r"Mass per solid angle [$M_\odot$ sr$^{-1}$]")
 
-    # Approximate radial data range from observed time window mapped through local radius tracks.
-    r_candidates = [
-        interp_radius_at_time(t_obs_days[idx_axis], r_cm[idx_axis], obs_tmin_days),
-        interp_radius_at_time(t_obs_days[idx_axis], r_cm[idx_axis], obs_tmax_days),
-        interp_radius_at_time(t_obs_days[idx_core], r_cm[idx_core], obs_tmin_days),
-        interp_radius_at_time(t_obs_days[idx_core], r_cm[idx_core], obs_tmax_days),
-    ]
-    r_candidates = [x for x in r_candidates if np.isfinite(x) and x > 0]
-    if len(r_candidates) >= 2:
-        r_lo = float(np.min(r_candidates))
-        r_hi = float(np.max(r_candidates))
-        if r_hi > r_lo:
-            h_data_r = ax_or.axvspan(r_lo, r_hi, color="0.6", alpha=0.17, lw=0, label="Approx. data radial range")
-    else:
-        h_data_r = None
+    # Map the observed time window through each angular track shown. Non-overlap
+    # spans keep their angular tint; the shared portion is neutral grey.
+    add_radial_data_spans(ax_or)
 
-    h_red_sw_r, = ax_or.plot(r_cm[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
-    h_blue_sw_r, = ax_or.plot(r_cm[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
+    add_walker_crossing_cloud(ax_or, x_key="radius_cm", y_key="mass_radius_g_per_sr", axis_light=c0_light, core_light=cc_light)
 
-    h_red_th1_r, = ax_or.plot(r_cm[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_blue_th1_r, = ax_or.plot(r_cm[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_or.plot(r_cm[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, zorder=3, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
+    ax_or.plot(r_cm[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, zorder=4, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
 
-    h_red_th10_r, = ax_or.plot(r_cm[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_blue_th10_r, = ax_or.plot(r_cm[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_or.plot(r_cm[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, zorder=3, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_or.plot(r_cm[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, zorder=4, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
+
+    ax_or.plot(r_cm[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, zorder=3, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_or.plot(r_cm[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, zorder=4, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
     ax_or.set_xlabel("Radius [cm]")
     ax_or.set_ylabel(r"Mass per solid angle [g sr$^{-1}$]")
-    ax_or.set_title(f"{event} | Single-plot overlay (radius): local diagnostics only")
-    handles_r = [h_red_sw_r, h_red_th1_r, h_red_th10_r]
-    if h_data_r is not None:
-        handles_r.append(h_data_r)
-    else:
-        # preserve 4-left / 3-right layout if radial data span is unavailable
-        h_dummy, = ax_or.plot([], [], alpha=0.0, label="")
-        handles_r.append(h_dummy)
-    handles_r.extend([h_blue_sw_r, h_blue_th1_r, h_blue_th10_r])
-    labels_r = [h.get_label() for h in handles_r]
-    ax_or.legend(handles_r, labels_r, fontsize=8, ncol=2, loc="best")
+    add_grb_label(ax_or)
+    add_best_crossings(ax_or, x_key="radius_cm", y_key="mass_radius_g_per_sr", axis_color=c0, core_color=cc)
+    add_clean_overlay_legend(ax_or, radial_range=True)
     fig_or.tight_layout()
 
     # ---- Two-panel combined figure: time (top), radius (bottom) ----
@@ -444,17 +914,19 @@ def main() -> None:
     right_ct = ax_ctop.secondary_yaxis("right", functions=(lambda g: g / MSUN_G, lambda ms: ms * MSUN_G))
     right_ct.set_ylabel(r"Mass per solid angle [$M_\odot$ sr$^{-1}$]")
 
-    h_ct_red_sw, = ax_ctop.plot(t_obs_days[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
-    h_ct_blue_sw, = ax_ctop.plot(t_obs_days[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
-    h_ct_red_th1, = ax_ctop.plot(t_obs_days[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_ct_blue_th1, = ax_ctop.plot(t_obs_days[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
-    h_ct_red_th10, = ax_ctop.plot(t_obs_days[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_ct_blue_th10, = ax_ctop.plot(t_obs_days[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    add_walker_crossing_cloud(ax_ctop, x_key="t_obs_days", y_key="mass_time_g_per_sr", axis_light=c0_light, core_light=cc_light)
+
+    ax_ctop.plot(t_obs_days[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, zorder=3, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
+    ax_ctop.plot(t_obs_days[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, zorder=4, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
+    ax_ctop.plot(t_obs_days[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, zorder=3, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_ctop.plot(t_obs_days[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, zorder=4, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
+    ax_ctop.plot(t_obs_days[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, zorder=3, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_ctop.plot(t_obs_days[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, zorder=4, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
     ax_ctop.set_xlabel("Observer time [days]")
     ax_ctop.set_ylabel(r"Mass per solid angle [g sr$^{-1}$]")
-    handles_ct = [h_ct_red_sw, h_ct_red_th1, h_ct_red_th10, h_ct_data, h_ct_blue_sw, h_ct_blue_th1, h_ct_blue_th10]
-    labels_ct = [h.get_label() for h in handles_ct]
-    ax_ctop.legend(handles_ct, labels_ct, fontsize=8, ncol=2, loc="best")
+    add_grb_label(ax_ctop)
+    add_best_crossings(ax_ctop, x_key="t_obs_days", y_key="mass_time_g_per_sr", axis_color=c0, core_color=cc)
+    add_clean_overlay_legend(ax_ctop, radial_range=False)
 
     # Bottom panel (radius)
     secax_cr = ax_cbot.secondary_xaxis("top", functions=(lambda cm: cm / PC_CM, lambda pc: pc * PC_CM))
@@ -463,63 +935,70 @@ def main() -> None:
     right_cr = ax_cbot.secondary_yaxis("right", functions=(lambda g: g / MSUN_G, lambda ms: ms * MSUN_G))
     right_cr.set_ylabel(r"Mass per solid angle [$M_\odot$ sr$^{-1}$]")
 
-    h_cr_data = None
-    if len(r_candidates) >= 2:
-        r_lo = float(np.min(r_candidates))
-        r_hi = float(np.max(r_candidates))
-        if r_hi > r_lo:
-            h_cr_data = ax_cbot.axvspan(r_lo, r_hi, color="0.6", alpha=0.17, lw=0, label="Approx. data radial range")
+    add_radial_data_spans(ax_cbot)
 
-    h_cr_red_sw, = ax_cbot.plot(r_cm[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
-    h_cr_blue_sw, = ax_cbot.plot(r_cm[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
-    h_cr_red_th1, = ax_cbot.plot(r_cm[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_cr_blue_th1, = ax_cbot.plot(r_cm[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
-    h_cr_red_th10, = ax_cbot.plot(r_cm[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
-    h_cr_blue_th10, = ax_cbot.plot(r_cm[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    add_walker_crossing_cloud(ax_cbot, x_key="radius_cm", y_key="mass_radius_g_per_sr", axis_light=c0_light, core_light=cc_light)
+
+    ax_cbot.plot(r_cm[idx_core], m_sw_per_sr[idx_core], lw=2.0, ls="-", color=cc, zorder=3, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=\theta_c$")
+    ax_cbot.plot(r_cm[idx_axis], m_sw_per_sr[idx_axis], lw=2.0, ls="-", color=c0, zorder=4, label=r"$dM_{\rm sw}/d\Omega$ @ $\theta=0$")
+    ax_cbot.plot(r_cm[idx_core], thresh1_local[idx_core], lw=1.7, ls=":", color=cc, zorder=3, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_cbot.plot(r_cm[idx_axis], thresh1_local[idx_axis], lw=1.7, ls=":", color=c0, zorder=4, label=r"$(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
+    ax_cbot.plot(r_cm[idx_core], thresh10_local[idx_core], lw=1.7, ls="--", color=cc, zorder=3, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=\theta_c$")
+    ax_cbot.plot(r_cm[idx_axis], thresh10_local[idx_axis], lw=1.7, ls="--", color=c0, zorder=4, label=r"$10(dM_{\rm ej}/d\Omega)/\Gamma$ @ $\theta=0$")
     ax_cbot.set_xlabel("Radius [cm]")
     ax_cbot.set_ylabel(r"Mass per solid angle [g sr$^{-1}$]")
+    add_grb_label(ax_cbot)
+    add_best_crossings(ax_cbot, x_key="radius_cm", y_key="mass_radius_g_per_sr", axis_color=c0, core_color=cc)
+    add_clean_overlay_legend(ax_cbot, radial_range=True)
 
-    handles_cr = [h_cr_red_sw, h_cr_red_th1, h_cr_red_th10]
-    if h_cr_data is not None:
-        handles_cr.append(h_cr_data)
-    else:
-        h_dummy_cr, = ax_cbot.plot([], [], alpha=0.0, label="")
-        handles_cr.append(h_dummy_cr)
-    handles_cr.extend([h_cr_blue_sw, h_cr_blue_th1, h_cr_blue_th10])
-    labels_cr = [h.get_label() for h in handles_cr]
-    ax_cbot.legend(handles_cr, labels_cr, fontsize=8, ncol=2, loc="best")
+    fig_combo.tight_layout()
 
-    fig_combo.suptitle(f"GRB {event}", fontsize=14, y=0.995)
-    fig_combo.tight_layout(rect=(0, 0, 1, 0.975))
+    out_time_pdf = output_dir / f"{event}_structjet_swept_mass_diagnostics_vs_time.pdf"
+    out_time_png = output_dir / f"{event}_structjet_swept_mass_diagnostics_vs_time.png"
+    out_radius_pdf = output_dir / f"{event}_structjet_swept_mass_diagnostics_vs_radius.pdf"
+    out_radius_png = output_dir / f"{event}_structjet_swept_mass_diagnostics_vs_radius.png"
+    out_ct_pdf = output_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_time.pdf"
+    out_ct_png = output_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_time.png"
+    out_cr_pdf = output_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_radius.pdf"
+    out_cr_png = output_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_radius.png"
+    out_ot_pdf = output_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_time.pdf"
+    out_ot_png = output_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_time.png"
+    out_or_pdf = output_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_radius.pdf"
+    out_or_png = output_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_radius.png"
+    out_combo_pdf = output_dir / f"{event}_structjet_swept_mass_single_overlay_two_panel.pdf"
+    out_combo_png = output_dir / f"{event}_structjet_swept_mass_single_overlay_two_panel.png"
+    out_crossings_csv = output_dir / f"{event}_structjet_swept_mass_crossings.csv"
 
-    out_time_pdf = campaign_dir / f"{event}_structjet_swept_mass_diagnostics_vs_time.pdf"
-    out_time_png = campaign_dir / f"{event}_structjet_swept_mass_diagnostics_vs_time.png"
-    out_radius_pdf = campaign_dir / f"{event}_structjet_swept_mass_diagnostics_vs_radius.pdf"
-    out_radius_png = campaign_dir / f"{event}_structjet_swept_mass_diagnostics_vs_radius.png"
-    out_ct_pdf = campaign_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_time.pdf"
-    out_ct_png = campaign_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_time.png"
-    out_cr_pdf = campaign_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_radius.pdf"
-    out_cr_png = campaign_dir / f"{event}_structjet_swept_mass_local_vs_coreavg_per_sr_vs_radius.png"
-    out_ot_pdf = campaign_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_time.pdf"
-    out_ot_png = campaign_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_time.png"
-    out_or_pdf = campaign_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_radius.pdf"
-    out_or_png = campaign_dir / f"{event}_structjet_swept_mass_single_overlay_per_sr_vs_radius.png"
-    out_combo_pdf = campaign_dir / f"{event}_structjet_swept_mass_single_overlay_two_panel.pdf"
-    out_combo_png = campaign_dir / f"{event}_structjet_swept_mass_single_overlay_two_panel.png"
-    fig_t.savefig(out_time_pdf)
-    fig_t.savefig(out_time_png, dpi=220)
-    fig_r.savefig(out_radius_pdf)
-    fig_r.savefig(out_radius_png, dpi=220)
-    fig_ct.savefig(out_ct_pdf)
-    fig_ct.savefig(out_ct_png, dpi=220)
-    fig_cr.savefig(out_cr_pdf)
-    fig_cr.savefig(out_cr_png, dpi=220)
-    fig_ot.savefig(out_ot_pdf)
-    fig_ot.savefig(out_ot_png, dpi=220)
-    fig_or.savefig(out_or_pdf)
-    fig_or.savefig(out_or_png, dpi=220)
-    fig_combo.savefig(out_combo_pdf)
-    fig_combo.savefig(out_combo_png, dpi=220)
+    crossing_rows = best_crossings + walker_crossings
+    with out_crossings_csv.open("w", newline="") as handle:
+        fieldnames = [
+            "source",
+            "theta",
+            "threshold",
+            "t_obs_days",
+            "radius_cm",
+            "mass_time_g_per_sr",
+            "mass_radius_g_per_sr",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in crossing_rows:
+            writer.writerow(row)
+
+    save_tight(fig_t, out_time_pdf)
+    save_tight(fig_t, out_time_png, dpi=220)
+    save_tight(fig_r, out_radius_pdf)
+    save_tight(fig_r, out_radius_png, dpi=220)
+    save_tight(fig_ct, out_ct_pdf)
+    save_tight(fig_ct, out_ct_png, dpi=220)
+    save_tight(fig_cr, out_cr_pdf)
+    save_tight(fig_cr, out_cr_png, dpi=220)
+    save_tight(fig_ot, out_ot_pdf)
+    save_tight(fig_ot, out_ot_png, dpi=220)
+    save_tight(fig_or, out_or_pdf)
+    save_tight(fig_or, out_or_png, dpi=220)
+    save_tight(fig_combo, out_combo_pdf)
+    save_tight(fig_combo, out_combo_png, dpi=220)
     plt.close(fig_t)
     plt.close(fig_r)
     plt.close(fig_ct)
@@ -535,6 +1014,7 @@ def main() -> None:
     print(f"Wrote: {out_ot_pdf}")
     print(f"Wrote: {out_or_pdf}")
     print(f"Wrote: {out_combo_pdf}")
+    print(f"Wrote: {out_crossings_csv}")
 
 
 if __name__ == "__main__":
