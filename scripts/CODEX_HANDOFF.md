@@ -4097,9 +4097,9 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
   updates the CSV/plot, and publishes under
   `Share_Folder/Fits/shorter_diagnostic_runs/prior_tests/26_09_08__080413B__fixed_logGamma0_profile`.
 - Preflight evaluations are finite for log-Gamma 3 through 7. At log-Gamma 8,
-  the inherited solution exceeds the forward-shock ODE 100,000-step guard;
-  report that point as numerically invalid if no finite re-minimized solution
-  is found. Do not interpret it as an ordinary finite fit penalty.
+  the inherited solution exceeds the forward-shock ODE 100,000-step guard.
+  Jonathan therefore chose to skip the `8` point; retain it in status output
+  as `skipped_by_user`, not as an ordinary failed or poor finite fit.
 
 ## Future Refit Note (2026-09-08): 090424 Extinction Code
 

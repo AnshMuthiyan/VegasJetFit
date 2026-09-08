@@ -23,7 +23,11 @@ def main() -> None:
     for loggamma in args.loggammas:
         label = str(int(loggamma)) if loggamma.is_integer() else str(loggamma).replace(".", "p")
         run_name = f"080413B_loggamma0_{label}_{args.run_tag}"
-        path = args.results_root / run_name / "minimized" / "minimized.json"
+        run_dir = args.results_root / run_name
+        path = run_dir / "minimized" / "minimized.json"
+        if (run_dir / ".profile_minimization_skipped").is_file():
+            rows.append({"log10_gamma0": loggamma, "gamma0": 10.0**loggamma, "nmap": None, "status": "skipped_by_user", "run_name": run_name})
+            continue
         if not path.is_file():
             rows.append({"log10_gamma0": loggamma, "gamma0": 10.0**loggamma, "nmap": None, "status": "pending", "run_name": run_name})
             continue
