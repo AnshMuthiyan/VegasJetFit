@@ -108,9 +108,25 @@ def latex(key: str) -> str:
 
             # Generic Fireball Model
             'lf0': r'$log_{10}\Gamma_0$',
+            'Gamma_0_core_avg': r'$\log_{10}\bar{\Gamma}_{0,c}$',
             'E52': r'$log_{10}E_{52}$',
+            'E_j_52': r'$E_{j,52}$',
+            'E_j_core_52': r'$E_{j,c,52}$',
+            'E_iso_52': r'$E_{iso,52}$',
+            'E_j_tophat_52': r'$E_{j,52}^{core}$',
+            'Gamma_0': r'$\Gamma_0$',
+            'M_j_g': r'$M_j$ [g]',
+            'M_j_msun': r'$M_j/M_\odot$',
+            'log10_E_j_52': r'$\log_{10}E_{j,52}$',
+            'log10_Gamma_0': r'$\log_{10}\Gamma_0$',
+            'log10_M_j_msun': r'$\log_{10}(M_j/M_\odot)$',
+            'log10_E_j_core_52': r'$\log_{10}E_{j,c,52}$',
+            'log10_Gamma_0_core_avg': r'$\log_{10}\bar{\Gamma}_{0,c}$',
+            'log10_M_j_core_msun': r'$\log_{10}(M_{j,c}/M_\odot)$',
+            'Omega_2j_pct_4pi': r'$\Omega_{2j}/4\pi$ [%]',
             'eps_e': r'$log_{10}\epsilon_e$',
             'eps_b': r'$log_{10}\epsilon_B$',
+            'eps_B': r'$log_{10}\epsilon_B$',
             'rv_milky_way': r'$log_{10}R_{v}^{MW}$',
             'ebv_source_frame': r'$E(B-V)_{sf}$',
             'ebv_milky_way': r'$E(B-V)_{MW}$',
@@ -161,7 +177,12 @@ class Profiler:
         np.ndarray
             The randomly drawn sets of sampled values.
         """
-        return self.chain[np.random.randint(len(self.chain), size=nsamps)]
+        nsamps = int(nsamps)
+        if nsamps <= 0:
+            return self.chain[:0]
+        if nsamps >= len(self.chain):
+            return self.chain
+        return self.chain[np.random.choice(len(self.chain), size=nsamps, replace=False)]
 
     def best(self, **kwargs):
         """

@@ -124,8 +124,9 @@ def plot_light_curve(ampy, minimized, pretty=True, chain=None):
         times = np.geomspace(ranges[0] / 2, ranges[1] * 2, num=200)
         # times = np.geomspace(8e-3, ranges[1] * 2, num=200)
 
-        # Generate LCs from randomly samples sets
-        samples = chain[np.random.randint(len(chain), size=100)]
+        # Generate LCs from unique randomly sampled sets.
+        nsamps = min(100, len(chain))
+        samples = chain[np.random.choice(len(chain), size=nsamps, replace=False)]
         modeled = sample_light_curve(samples, ampy, lcg, times)
 
         # Plot the best fitting LC

@@ -4,7 +4,10 @@ import json
 import os
 from pathlib import Path
 
+import numpy as np
+
 from jetfit.ampy import Ampy
+from jetfit.mcmc.parameters import Parameters
 from scripts.plot import visualize
 
 
@@ -32,7 +35,8 @@ def parse_args():
     parser.add_argument("--results", required=True, help="Results directory containing model.toml, obs.csv, and best_fit/minimized output.")
     parser.add_argument("--output", default=None, help="Optional explicit PDF output path. Defaults to <results>/spectrum_timeseries.pdf")
     parser.add_argument("--ncurves", type=int, default=10, help="Number of time slices to plot.")
-    parser.add_argument("--nfreq", type=int, default=400, help="Number of frequency samples per spectrum.")
+    parser.add_argument("--nfreq", type=int, default=250, help="Number of frequency samples per spectrum.")
+    parser.add_argument("--best-only", action="store_true", help="Omit the terminal cold-chain walker ensemble.")
     return parser.parse_args()
 
 
@@ -50,10 +54,26 @@ def main():
         raise FileNotFoundError(f"Model TOML not found: {params_path}")
 
     event = results_dir.name.split("_")[0]
+    os.environ.setdefault("JETFIT_PLOT_EVENT_TITLE", f"GRB {event}")
     os.environ.setdefault("JETFIT_PLOT_RUN_LABEL", f"GRB {event} | {results_dir.name}")
 
     ampy = Ampy(obs_path, params_path)
     params = _load_plot_params(results_dir)
+    walker_params = []
+    walker_indices = []
+    if not args.best_only:
+        with np.load(results_dir / "chain.npz") as data:
+            chain = np.asarray(data["chain"], dtype=float)
+            log_prob = np.asarray(data["lnprob"] if "lnprob" in data else data["log_prob"], dtype=float)
+        if chain.ndim == 4:
+            chain = chain[:, 0, :, :]
+        if log_prob.ndim == 3:
+            log_prob = log_prob[:, 0, :]
+        final = chain[-1]
+        finite = np.isfinite(log_prob[-1]) & np.isfinite(final).all(axis=1)
+        parameter_set = Parameters.from_toml(params_path)
+        walker_indices = np.flatnonzero(finite).astype(int).tolist()
+        walker_params = [parameter_set.samples_to_dict(final[index]) for index in walker_indices]
     output_path = (
         Path(args.output).expanduser().resolve()
         if args.output is not None
@@ -63,6 +83,8 @@ def main():
     visualize.plot_spectrum_timeseries_ampy(
         ampy,
         params=params,
+        walker_params=walker_params,
+        walker_indices=walker_indices,
         output_path=output_path,
         ncurves=args.ncurves,
         nfreq=args.nfreq,

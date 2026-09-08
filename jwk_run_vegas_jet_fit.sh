@@ -35,11 +35,13 @@ fi
 MP_START_METHOD="${JETFIT_MP_START_METHOD:-auto}"
 POOL_EXECUTOR="${JETFIT_POOL_EXECUTOR:-auto}"
 if [ "$POOL_EXECUTOR" = "auto" ]; then
-  if [ "$(uname -s)" = "Darwin" ]; then
-    POOL_EXECUTOR="thread"
-  else
-    POOL_EXECUTOR="process"
-  fi
+  POOL_EXECUTOR="process"
+fi
+if [ "$MP_START_METHOD" = "auto" ] && [ "$POOL_EXECUTOR" = "process" ] && [ "$(uname -s)" = "Darwin" ]; then
+  # The widened thesis campaigns exposed repeatable macOS segfaults under the
+  # old auto path (`thread` executor with `fork`). Prefer the more isolated
+  # process-pool launch mode and use `spawn` for safer child initialization.
+  MP_START_METHOD="spawn"
 fi
 export JETFIT_POOL_EXECUTOR="$POOL_EXECUTOR"
 MCMC_SETTINGS="${MCMC_SETTINGS:-$RUN_PROFILE_DIR/mcmc_settings.toml}"
@@ -52,10 +54,16 @@ RUN_FOREGROUND="${RUN_FOREGROUND:-0}"
 KEEP_AWAKE="${KEEP_AWAKE:-1}"
 RESUME="${RESUME:-0}"
 RUN_MINIMIZER="${RUN_MINIMIZER:-1}"
+RUN_POSTFIT_PRODUCTS="${RUN_POSTFIT_PRODUCTS:-1}"
+SKIP_MCMC_PLOTS="${SKIP_MCMC_PLOTS:-0}"
 MINIMIZE_MODE="${MINIMIZE_MODE:-walkers}"
 MINIMIZE_MAX_WALKERS="${MINIMIZE_MAX_WALKERS:-0}"
+MINIMIZE_PARALLEL_WORKERS="${MINIMIZE_PARALLEL_WORKERS:-1}"
 MINIMIZE_MINIMIZER="${MINIMIZE_MINIMIZER:-minimize}"
+MINIMIZE_SCIPY_METHOD="${MINIMIZE_SCIPY_METHOD:-Powell}"
+MINIMIZE_FALLBACK_SCIPY_METHOD="${MINIMIZE_FALLBACK_SCIPY_METHOD:-Nelder-Mead}"
 MINIMIZE_OUTPUT_DIR="${MINIMIZE_OUTPUT_DIR:-}"
+MINIMIZE_PARAMS_TOML="${MINIMIZE_PARAMS_TOML:-}"
 MINIMIZE_STRICT="${MINIMIZE_STRICT:-0}"
 DRIVE_SYNC_ENABLE="${DRIVE_SYNC_ENABLE:-1}"
 DRIVE_RESULTS_ROOT="${DRIVE_RESULTS_ROOT:-/Users/jkeohane/My Drive (jwkeohane@gmail.com)/VegasGRBruns}"
@@ -125,6 +133,19 @@ run_with_sleep_guard() {
   fi
 }
 
+normalize_minimize_parallel_workers() {
+  local worker_count="$MINIMIZE_PARALLEL_WORKERS"
+  if [ "$worker_count" = "auto" ]; then
+    worker_count="$MCMC_WORKERS"
+  fi
+  if ! [[ "$worker_count" =~ ^[0-9]+$ ]] || [ "$worker_count" -lt 1 ]; then
+    worker_count=1
+  fi
+  printf '%s\n' "$worker_count"
+}
+
+MINIMIZE_PARALLEL_WORKERS_RESOLVED="$(normalize_minimize_parallel_workers)"
+
 echo "ROOT: $ROOT"
 echo "Profile dir:    $RUN_PROFILE_DIR"
 echo "PWD:  $(pwd)"
@@ -137,6 +158,8 @@ echo "CPUs available: $NUM_CPUS"
 echo "Default workers:$DEFAULT_WORKERS"
 echo "MCMC workers:   $MCMC_WORKERS"
 echo "Model choice:   $MODEL_CHOICE"
+echo "Obs CSV (MCMC): ${OBS_CSV:-auto-detect}"
+echo "Obs CSV (Min):  ${MINIMIZE_OBS_CSV:-auto-detect}"
 echo "MP start method:$MP_START_METHOD"
 echo "Pool executor:  $JETFIT_POOL_EXECUTOR"
 echo "MCMC settings:  $MCMC_SETTINGS"
@@ -146,9 +169,13 @@ echo "Run foreground: $RUN_FOREGROUND"
 echo "Keep awake:     $KEEP_AWAKE"
 echo "Resume:         $RESUME"
 echo "Run minimizer:  $RUN_MINIMIZER"
+echo "Run postfit:    $RUN_POSTFIT_PRODUCTS"
 echo "Min mode:       $MINIMIZE_MODE"
 echo "Min max walkers:$MINIMIZE_MAX_WALKERS"
-echo "Min optimizer:  $MINIMIZE_MINIMIZER"
+echo "Min parallel:   $MINIMIZE_PARALLEL_WORKERS_RESOLVED"
+echo "Min backend:    $MINIMIZE_MINIMIZER"
+echo "Min method:     $MINIMIZE_SCIPY_METHOD"
+echo "Min fallback:   $MINIMIZE_FALLBACK_SCIPY_METHOD"
 echo "Min strict:     $MINIMIZE_STRICT"
 echo "Drive sync:     $DRIVE_SYNC_ENABLE"
 echo "Drive root:     $DRIVE_RESULTS_ROOT"
@@ -211,23 +238,78 @@ if [ ! -f "$MODEL_TOML" ]; then
 fi
 
 model_tag="$MODEL_CHOICE"
+detect_curated_obs() {
+  local event="$1"
+  local obs_dir="$ROOT/VegasJetFit/jetfit/resources/grbs/$event"
+  local clean="$obs_dir/${event}clean.csv"
+  local plain="$obs_dir/${event}.csv"
+  if [ -f "$clean" ]; then
+    printf '%s\n' "$clean"
+    return 0
+  fi
+  if [ -f "$plain" ]; then
+    printf '%s\n' "$plain"
+    return 0
+  fi
+  find "$obs_dir" -maxdepth 1 -type f -name '*.csv' 2>/dev/null | sort | head -n 1 || true
+}
+
+detect_full_obs() {
+  local event="$1"
+  local obs_dir="$ROOT/VegasJetFit/jetfit/resources/grbs/$event"
+  local explicit_all="$obs_dir/${event}_all_data.csv"
+  local explicit_plain="$obs_dir/${event}.csv"
+  local explicit_clean="$obs_dir/${event}clean.csv"
+  local explicit_full=""
+
+  if [ -f "$explicit_all" ]; then
+    printf '%s\n' "$explicit_all"
+    return 0
+  fi
+  explicit_full="$(find "$obs_dir" -maxdepth 1 -type f -name '*full*.csv' 2>/dev/null | sort | head -n 1 || true)"
+  if [ -n "$explicit_full" ] && [ -f "$explicit_full" ]; then
+    printf '%s\n' "$explicit_full"
+    return 0
+  fi
+  if [ -f "$explicit_plain" ]; then
+    printf '%s\n' "$explicit_plain"
+    return 0
+  fi
+  if [ -f "$explicit_clean" ]; then
+    printf '%s\n' "$explicit_clean"
+    return 0
+  fi
+  find "$obs_dir" -maxdepth 1 -type f -name '*.csv' 2>/dev/null | sort | head -n 1 || true
+}
+
 if [ -n "${OBS_CSV:-}" ]; then
   obs1="$OBS_CSV"
 else
-  obs_dir="$ROOT/VegasJetFit/jetfit/resources/grbs/$event1"
-  obs_clean="$obs_dir/${event1}clean.csv"
-  obs_plain="$obs_dir/${event1}.csv"
-  if [ -f "$obs_clean" ]; then
-    obs1="$obs_clean"
-  elif [ -f "$obs_plain" ]; then
-    obs1="$obs_plain"
-  else
-    obs1="$(find "$obs_dir" -maxdepth 1 -type f -name '*.csv' 2>/dev/null | sort | head -n 1 || true)"
-  fi
+  obs1="$(detect_curated_obs "$event1")"
 fi
+if [ -n "${MINIMIZE_OBS_CSV:-}" ]; then
+  minimize_obs1="$MINIMIZE_OBS_CSV"
+else
+  minimize_obs1="$(detect_full_obs "$event1")"
+fi
+if [ -z "${minimize_obs1:-}" ]; then
+  minimize_obs1="$obs1"
+fi
+echo "Resolved MCMC obs: $obs1"
+echo "Resolved minimizer obs: $minimize_obs1"
 
 res1="${RESULTS_DIR:-$ROOT/VegasJetFit/jetfit/results/${event1}_${model_tag}_Ansh_Run}"
 mkdir -p "$res1"
+
+# Persist sidecar inputs so downstream minimization always resolves the exact
+# run configuration (avoids params/chain dimension mismatches when inference
+# falls back to heuristics).
+cp -f "$MODEL_TOML" "$res1/model.toml"
+cp -f "$obs1" "$res1/obs.csv"
+cp -f "$MCMC_SETTINGS" "$res1/mcmc_settings.toml"
+if [ -z "$MINIMIZE_PARAMS_TOML" ]; then
+  MINIMIZE_PARAMS_TOML="$res1/model.toml"
+fi
 
 log_stem_default="$(basename "$res1")"
 log_stem="${LOG_BASENAME:-$log_stem_default}"
@@ -241,9 +323,14 @@ preflight_mcmc1="${PREFLIGHT_MCMC_FILE_OVERRIDE:-$LOG_DIR/${log_stem}.preflight.
 SYNC_SCRIPT="$ROOT/VegasJetFit/scripts/sync_results_to_drive.sh"
 RUNNER_SCRIPT="$ROOT/VegasJetFit/scripts/run_fit_and_sync.sh"
 MINIMIZE_SCRIPT="$ROOT/VegasJetFit/scripts/minimize.py"
+POSTFIT_PRODUCTS_SCRIPT="$ROOT/VegasJetFit/scripts/generate_postfit_products.py"
 
 if [ ! -f "$obs1" ]; then
   echo "ERROR: observation file not found: $obs1" >&2
+  return 2 2>/dev/null || exit 2
+fi
+if [ "$RUN_MINIMIZER" = "1" ] && [ ! -f "$minimize_obs1" ]; then
+  echo "ERROR: minimizer observation file not found: $minimize_obs1" >&2
   return 2 2>/dev/null || exit 2
 fi
 if [ "$RUN_MINIMIZER" = "1" ] && [ ! -f "$MINIMIZE_SCRIPT" ]; then
@@ -273,8 +360,13 @@ run_minimizer() {
 
   min_cmd=( "$PYTHON_BIN" "$MINIMIZE_SCRIPT"
     --results "$res1"
+    --obs "$minimize_obs1"
+    --params "$MINIMIZE_PARAMS_TOML"
     --mode "$MINIMIZE_MODE"
     --minimizer "$MINIMIZE_MINIMIZER"
+    --scipy-method "$MINIMIZE_SCIPY_METHOD"
+    --fallback-scipy-method "$MINIMIZE_FALLBACK_SCIPY_METHOD"
+    --parallel-workers "$MINIMIZE_PARALLEL_WORKERS_RESOLVED"
   )
   if [ "$MINIMIZE_MAX_WALKERS" != "0" ]; then
     min_cmd+=( --max-walkers "$MINIMIZE_MAX_WALKERS" )
@@ -286,7 +378,12 @@ run_minimizer() {
   echo "Running minimizer..."
   echo "  Mode:      $MINIMIZE_MODE"
   echo "  MaxWalker: $MINIMIZE_MAX_WALKERS"
-  echo "  Optimizer: $MINIMIZE_MINIMIZER"
+  echo "  Backend:   $MINIMIZE_MINIMIZER"
+  echo "  Method:    $MINIMIZE_SCIPY_METHOD"
+  echo "  Fallback:  $MINIMIZE_FALLBACK_SCIPY_METHOD"
+  echo "  Parallel:  $MINIMIZE_PARALLEL_WORKERS_RESOLVED"
+  echo "  Obs CSV:   $minimize_obs1"
+  echo "  Params:    $MINIMIZE_PARAMS_TOML"
   if [ -n "$MINIMIZE_OUTPUT_DIR" ]; then
     echo "  Output:    $MINIMIZE_OUTPUT_DIR"
   fi
@@ -358,6 +455,40 @@ sync_results_to_drive() {
   fi
 }
 
+generate_postfit_products() {
+  local run_status="${1:-0}"
+  local postfit_status
+
+  if [ "$run_status" -ne 0 ]; then
+    return 0
+  fi
+  if [ "$RUN_POSTFIT_PRODUCTS" != "1" ]; then
+    echo "Post-fit products skipped (RUN_POSTFIT_PRODUCTS=$RUN_POSTFIT_PRODUCTS)."
+    return 0
+  fi
+  if [ ! -f "$POSTFIT_PRODUCTS_SCRIPT" ]; then
+    echo "WARNING: postfit products script missing: $POSTFIT_PRODUCTS_SCRIPT"
+    return 0
+  fi
+
+  echo "Generating post-fit products..."
+  {
+    echo "[postfit_products] start_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    echo "[postfit_products] script=$POSTFIT_PRODUCTS_SCRIPT"
+  } >> "$log_file1"
+  if (
+    cd "$ROOT/VegasJetFit"
+    "$PYTHON_BIN" "$POSTFIT_PRODUCTS_SCRIPT" --results "$res1" --event "$event1" >> "$log_file1" 2>&1
+  ); then
+    postfit_status=0
+    echo "Post-fit products completed."
+  else
+    postfit_status=$?
+    echo "WARNING: post-fit product generation failed (exit $postfit_status)."
+  fi
+  return 0
+}
+
 echo
 echo "Event:   $event1"
 echo "Obs:     $obs1"
@@ -372,6 +503,18 @@ echo
 RESUME_OPTION=""
 if [ "$RESUME" = "1" ]; then
   RESUME_OPTION="--resume"
+fi
+SKIP_PLOTS_OPTION=""
+if [ "$SKIP_MCMC_PLOTS" = "1" ]; then
+  SKIP_PLOTS_OPTION="--skip-plots"
+fi
+INITIAL_POSITIONS_OPTION=()
+if [ -n "${INITIAL_POSITIONS:-}" ]; then
+  if [ ! -f "$INITIAL_POSITIONS" ]; then
+    echo "ERROR: INITIAL_POSITIONS does not exist: $INITIAL_POSITIONS" >&2
+    return 2 2>/dev/null || exit 2
+  fi
+  INITIAL_POSITIONS_OPTION=(--initial-positions "$INITIAL_POSITIONS")
 fi
 
 # ---- Preflight ----
@@ -409,6 +552,8 @@ if [ "$ENABLE_PREFLIGHT" = "1" ]; then
 
   if (
     cd "$ROOT/VegasJetFit"
+    # macOS Bash 3.2 considers an empty optional array unset under `set -u`.
+    set +u
     run_with_sleep_guard /usr/bin/time -p "$PYTHON_BIN" -u -m jetfit.run \
       --event "$event1" \
       --obs "$obs1" \
@@ -417,6 +562,7 @@ if [ "$ENABLE_PREFLIGHT" = "1" ]; then
       --mcmc "$preflight_mcmc1" \
       --workers "$MCMC_WORKERS" \
       --start-method "$MP_START_METHOD" \
+      "${INITIAL_POSITIONS_OPTION[@]}" \
       --skip-plots \
       > "$preflight_log1" 2>&1
   ); then
@@ -445,6 +591,8 @@ fi
 # ---- Launch ----
 if [ "$RUN_FOREGROUND" = "1" ]; then
   cd "$ROOT/VegasJetFit"
+  # See the matching preflight invocation above.
+  set +u
   date -u +"%Y-%m-%dT%H:%M:%SZ" > "$start_utc_file"
   if run_with_sleep_guard /usr/bin/time -p "$PYTHON_BIN" -u -m jetfit.run \
     --event "$event1" \
@@ -454,7 +602,9 @@ if [ "$RUN_FOREGROUND" = "1" ]; then
     --mcmc "$MCMC_SETTINGS" \
     --workers "$MCMC_WORKERS" \
     --start-method "$MP_START_METHOD" \
+    "${INITIAL_POSITIONS_OPTION[@]}" \
     ${RESUME_OPTION:+$RESUME_OPTION} \
+    ${SKIP_PLOTS_OPTION:+$SKIP_PLOTS_OPTION} \
     > "$log_file1" 2>&1; then
     echo "Foreground run completed successfully."
     if run_minimizer 0; then
@@ -464,6 +614,7 @@ if [ "$RUN_FOREGROUND" = "1" ]; then
       echo "ERROR: minimizer step failed (exit $status)." >&2
       return "$status" 2>/dev/null || exit "$status"
     fi
+    generate_postfit_products 0
     sync_results_to_drive 0
   else
     status=$?
@@ -505,10 +656,17 @@ fi
     --resume "$RESUME" \
     --keep-awake "$KEEP_AWAKE" \
     --run-minimizer "$RUN_MINIMIZER" \
+    --run-postfit-products "$RUN_POSTFIT_PRODUCTS" \
+    --skip-mcmc-plots "$SKIP_MCMC_PLOTS" \
     --minimize-mode "$MINIMIZE_MODE" \
     --minimize-max-walkers "$MINIMIZE_MAX_WALKERS" \
+    --minimize-parallel-workers "$MINIMIZE_PARALLEL_WORKERS_RESOLVED" \
     --minimize-minimizer "$MINIMIZE_MINIMIZER" \
+    --minimize-scipy-method "$MINIMIZE_SCIPY_METHOD" \
+    --minimize-fallback-scipy-method "$MINIMIZE_FALLBACK_SCIPY_METHOD" \
     --minimize-output "$MINIMIZE_OUTPUT_DIR" \
+    --minimize-obs "$minimize_obs1" \
+    --minimize-params "$MINIMIZE_PARAMS_TOML" \
     --minimize-strict "$MINIMIZE_STRICT" \
     --minimize-script "$MINIMIZE_SCRIPT" \
     --drive-sync-enable "$DRIVE_SYNC_ENABLE" \

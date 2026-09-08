@@ -6,6 +6,8 @@ import sys
 import multiprocessing as mp
 from pathlib import Path
 
+import numpy as np
+
 # Use a non-interactive matplotlib backend for batch runs.
 os.environ.setdefault('MPLBACKEND', 'Agg')
 
@@ -24,6 +26,7 @@ def parse_args():
     parser.add_argument('--obs',     help='Path to the input observation file.')
     parser.add_argument('--results', help='Path the the results directory.')
     parser.add_argument('--resume',  action='store_true', help='Continue from previous run?')
+    parser.add_argument('--initial-positions', help='NPZ with positions and parameter_names.')
     parser.add_argument(
         '--skip-plots',
         action='store_true',
@@ -136,6 +139,7 @@ def plot_results(ampy, results_dir, event):
     from scripts.plot import diagnose
     from scripts.plot import visualize
     from scripts.plot import histogram
+    from scripts.generate_postfit_products import derive_jet_energy_posterior
 
     params = ampy.mcmc.params
 
@@ -146,10 +150,8 @@ def plot_results(ampy, results_dir, event):
         out_dir=results_dir,
         output_path=results_dir / 'spectrum_timeseries.pdf',
     )
-    frequencies_pdf = results_dir / 'frequencies.pdf'
-    spectral_plot_pdf = results_dir / 'spectral_plot.pdf'
-    if frequencies_pdf.exists():
-        shutil.copyfile(frequencies_pdf, spectral_plot_pdf)
+    # frequencies.pdf is the standard frequency diagnostic for the final
+    # Share_Folder products. Do not alias or regenerate spectral_plot.* here.
     visualize.plot_light_curve_ampy(ampy, title=f'GRB {event}', out_dir=results_dir)
     visualize.plot_density_profile_ampy(ampy, out_dir=results_dir)
 
@@ -158,7 +160,14 @@ def plot_results(ampy, results_dir, event):
     histogram.plot_jet_correction_ampy(ampy, out_dir=results_dir)
 
     # Plot the MCMC diagnostics!
-    diagnose.plot_corner(ampy.mcmc.sampler.get_chain(flat=True), params.fitting, out_dir=results_dir)
+    flat_chain = ampy.mcmc.sampler.get_chain(flat=True)
+    derived, _ = derive_jet_energy_posterior(flat_chain, params, str(params.model))
+    diagnose.plot_corner(
+        flat_chain,
+        params.fitting,
+        derived=derived,
+        out_dir=results_dir,
+    )
 
     if ampy.mcmc.burn_chain is not None:
         diagnose.plot_trace(params, out_dir=results_dir, chain=ampy.mcmc.burn_chain)
@@ -168,7 +177,8 @@ def plot_results(ampy, results_dir, event):
 
 def main(
     obs_path, params_path, mcmc_path, results_dir, event,
-    resume=False, workers_override=None, skip_plots=False
+    resume=False, workers_override=None, skip_plots=False,
+    initial_positions_path=None
 ):
     """
     Run MCMC using AMPy.
@@ -203,6 +213,7 @@ def main(
 
     # Stamp all generated figures with event + run folder for easy identification.
     run_folder = Path(results_dir).name
+    os.environ['JETFIT_PLOT_EVENT_TITLE'] = f'GRB {event}'
     os.environ['JETFIT_PLOT_RUN_LABEL'] = f'GRB {event} | {run_folder}'
     print(f"DEBUG: Plot label: {os.environ['JETFIT_PLOT_RUN_LABEL']}")
 
@@ -215,6 +226,18 @@ def main(
     print(f"  params_path: {params_path}")
     ampy = Ampy(obs_path, params_path)
     print(f"DEBUG: Ampy object created successfully!")
+
+    initial_positions = None
+    if initial_positions_path is not None:
+        seed_path = Path(initial_positions_path)
+        with np.load(seed_path, allow_pickle=False) as data:
+            initial_positions = np.asarray(data['positions'], dtype=float)
+            seed_names = [str(name) for name in data['parameter_names']]
+        fitting_names = [param.name for param in ampy.mcmc.params.fitting]
+        if seed_names != fitting_names:
+            raise ValueError(f'Initial-position parameters do not match: {seed_names} != {fitting_names}')
+        shutil.copy2(seed_path, results_dir / 'initial_positions.npz')
+        print(f"DEBUG: Using posterior-informed initial positions: {seed_path}")
 
     # Prepare the MCMC run
     print(f"DEBUG: Preparing MCMC run...")
@@ -265,6 +288,7 @@ def main(
             resume=resume,
             checkpoint_path=checkpoint_path,
             checkpoint_interval=checkpoint_interval,
+            initial_positions=initial_positions,
         )
         print(f"DEBUG: MCMC run completed successfully!")
     except Exception as e:
@@ -338,6 +362,9 @@ if __name__ == "__main__":
 
             'skip_plots':
                 bool(args.skip_plots),
+
+            'initial_positions_path':
+                Path(args.initial_positions) if args.initial_positions is not None else None,
         }
     )
     print(results_path)

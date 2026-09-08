@@ -1,13 +1,23 @@
 import numpy as np
 
 from jetfit.core.utils import days_to_sec
+from jetfit.models.jet_energy import resolve_e_iso52, resolve_gamma0_axis
+from jetfit.models.vegas_resolution import (
+    model_kwargs_with_resolution,
+    resolve_vegas_resolutions,
+)
 
 try:
     from VegasAfterglow import Model, ISM, Wind, Medium, TophatJet, GaussianJet, PowerLawJet
+    try:
+        from VegasAfterglow import SmoothBrokenPowerLawMedium
+    except ImportError:
+        SmoothBrokenPowerLawMedium = None
     from VegasAfterglow import Observer, Radiation
     _HAS_VEGASAFTERGLOW = True
 except ImportError:
     _HAS_VEGASAFTERGLOW = False
+    SmoothBrokenPowerLawMedium = None
 
 
 """
@@ -82,32 +92,46 @@ class VegasAfterglowModel:
     k_g : float, optional
         Lorentz factor power-law index for structured jets. Default=None.
 
+    smooth_fast_to_slow_transition : bool, optional
+        Enable the compiled AMPy / Dutton (2025) fast-to-slow transition
+        spectral smoothing in native VegasAfterglow. This is the descriptive
+        native name for the historical ``fts=True`` option used in the local
+        workflow.
+
     References
     ----------
     .. [1] VegasAfterglow: A Numerical Code for GRB Afterglow
     """
     def __init__(
         self,
-        E52,
-        lf0,
-        theta_c,
-        theta_v,
-        eps_e,
-        eps_B,
-        p,
-        z,
-        dl28,
-        nt, #log particle number density at transition radius
-        rt, #transition radius in log cm
-        k1, #inner density power-law index
-        k2, #outer density power-law index
-        sn, #smoothing parameter for smoothly broken power-law density profile
+        E52=None,
+        lf0=None,
+        theta_c=None,
+        theta_v=None,
+        eps_e=None,
+        eps_B=None,
+        p=None,
+        z=None,
+        dl28=None,
+        nt=None, #log particle number density at transition radius
+        rt=None, #transition radius in log cm
+        k1=None, #inner density power-law index
+        k2=None, #outer density power-law index
+        sn=None, #smoothing parameter for smoothly broken power-law density profile
         jet_type='tophat',
         medium_type='smooth_broken',
         n_ism=None,
         A_star=None,
         k_e=None,
         k_g=None,
+        smooth_fast_to_slow_transition=True,
+        E_j_52=None,
+        E_j_core_52=None,
+        Gamma_0_core_avg=None,
+        vegas_resolutions=None,
+        vegas_resolution_phi=None,
+        vegas_resolution_theta=None,
+        vegas_resolution_t=None,
     ):
         if not _HAS_VEGASAFTERGLOW:
             raise ImportError(
@@ -117,8 +141,24 @@ class VegasAfterglowModel:
 
         # NOTE: JetFit already converts "scale=log" parameters to linear
         # So we receive linear values here, NOT log10 values
-        self.E_iso52 = E52 * 1e52  # E52 is linear multiplier, convert to erg
-        self.lf0 = lf0             # Already linear (JetFit converted from log10)
+        self.E_j_52 = E_j_52
+        self.E_j_core_52 = E_j_core_52
+        self.Gamma_0_core_avg = Gamma_0_core_avg
+        self.E_iso52 = resolve_e_iso52(
+            E52=E52,
+            E_j_52=E_j_52,
+            E_j_core_52=E_j_core_52,
+            jet_type=jet_type,
+            theta_c=theta_c,
+            k_e=k_e,
+        ) * 1e52  # internal on-axis isotropic-equivalent energy [erg]
+        self.lf0 = resolve_gamma0_axis(
+            lf0=lf0,
+            Gamma_0_core_avg=Gamma_0_core_avg,
+            jet_type=jet_type,
+            theta_c=theta_c,
+            k_g=k_g,
+        )
         self.theta_c = theta_c
         self.theta_v = theta_v
         self.eps_e = eps_e         # Already linear (JetFit converted from log10)
@@ -137,7 +177,14 @@ class VegasAfterglowModel:
         self.A_star = A_star
         self.k_e = k_e
         self.k_g = k_g
-        self.ref_radius = 1.0e17          # Reference radius [cm]
+        self.smooth_fast_to_slow_transition = bool(smooth_fast_to_slow_transition)
+        self._default_ref_radius = 1.0e17  # Reference radius [cm]
+        self.vegas_resolutions = resolve_vegas_resolutions(
+            vegas_resolutions=vegas_resolutions,
+            vegas_resolution_phi=vegas_resolution_phi,
+            vegas_resolution_theta=vegas_resolution_theta,
+            vegas_resolution_t=vegas_resolution_t,
+        )
 
         # Initialize VegasAfterglow components
         self._setup_model()
@@ -178,6 +225,13 @@ class VegasAfterglowModel:
 
     def _sanity_check_physical(self, params: dict) -> None:
         """Print warnings for common physical constraint violations."""
+        # Hot path during wide-prior MCMC: keep warning I/O opt-in only.
+        # The checks remain useful for debugging, but unconditional printing
+        # can dominate logs and slow failed walker proposals.
+        import os
+        if os.environ.get("JETFIT_VERBOSE_PHYSICS_WARNINGS", "0") != "1":
+            return
+
         ee = params.get("eps_e")
         eb = params.get("eps_B")
         if ee is not None and eb is not None:
@@ -218,6 +272,7 @@ class VegasAfterglowModel:
         # Build params dict from instance attributes (already converted in __init__)
         params = {
             "E52": self.E_iso52 / 1e52,  # Convert back for logging
+            "E_j_52": self.E_j_52,
             "lf0": self.lf0,             # Already linear from __init__
             "theta_c": self.theta_c,
             "theta_v": self.theta_v,
@@ -307,8 +362,20 @@ class VegasAfterglowModel:
                 raise ValueError("A_star must be specified for wind medium")
             medium = Wind(A_star=self.A_star)
         elif self.medium_type.lower() == 'smooth_broken':
-            # Wrap the function in a Medium object
-            medium = Medium(rho=smooth_broken_medium)
+            n0t = 10**self.nt  # cm^-3
+            rt = 10**self.rt   # cm
+            if SmoothBrokenPowerLawMedium is not None:
+                medium = SmoothBrokenPowerLawMedium(
+                    n_t=n0t,
+                    r_t=rt,
+                    k1=self.k1,
+                    k2=self.k2,
+                    s_n=self.sn,
+                    X_h=0.7,
+                )
+            else:
+                # Fallback for older VegasAfterglow builds lacking native support.
+                medium = Medium(rho=smooth_broken_medium)
         else:
             raise ValueError(f"Unknown medium_type: {self.medium_type}")
 
@@ -348,13 +415,22 @@ class VegasAfterglowModel:
         radiation = Radiation(
             eps_e=self.eps_e,
             eps_B=self.eps_B,
-            p=self.p
+            p=self.p,
+            smooth_fast_to_slow_transition=self.smooth_fast_to_slow_transition,
         )
 
         # Create the model - Note: Model expects (jet, medium, observer, fwd_rad)
         # print(f"DEBUG: Creating VegasAfterglow Model...")
         try:
-            self.vegas_model = Model(jet=jet, medium=medium, observer=observer, fwd_rad=radiation)
+            self.vegas_model = Model(
+                **model_kwargs_with_resolution(
+                    jet=jet,
+                    medium=medium,
+                    observer=observer,
+                    radiation=radiation,
+                    resolutions=self.vegas_resolutions,
+                )
+            )
             # print(f"DEBUG: Model created successfully!")
         except Exception as e:
             print(f"DEBUG: Model creation FAILED: {e}")
@@ -571,7 +647,7 @@ class VegasAfterglowModel:
         if self.medium_type.lower() == 'smooth_broken':
             return 10**self.rt  # Transition radius in cm
         else:
-            return self.ref_radius  # Default scale
+            return self._default_ref_radius
 
     def spectral_flux(self, t, nu, **kwargs):
         """

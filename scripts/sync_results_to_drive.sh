@@ -6,6 +6,24 @@ VEGAS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT_DIR="$(cd "$VEGAS_DIR/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-$ROOT_DIR/.venv/bin/python}"
 SPECTRUM_TIMESERIES_SCRIPT="$SCRIPT_DIR/generate_spectrum_timeseries.py"
+POSTFIT_PRODUCTS_SCRIPT="$SCRIPT_DIR/generate_postfit_products.py"
+CORE_POSTFIT_VALIDATOR="$SCRIPT_DIR/validate_core_postfit_products.py"
+RSYNC_BIN="${RSYNC_BIN:-rsync}"
+RETIRED_SPECTRAL_PRODUCTS=(
+  "spectral_breaks_eats_weighted.csv"
+  "spectral_plot.png"
+  "spectral_plot.pdf"
+)
+RETIRED_SWEPT_MASS_PATTERNS=(
+  "*_structjet_swept_mass_diagnostics_vs_time.*"
+  "*_structjet_swept_mass_diagnostics_vs_radius.*"
+  "*_structjet_swept_mass_local_vs_coreavg_per_sr_vs_time.*"
+  "*_structjet_swept_mass_local_vs_coreavg_per_sr_vs_radius.*"
+  "*_structjet_swept_mass_single_overlay_per_sr_vs_time.*"
+  "*_structjet_swept_mass_single_overlay_per_sr_vs_radius.*"
+  "*_structjet_swept_mass_single_overlay_two_panel.*"
+  "*_structjet_swept_mass_crossings.csv"
+)
 
 usage() {
   cat <<'EOF'
@@ -113,18 +131,75 @@ if [ ! -f "$RESULTS_DIR/spectrum_timeseries.pdf" ] \
     "$PYTHON_BIN" "$SPECTRUM_TIMESERIES_SCRIPT" --results "$RESULTS_DIR" >/dev/null || true
 fi
 
+if { [ ! -f "$RESULTS_DIR/ampy_comparison.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/summary.csv" ] \
+  || [ ! -f "$RESULTS_DIR/trace.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/trace.png" ] \
+  || [ ! -f "$RESULTS_DIR/frequencies.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/corner_prior.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/corner.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/corner_core.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/corner_csm.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/corner_energy.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/corner_jet_mass.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/jet_energy_posterior.npz" ] \
+  || [ ! -f "$RESULTS_DIR/jet_energy_summary.csv" ] \
+  || [ ! -f "$RESULTS_DIR/light_curve.png" ] \
+  || [ ! -f "$RESULTS_DIR/mass_swept_ejecta_time.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/mass_swept_ejecta_radius.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/mass_swept_ejecta_two_panel.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/gamma_jetbreak_two_panel.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/light_curve_spread_out_shaded_posterior.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/light_curve_spread_out_100_walkers.pdf" ] \
+  || [ ! -f "$RESULTS_DIR/light_curve_two_panel.pdf" ]; } \
+  && [ -x "$PYTHON_BIN" ] \
+  && [ -f "$POSTFIT_PRODUCTS_SCRIPT" ] \
+  && [ -f "$RESULTS_DIR/model.toml" ] \
+  && [ -f "$RESULTS_DIR/obs.csv" ]; then
+  PYTHONPATH="$VEGAS_DIR:${PYTHONPATH:-}" \
+    "$PYTHON_BIN" "$POSTFIT_PRODUCTS_SCRIPT" --results "$RESULTS_DIR" --event "$EVENT_NAME" >/dev/null
+fi
+
+if [ ! -x "$PYTHON_BIN" ] || [ ! -f "$CORE_POSTFIT_VALIDATOR" ]; then
+  echo "ERROR: core postfit validator unavailable." >&2
+  exit 2
+fi
+PYTHONPATH="$VEGAS_DIR:${PYTHONPATH:-}" \
+  "$PYTHON_BIN" "$CORE_POSTFIT_VALIDATOR" --results "$RESULTS_DIR"
+
 DEST_DIR="$DRIVE_ROOT/$EVENT_NAME/$OWNER_SUBDIR/$RUN_LABEL"
 mkdir -p "$DEST_DIR"
 
-if command -v rsync >/dev/null 2>&1; then
-  rsync -a "$RESULTS_DIR"/ "$DEST_DIR"/
+if command -v "$RSYNC_BIN" >/dev/null 2>&1; then
+  "$RSYNC_BIN" -a \
+    --exclude='spectral_breaks_eats_weighted.csv' \
+    --exclude='spectral_plot.png' \
+    --exclude='spectral_plot.pdf' \
+    --exclude='mass_profile.csv' \
+    --exclude='mass_profile.png' \
+    --exclude='mass_profile.pdf' \
+    --exclude='*_structjet_swept_mass_diagnostics_vs_time.*' \
+    --exclude='*_structjet_swept_mass_diagnostics_vs_radius.*' \
+    --exclude='*_structjet_swept_mass_local_vs_coreavg_per_sr_vs_time.*' \
+    --exclude='*_structjet_swept_mass_local_vs_coreavg_per_sr_vs_radius.*' \
+    --exclude='*_structjet_swept_mass_single_overlay_per_sr_vs_time.*' \
+    --exclude='*_structjet_swept_mass_single_overlay_per_sr_vs_radius.*' \
+    --exclude='*_structjet_swept_mass_single_overlay_two_panel.*' \
+    --exclude='*_structjet_swept_mass_crossings.csv' \
+    "$RESULTS_DIR"/ "$DEST_DIR"/
 else
   cp -R "$RESULTS_DIR"/. "$DEST_DIR"/
 fi
 
-if [ ! -f "$DEST_DIR/spectral_plot.pdf" ] && [ -f "$DEST_DIR/frequencies.pdf" ]; then
-  cp -f "$DEST_DIR/frequencies.pdf" "$DEST_DIR/spectral_plot.pdf"
-fi
+# frequencies.pdf is the standard frequency diagnostic. Do not alias it to
+# spectral_plot.pdf, and do not regenerate spectral_plot.pdf/.png or
+# spectral_breaks_eats_weighted.csv in the standard pipeline.
+for retired_product in "${RETIRED_SPECTRAL_PRODUCTS[@]}"; do
+  rm -f "$DEST_DIR/$retired_product"
+done
+for retired_pattern in "${RETIRED_SWEPT_MASS_PATTERNS[@]}"; do
+  rm -f "$DEST_DIR"/$retired_pattern
+done
 
 copy_if_file() {
   local src="$1"

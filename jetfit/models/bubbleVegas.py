@@ -2,6 +2,10 @@ import math
 import numpy as np
 
 from jetfit.models.powerlawVegas import powerlawVegasModel
+from jetfit.models.vegas_resolution import (
+    model_kwargs_with_resolution,
+    resolve_vegas_resolutions,
+)
 
 try:
     from VegasAfterglow import Model, Medium, TophatJet
@@ -69,6 +73,10 @@ class BubbleVegasModel(powerlawVegasModel):
         log10_n_ism=None,
         hmf=0.7,
         mu=1.3,
+        vegas_resolutions=None,
+        vegas_resolution_phi=None,
+        vegas_resolution_theta=None,
+        vegas_resolution_t=None,
         **kwargs,
     ):
         if not _HAS_VEGASAFTERGLOW:
@@ -116,6 +124,12 @@ class BubbleVegasModel(powerlawVegasModel):
         self.mu = float(mu)
         self.jet_type = "tophat"
         self.medium_type = "bubble"
+        self.vegas_resolutions = resolve_vegas_resolutions(
+            vegas_resolutions=vegas_resolutions,
+            vegas_resolution_phi=vegas_resolution_phi,
+            vegas_resolution_theta=vegas_resolution_theta,
+            vegas_resolution_t=vegas_resolution_t,
+        )
 
         # Keep a stable reference radius for diagnostics.
         self.ref_radius = self.rt
@@ -195,7 +209,15 @@ class BubbleVegasModel(powerlawVegasModel):
         )
         radiation = Radiation(eps_e=self.eps_e, eps_B=self.eps_b, p=self.p)
 
-        self.vegas_model = Model(jet=jet, medium=medium, observer=observer, fwd_rad=radiation)
+        self.vegas_model = Model(
+            **model_kwargs_with_resolution(
+                jet=jet,
+                medium=medium,
+                observer=observer,
+                radiation=radiation,
+                resolutions=self.vegas_resolutions,
+            )
+        )
 
     @property
     def is_valid(self) -> bool:

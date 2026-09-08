@@ -439,7 +439,8 @@ class PTSampler:
 
     def save_resume_state(
         self, path, completed_iterations, target_iterations=None,
-        chain=None, lnprob=None
+        chain=None, lnprob=None, phase='production',
+        burn_completed_iterations=None, burn_target_iterations=None,
     ):
         """
         Save resume state for ``parallel_tempered``.
@@ -470,9 +471,14 @@ class PTSampler:
             'last_pos': self.get_last_sample(),
             'completed_iterations': int(completed_iterations),
             'betas': self.sampler.betas,
+            'phase': str(phase),
         }
         if target_iterations is not None:
             save_kw['target_iterations'] = int(target_iterations)
+        if burn_completed_iterations is not None:
+            save_kw['burn_completed_iterations'] = int(burn_completed_iterations)
+        if burn_target_iterations is not None:
+            save_kw['burn_target_iterations'] = int(burn_target_iterations)
 
         np.savez(state_path, **save_kw)
 
@@ -521,6 +527,15 @@ class PTSampler:
             target_iterations = None
             if 'target_iterations' in data.files:
                 target_iterations = int(data['target_iterations'])
+            phase = 'production'
+            if 'phase' in data.files:
+                phase = str(np.asarray(data['phase']).item())
+            burn_completed_iterations = 0
+            if 'burn_completed_iterations' in data.files:
+                burn_completed_iterations = int(data['burn_completed_iterations'])
+            burn_target_iterations = None
+            if 'burn_target_iterations' in data.files:
+                burn_target_iterations = int(data['burn_target_iterations'])
 
             return {
                 'chain': chain,
@@ -528,9 +543,12 @@ class PTSampler:
                 'last_pos': last_pos,
                 'completed_iterations': completed_iterations,
                 'target_iterations': target_iterations,
+                'phase': phase,
+                'burn_completed_iterations': burn_completed_iterations,
+                'burn_target_iterations': burn_target_iterations,
             }
 
-    def draw_positions(self, params, models):
+    def draw_positions(self, params, models, initial_positions=None):
         """
         Draw the initial positions from the priors.
 
@@ -552,12 +570,19 @@ class PTSampler:
         np.ndarray of float with shape [ntemps, nwalkers, ndim]
             The starting positions.
         """
-        # Draw starting positions
-        pos = np.zeros((self.ntemps, self.nwalkers, self.ndim))
-
-        for i in range(self.ntemps):
-            for j, p in enumerate(params.fitting):
-                pos[i, :, j] = p.prior.draw(self.nwalkers)
+        supplied = initial_positions is not None
+        if supplied:
+            pos = np.asarray(initial_positions, dtype=float).copy()
+            expected = (self.ntemps, self.nwalkers, self.ndim)
+            if pos.shape != expected:
+                raise ValueError(f'Initial-position shape {pos.shape} does not match {expected}.')
+            if not np.isfinite(pos).all():
+                raise ValueError('Initial positions must all be finite.')
+        else:
+            pos = np.zeros((self.ntemps, self.nwalkers, self.ndim))
+            for i in range(self.ntemps):
+                for j, p in enumerate(params.fitting):
+                    pos[i, :, j] = p.prior.draw(self.nwalkers)
 
         # Overwrite invalid positions (inf or NaN log-posterior) with each
         # temperature's best position. If no valid positions exist for a
@@ -574,6 +599,11 @@ class PTSampler:
 
             valid = np.isfinite(log_p[i])
             print(f'Temperature {i}: {valid.sum()} valid walkers out of {self.nwalkers}')
+            if supplied and not valid.all():
+                raise ValueError(
+                    f'Posterior-informed initial cloud has {(~valid).sum()} invalid walker(s) '
+                    f'at temperature {i}.'
+                )
             if valid.any():
             # replace invalid walkers with the best walker for this temp
                 best = np.nanargmax(log_p[i])
@@ -591,10 +621,15 @@ class PTSampler:
                         if np.isnan(lp):
                             lp = -np.inf
                         log_p[i, j] = lp
-                        if np.isfinite(log_p[i]).any():
-                            break
-                        else:
-                            raise RuntimeError(f'Failed to initialize any valid walker for temperature {i}')
+                    valid = np.isfinite(log_p[i])
+                    if valid.any():
+                        best = np.nanargmax(log_p[i])
+                        pos[i][~valid] = np.array(pos[i][best], copy=True)
+                        break
+                else:
+                    raise RuntimeError(
+                        f'Failed to initialize any valid walker for temperature {i}'
+                    )
             # replace any remaining invalids with the best
             best = np.nanargmax(log_p[i])
             pos[i][~np.isfinite(log_p[i])] = np.array(pos[i][best], copy=True)
@@ -785,7 +820,7 @@ class EnsembleSampler(emcee.EnsembleSampler):
     def __init__(self, nwalkers, ndim, log_prob_fn, args, **kw):
         super().__init__(nwalkers, ndim, log_prob_fn, args=args, **kw)
 
-    def draw_positions(self, params, **kwargs) -> np.ndarray:
+    def draw_positions(self, params, initial_positions=None, **kwargs) -> np.ndarray:
         """
         Draw the initial positions from the priors.
 
@@ -802,6 +837,13 @@ class EnsembleSampler(emcee.EnsembleSampler):
         np.ndarray of float with shape [nwalkers, ndim]
             The starting positions.
         """
+        if initial_positions is not None:
+            pos = np.asarray(initial_positions, dtype=float).copy()
+            expected = (self.nwalkers, self.ndim)
+            if pos.shape != expected or not np.isfinite(pos).all():
+                raise ValueError(f'Initial positions must be finite with shape {expected}.')
+            return pos
+
         pos = np.zeros((self.nwalkers, self.ndim))
 
         for i, p in enumerate(params.fitting):
@@ -900,7 +942,7 @@ class MCMC:
                 pool=pool, **kwargs
             )
 
-    def start_positions(self, resume=False):
+    def start_positions(self, resume=False, initial_positions=None):
         """
         Determines the starting positions.
 
@@ -921,13 +963,14 @@ class MCMC:
 
         # Use priors to determine start positions
         return self.sampler.draw_positions(
-            params=self.params, models=self.models
+            params=self.params, models=self.models, initial_positions=initial_positions
         )
 
     def run(
         self, nwalkers, iterations, burn=0, sampler='ensemble',
         workers=None, ntemps=None, sampler_kw=None, run_kw=None,
-        resume=False, checkpoint_path=None, checkpoint_interval=0
+        resume=False, checkpoint_path=None, checkpoint_interval=0,
+        initial_positions=None
     ):
         """
         Runs the MCMC sampling routine.
@@ -996,6 +1039,9 @@ class MCMC:
             resumed_log_prob = None
             completed_iterations = 0
             resumed_from_checkpoint = False
+            target_iterations = int(iterations)
+            burn_target_iterations = int(burn)
+            burn_completed_offset = 0
 
             if is_pt and resume:
                 if checkpoint is None:
@@ -1009,15 +1055,32 @@ class MCMC:
                     )
 
                 state = self.sampler.load_resume_state(checkpoint)
-                self.start_run_pos = state['last_pos']
-                resumed_chain = state['chain']
-                resumed_log_prob = state['lnprob']
-                completed_iterations = int(state['completed_iterations'])
-                resumed_from_checkpoint = True
-                burn = 0
+                phase = state.get('phase', 'production')
+                if phase == 'burn':
+                    self.start_burn_pos = state['last_pos']
+                    burn_completed_offset = int(
+                        state.get('burn_completed_iterations', 0)
+                    )
+                    burn = max(0, burn_target_iterations - burn_completed_offset)
+                    resumed_from_checkpoint = False
+                elif phase == 'production':
+                    self.start_run_pos = state['last_pos']
+                    resumed_chain = state['chain']
+                    resumed_log_prob = state['lnprob']
+                    completed_iterations = int(state['completed_iterations'])
+                    resumed_from_checkpoint = True
+                    burn = 0
+                else:
+                    raise ValueError(
+                        f'Unsupported checkpoint phase {phase!r} in {checkpoint}'
+                    )
 
             if not resumed_from_checkpoint:
-                start_pos = self.start_positions(resume)
+                start_pos = (
+                    self.start_burn_pos
+                    if is_pt and resume and hasattr(self, 'start_burn_pos')
+                    else self.start_positions(resume, initial_positions)
+                )
 
                 if burn < 1:
                     self.start_run_pos = start_pos
@@ -1025,12 +1088,36 @@ class MCMC:
                 else:
                     self.start_burn_pos = start_pos
 
-                    # Run burn in and save the last position
-                    self.start_run_pos = (
-                        self.sampler.run_mcmc(
-                            self.start_burn_pos, burn, **run_options
+                    if is_pt and checkpoint is not None and checkpoint_interval > 0:
+                        current_pos = self.start_burn_pos
+                        produced_burn = 0
+                        while produced_burn < int(burn):
+                            step = min(
+                                checkpoint_interval,
+                                int(burn) - produced_burn,
+                            )
+                            current_pos = self.sampler.run_mcmc(
+                                current_pos, step, **run_options
+                            )
+                            produced_burn = int(self.sampler.iteration)
+                            self.sampler.save_resume_state(
+                                checkpoint,
+                                completed_iterations=0,
+                                target_iterations=target_iterations,
+                                phase='burn',
+                                burn_completed_iterations=(
+                                    burn_completed_offset + produced_burn
+                                ),
+                                burn_target_iterations=burn_target_iterations,
+                            )
+                        self.start_run_pos = current_pos
+                    else:
+                        # Run burn in and save the last position
+                        self.start_run_pos = (
+                            self.sampler.run_mcmc(
+                                self.start_burn_pos, burn, **run_options
+                            )
                         )
-                    )
 
                     # Save the chain if desired for diagnostics. Cannot
                     # save the entire sampler because deepcopy detaches
@@ -1038,7 +1125,6 @@ class MCMC:
                     self.burn_chain = copy.deepcopy(self.sampler.get_chain())
                     self.sampler.reset()
 
-            target_iterations = int(iterations)
             remaining_iterations = target_iterations - completed_iterations
             if remaining_iterations < 0:
                 raise ValueError(
@@ -1339,14 +1425,21 @@ def log_likelihood_fn(theta, params, models) -> float:
     lf0 = m.get('lf0')
     if lf0 is not None and np.isfinite(lf0) and lf0 <= 1.0:
         return -np.inf
+    gamma0_core_avg = m.get('Gamma_0_core_avg')
+    if (
+        gamma0_core_avg is not None
+        and np.isfinite(gamma0_core_avg)
+        and gamma0_core_avg <= 1.0
+    ):
+        return -np.inf
 
     # Model the observed afterglow
     modeled = models.model(p)
 
-    # A nan always results in -inf likelihood.
-    if np.isnan(modeled.min()):
+    # Reject any non-finite model evaluation before downstream transforms.
+    if not np.all(np.isfinite(modeled)):
         if os.environ.get('JETFIT_DEBUG_NAN_MODELED', '0') == '1':
-            print("check the data here")
+            print("Non-finite modeled flux encountered.")
         return -np.inf
 
     # Apply calibration offsets
@@ -1357,8 +1450,14 @@ def log_likelihood_fn(theta, params, models) -> float:
     # Format the slop (if using)
     s = slop(p.get('slop'), models.obs)
 
+    chi2 = chi_squared(modeled, models.obs, s)  # type: ignore
+    if not np.isfinite(chi2):
+        if os.environ.get('JETFIT_DEBUG_NAN_MODELED', '0') == '1':
+            print("Non-finite chi-squared encountered.")
+        return -np.inf
+
     # return log likelihood
-    return -0.5 * chi_squared(modeled, models.obs, s)  # type: ignore
+    return -0.5 * chi2
 
 
 def log_posterior_fn(theta, params, models) -> float:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build an event-specific top-hat model TOML for powerlawVegasModel runs.
+Build an event-specific top-hat model TOML.
 
 This is meant for apples-to-apples comparisons where:
 - event-specific fixed values (e.g., redshift, luminosity distance) are
@@ -8,7 +8,10 @@ This is meant for apples-to-apples comparisons where:
 - jet half-opening angle is fixed to theta_c (default: 1.0 rad)
 - viewing angle is fixed to theta_v (default: 0.0 rad)
 
-Input may be an existing FireballModel or powerlawVegasModel parameter file.
+Input may be an existing FireballModel or powerlaw-style parameter file.
+New top-hat configs default to Dylan's smoothed Vegas spectrum; pass
+``--model-name powerlawVegasModel`` only for an intentional legacy-standard
+spectrum comparison.
 """
 
 from __future__ import annotations
@@ -186,8 +189,8 @@ def _load_best_fit(path: Path | None) -> dict[str, float]:
     if path is None:
         return {}
     payload = json.loads(path.read_text())
-    model = payload.get("model", {})
-    if not isinstance(model, dict):
+    model = payload.get("model")
+    if not isinstance(model, dict) or not model:
         params = payload.get("params", {})
         if isinstance(params, dict):
             model = params.get("model", {})
@@ -281,7 +284,7 @@ def build_tophat_config(
     k_lower: float = -10.0,
     k_upper: float = 3.0,
     seed_best_fit: dict[str, float] | None = None,
-    model_name: str = "powerlawVegasModel",
+    model_name: str = "powerlawVegasDylanSpectrumModel",
 ) -> dict[str, Any]:
     out: dict[str, Any] = {"name": model_name}
 
@@ -325,7 +328,7 @@ def build_tophat_config(
     missing = sorted(REQUIRED_MODEL_NAMES - set(seen))
     if missing:
         raise ValueError(
-            "Input model is missing required parameters for powerlawVegasModel: "
+            "Input model is missing required parameters for a power-law Vegas model: "
             + ", ".join(missing)
         )
 
@@ -365,7 +368,14 @@ def main() -> None:
     parser.add_argument("--k-lower", type=float, default=-10.0, help="Lower prior bound for k (default: -10.0)")
     parser.add_argument("--k-upper", type=float, default=3.0, help="Upper prior bound for k (default: 3.0)")
     parser.add_argument("--seed-best-fit", type=Path, default=None, help="Optional best_fit.json to seed initial guesses")
-    parser.add_argument("--model-name", default="powerlawVegasModel", help="Model name to write into the output TOML")
+    parser.add_argument(
+        "--model-name",
+        default="powerlawVegasDylanSpectrumModel",
+        help=(
+            "Model name to write into the output TOML "
+            "(default: Dylan-smoothed powerlawVegasDylanSpectrumModel)"
+        ),
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)

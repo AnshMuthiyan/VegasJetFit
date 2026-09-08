@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Run bubble-model follow-up fits for GRBs that showed negative-k powerlaw fits.
-# Uses top-hat/on-axis geometry and syncs shared parameters from powerlaw config.
+# Uses the current Dylan-smoothed top-hat control configs for shared parameters
+# and seeds rt just inside the earliest sampled radius of the control solution.
 
 ROOT="${ROOT:-$HOME/GRBs}"
 VEGAS_DIR="${VEGAS_DIR:-$ROOT/VegasJetFit}"
@@ -12,9 +13,9 @@ RESOURCES_DIR="${RESOURCES_DIR:-$VEGAS_DIR/jetfit/resources/grbs}"
 GRBS="${GRBS:-080413B 140506A 210905A}"
 THETA_C="${THETA_C:-1.0}"
 THETA_V="${THETA_V:-0.0}"
-RUN_TAG="${RUN_TAG:-theta1p0_thesis_full}"
+RUN_TAG="${RUN_TAG:-theta1p0_bubble_dylanspec_physrt_v1}"
 
-MCMC_SETTINGS="${MCMC_SETTINGS:-$RUN_PROFILE_DIR/mcmc_settings_thesis_full.toml}"
+MCMC_SETTINGS="${MCMC_SETTINGS:-$RUN_PROFILE_DIR/mcmc_settings_dylanspec_2000x2000.toml}"
 WORKERS="${WORKERS:-8}"
 ENABLE_PREFLIGHT="${ENABLE_PREFLIGHT:-1}"
 PREFLIGHT_BURN_LENGTH="${PREFLIGHT_BURN_LENGTH:-10}"
@@ -26,9 +27,14 @@ CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-1}"
 RUN_MINIMIZER="${RUN_MINIMIZER:-1}"
 
 PYTHON_BIN="${PYTHON_BIN:-$ROOT/.venv/bin/python}"
-TOPHAT_BUILDER="${TOPHAT_BUILDER:-$VEGAS_DIR/scripts/build_tophat_model_toml.py}"
-SYNC_SCRIPT="${SYNC_SCRIPT:-$VEGAS_DIR/scripts/sync_compare_model_tomls.py}"
+BUBBLE_BUILDER="${BUBBLE_BUILDER:-$VEGAS_DIR/scripts/build_bubble_dylan_toml.py}"
 BUBBLE_TEMPLATE="${BUBBLE_TEMPLATE:-$RUN_PROFILE_DIR/parameters_bubble.toml}"
+CONTROL_CONFIG_DIR="${CONTROL_CONFIG_DIR:-$VEGAS_DIR/thesis_reproduction_configs_dylanphyspriors_init5pct_active}"
+CONTROL_RESULTS_TAG="${CONTROL_RESULTS_TAG:-theta1p0_thesis_reproduction_dylanphyspriors_init5pct_2000x2000_v1}"
+BUBBLE_SEED_RUN_TAG="${BUBBLE_SEED_RUN_TAG:-theta1p0_thesis_full_shellmass_v1}"
+RT_SEED_FACTOR="${RT_SEED_FACTOR:-0.9}"
+RT_SIGMA_SCALE="${RT_SIGMA_SCALE:-0.05}"
+BUBBLE_MODEL_NAME="${BUBBLE_MODEL_NAME:-BubbleVegasDylanSpectrumModel}"
 
 if [ ! -d "$VEGAS_DIR" ]; then
   echo "ERROR: VegasJetFit directory not found: $VEGAS_DIR" >&2
@@ -38,12 +44,12 @@ if [ ! -x "$PYTHON_BIN" ]; then
   echo "ERROR: python executable not found: $PYTHON_BIN" >&2
   exit 2
 fi
-if [ ! -f "$TOPHAT_BUILDER" ]; then
-  echo "ERROR: top-hat builder not found: $TOPHAT_BUILDER" >&2
+if [ ! -f "$BUBBLE_BUILDER" ]; then
+  echo "ERROR: bubble Dylan builder not found: $BUBBLE_BUILDER" >&2
   exit 2
 fi
-if [ ! -f "$SYNC_SCRIPT" ]; then
-  echo "ERROR: sync script not found: $SYNC_SCRIPT" >&2
+if [ ! -d "$CONTROL_CONFIG_DIR" ]; then
+  echo "ERROR: control config directory not found: $CONTROL_CONFIG_DIR" >&2
   exit 2
 fi
 if [ ! -f "$BUBBLE_TEMPLATE" ]; then
@@ -69,6 +75,11 @@ echo "Workers:          $WORKERS"
 echo "Preflight:        $ENABLE_PREFLIGHT (burn=$PREFLIGHT_BURN_LENGTH run=$PREFLIGHT_RUN_LENGTH)"
 echo "Top-hat theta_c:  $THETA_C"
 echo "Top-hat theta_v:  $THETA_V"
+echo "Control configs:  $CONTROL_CONFIG_DIR"
+echo "Control run tag:  $CONTROL_RESULTS_TAG"
+echo "Bubble seed tag:  $BUBBLE_SEED_RUN_TAG"
+echo "rt seed factor:   $RT_SEED_FACTOR"
+echo "rt sigma scale:   $RT_SIGMA_SCALE"
 echo "Run tag:          $RUN_TAG"
 echo "Keep awake:       $KEEP_AWAKE"
 echo "Resume:           $RESUME"
@@ -87,13 +98,23 @@ for event in $GRBS; do
   rc=0
 
   source_model="$RESOURCES_DIR/$event/parameters.toml"
-  top_hat_model="$LOG_DIR/${event}.parameters_tophat_theta${THETA_C}.toml"
+  control_model="$CONTROL_CONFIG_DIR/$event.toml"
   bubble_model="$LOG_DIR/${event}.parameters_bubble_theta${THETA_C}.synced.toml"
   results_dir="$VEGAS_DIR/jetfit/results/${event}_bubble_tophat_${RUN_TAG}"
+  control_seed="$VEGAS_DIR/jetfit/results/${event}_thesis_reproduction_${CONTROL_RESULTS_TAG}/minimized/minimized.json"
+  bubble_seed="$VEGAS_DIR/jetfit/results/${event}_bubble_tophat_${BUBBLE_SEED_RUN_TAG}/minimized/minimized.json"
+  obs_csv="$RESOURCES_DIR/$event/${event}clean.csv"
+  if [ ! -f "$obs_csv" ]; then
+    obs_csv="$RESOURCES_DIR/$event/${event}.csv"
+  fi
 
   if [ ! -f "$source_model" ]; then
     status="missing_model"
     note="missing:$source_model"
+    rc=4
+  elif [ ! -f "$control_model" ]; then
+    status="missing_control"
+    note="missing:$control_model"
     rc=4
   elif [ "$SKIP_COMPLETED" = "1" ] && [ -f "$results_dir/best_fit.json" ] && [ -f "$results_dir/chain.npz" ]; then
     status="skipped_completed"
@@ -103,21 +124,29 @@ for event in $GRBS; do
     echo "--------------------------------------------------"
     echo "Starting bubble fit for $event"
     echo "Source model: $source_model"
-    echo "Top-hat model: $top_hat_model"
+    echo "Control model: $control_model"
+    echo "Obs CSV:       $obs_csv"
     echo "Bubble model:  $bubble_model"
     echo "Results:       $results_dir"
     echo "--------------------------------------------------"
 
-    "$PYTHON_BIN" "$TOPHAT_BUILDER" \
-      --input "$source_model" \
-      --output "$top_hat_model" \
-      --theta-c "$THETA_C" \
-      --theta-v "$THETA_V"
-
-    "$PYTHON_BIN" "$SYNC_SCRIPT" \
-      --powerlaw "$top_hat_model" \
-      --bubble "$BUBBLE_TEMPLATE" \
+    build_cmd=(
+      "$PYTHON_BIN" "$BUBBLE_BUILDER"
+      --powerlaw "$control_model"
+      --bubble-template "$BUBBLE_TEMPLATE"
       --output "$bubble_model"
+      --obs "$obs_csv"
+      --model-name "$BUBBLE_MODEL_NAME"
+      --rt-factor "$RT_SEED_FACTOR"
+      --rt-sigma-scale "$RT_SIGMA_SCALE"
+    )
+    if [ -f "$control_seed" ]; then
+      build_cmd+=(--seed-best-fit "$control_seed")
+    fi
+    if [ -f "$bubble_seed" ]; then
+      build_cmd+=(--bubble-seed "$bubble_seed")
+    fi
+    "${build_cmd[@]}"
 
     if ROOT="$ROOT" \
       RUN_PROFILE_DIR="$RUN_PROFILE_DIR" \

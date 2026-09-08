@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use('Agg', force=True)
 from matplotlib import pyplot as plt
 
-from jetfit.core.utils import save_plot_unique
+from jetfit.core.utils import save_plot_unique, apply_plot_title
 from jetfit.models.base import SpectralIndexModel, has_fts_transition, OpeningAngleModel
 from jetfit.models.jetsim import JetSimpy
 from scripts.plot.base import Profiler
@@ -290,7 +290,7 @@ class SpectralIndexPlot(Profiler):
         )
 
         # Configure the plot
-        plt.title(f't = {round(time, 2)} days post trigger')
+        apply_plot_title(plt.gcf(), f'Spectral Index Distribution, t = {round(time, 2)} days', y=0.98, top=0.88)
         plt.xlabel('Spectral Index')
         plt.ylabel('Count')
         plt.legend()
@@ -483,7 +483,7 @@ class Beaming(Profiler):
         )
 
         # Configure the plot
-        plt.title(title)
+        apply_plot_title(plt.gcf(), title, y=0.98, top=0.88)
         plt.xlabel(x_label)
         plt.ylabel('Count')
         plt.legend(loc='best')

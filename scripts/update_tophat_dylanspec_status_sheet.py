@@ -55,6 +55,16 @@ def parse_args() -> argparse.Namespace:
         "--run-tag",
         default="theta1p0_thesis_short_kmin10_seeded_vegasv201_dylanspec_v1",
     )
+    parser.add_argument(
+        "--results-name-template",
+        default="{event}_powerlaw_tophat_{run_tag}",
+        help="Python format template for the run directory name.",
+    )
+    parser.add_argument(
+        "--source-name-template",
+        default="{event}_powerlaw_tophat_{source_run_tag}",
+        help="Python format template for the source directory name. Use an empty string to disable.",
+    )
     parser.add_argument("--events", nargs="+")
     parser.add_argument(
         "--output-csv",
@@ -168,6 +178,22 @@ def ordered_events_from_tracking_sheet(
         seen.add(event)
         events.append(event)
     return events
+
+
+def render_name(
+    template: str,
+    *,
+    event: str,
+    run_tag: str,
+    source_run_tag: str,
+) -> str:
+    if not template:
+        return ""
+    return template.format(
+        event=event,
+        run_tag=run_tag,
+        source_run_tag=source_run_tag,
+    )
 
 
 def status_label(
@@ -335,10 +361,20 @@ def main() -> int:
 
     rows: list[dict[str, Any]] = []
     for event in events:
-        source_name = f"{event}_powerlaw_tophat_{args.source_run_tag}"
-        run_name = f"{event}_powerlaw_tophat_{args.run_tag}"
+        source_name = render_name(
+            args.source_name_template,
+            event=event,
+            run_tag=args.run_tag,
+            source_run_tag=args.source_run_tag,
+        )
+        run_name = render_name(
+            args.results_name_template,
+            event=event,
+            run_tag=args.run_tag,
+            source_run_tag=args.source_run_tag,
+        )
         run_dir = results_root / run_name
-        source_dir = results_root / source_name
+        source_dir = results_root / source_name if source_name else None
 
         best_fit_path = run_dir / "best_fit.json"
         chain_path = run_dir / "chain.npz"
@@ -361,7 +397,7 @@ def main() -> int:
             "event": event,
             "assigned_host": host_map.get(event, ""),
             "queue_index": queue_index.get(event),
-            "source_run_dir": str(source_dir),
+            "source_run_dir": str(source_dir) if source_dir else "",
             "run_dir": str(run_dir),
             "share_dir": str(share_dir),
             "status": status_label(

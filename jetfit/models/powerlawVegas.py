@@ -3,9 +3,14 @@ import os
 import numpy as np
 
 from jetfit.core.utils import days_to_sec
+from jetfit.models.jet_energy import resolve_e_iso52, resolve_gamma0_axis
+from jetfit.models.vegas_resolution import (
+    model_kwargs_with_resolution,
+    resolve_vegas_resolutions,
+)
 
 try:
-    from VegasAfterglow import Model, ISM, Wind, Medium, TophatJet, GaussianJet, PowerLawJet
+    from VegasAfterglow import Model, ISM, Wind, Medium, TophatJet, GaussianJet, PowerLawJet, Magnetar
     from VegasAfterglow import Observer, Radiation
     try:
         from VegasAfterglow.native import gil_free
@@ -103,6 +108,26 @@ class powerlawVegasModel:
         fast-cooling to slow-cooling transition. This is the descriptive
         native VegasAfterglow name for the historical ``fts=True`` option.
 
+    lateral_spreading : bool, optional, default=False
+        Enable VegasAfterglow's experimental lateral-expansion dynamics.
+        This is deliberately disabled by default so historical fits retain
+        their original non-spreading physical model.
+
+    xi_e : float, optional, default=1
+        Fraction of electrons accelerated into the nonthermal distribution.
+
+    ssc, kn, cmb_cooling : bool, optional, default=False
+        Enable synchrotron self-Compton emission/cooling, Klein-Nishina
+        corrections, and CMB inverse-Compton cooling, respectively.
+
+    reverse_shock : bool, optional, default=False
+        Enable reverse-shock emission. By default it uses the forward-shock
+        microphysics; explicit reverse-shock values may be supplied.
+
+    magnetar_L0 : float, optional
+        Enable magnetar-like energy injection with luminosity
+        ``L0 * (1 + t/t0)**(-q)`` when positive.
+
     References
     ----------
     .. [1] VegasAfterglow: A Numerical Code for GRB Afterglow
@@ -115,17 +140,17 @@ class powerlawVegasModel:
     
     def __init__(
         self,
-        E52,
-        lf0,
-        theta_c,
-        theta_v,
-        eps_e,
-        eps_b,
-        p,
-        z,
-        dl28,
-        n017,  # number density at r = 10^17 cm [cm^-3] (log scale in parameters.toml)
-        k,
+        E52=None,
+        lf0=None,
+        theta_c=None,
+        theta_v=None,
+        eps_e=None,
+        eps_b=None,
+        p=None,
+        z=None,
+        dl28=None,
+        n017=None,  # number density at r = 10^17 cm [cm^-3] (log scale in parameters.toml)
+        k=None,
         hmf = 0.7,     # density power-law index: n(r) = n017 * (r/r0)^(-k)
         n_ism=None,
         A_star=None,
@@ -135,6 +160,29 @@ class powerlawVegasModel:
         medium_type='powerlaw',
         ref_radius=1.0e17,
         smooth_fast_to_slow_transition=False,
+        E_j_52=None,
+        E_j_core_52=None,
+        Gamma_0_core_avg=None,
+        vegas_resolutions=None,
+        vegas_resolution_phi=None,
+        vegas_resolution_theta=None,
+        vegas_resolution_t=None,
+        lateral_spreading=False,
+        xi_e=1.0,
+        ssc=False,
+        kn=False,
+        cmb_cooling=False,
+        jet_duration=1.0,
+        reverse_shock=False,
+        reverse_eps_e=None,
+        reverse_eps_b=None,
+        reverse_p=None,
+        reverse_xi_e=None,
+        reverse_ssc=False,
+        reverse_kn=False,
+        magnetar_L0=None,
+        magnetar_t0=1.0e4,
+        magnetar_q=2.0,
 
     ):
         if not _HAS_VEGASAFTERGLOW:
@@ -145,8 +193,24 @@ class powerlawVegasModel:
 
         # NOTE: JetFit already converts "scale=log" parameters to linear
         # So we receive linear values here, NOT log10 values
-        self.E_iso52 = E52 * 1e52  # E52 is linear multiplier, convert to erg
-        self.lf0 = lf0             # Already linear (JetFit converted from log10)
+        self.E_j_52 = E_j_52
+        self.E_j_core_52 = E_j_core_52
+        self.Gamma_0_core_avg = Gamma_0_core_avg
+        self.E_iso52 = resolve_e_iso52(
+            E52=E52,
+            E_j_52=E_j_52,
+            E_j_core_52=E_j_core_52,
+            jet_type=jet_type,
+            theta_c=theta_c,
+            k_e=k_e,
+        ) * 1e52  # internal on-axis isotropic-equivalent energy [erg]
+        self.lf0 = resolve_gamma0_axis(
+            lf0=lf0,
+            Gamma_0_core_avg=Gamma_0_core_avg,
+            jet_type=jet_type,
+            theta_c=theta_c,
+            k_g=k_g,
+        )
         self.theta_c = theta_c
         self.theta_v = theta_v
         self.eps_e = eps_e         # Already linear (JetFit converted from log10)
@@ -165,6 +229,40 @@ class powerlawVegasModel:
         self.k_g = k_g
         self.ref_radius = ref_radius  # Reference radius [cm]
         self.smooth_fast_to_slow_transition = bool(smooth_fast_to_slow_transition)
+        self.lateral_spreading = bool(lateral_spreading)
+        self.xi_e = float(xi_e)
+        self.ssc = bool(ssc)
+        self.kn = bool(kn)
+        self.cmb_cooling = bool(cmb_cooling)
+        self.jet_duration = float(jet_duration)
+        self.reverse_shock = bool(reverse_shock)
+        self.reverse_eps_e = self.eps_e if reverse_eps_e is None else float(reverse_eps_e)
+        self.reverse_eps_b = self.eps_b if reverse_eps_b is None else float(reverse_eps_b)
+        self.reverse_p = self.p if reverse_p is None else float(reverse_p)
+        self.reverse_xi_e = self.xi_e if reverse_xi_e is None else float(reverse_xi_e)
+        self.reverse_ssc = bool(reverse_ssc)
+        self.reverse_kn = bool(reverse_kn)
+        self.magnetar_L0 = None if magnetar_L0 is None else float(magnetar_L0)
+        self.magnetar_t0 = float(magnetar_t0)
+        self.magnetar_q = float(magnetar_q)
+        if not 0.0 < self.xi_e <= 1.0:
+            raise ValueError("xi_e must be in (0, 1].")
+        if not 0.0 < self.reverse_xi_e <= 1.0:
+            raise ValueError("reverse_xi_e must be in (0, 1].")
+        if self.kn and not self.ssc:
+            raise ValueError("Klein-Nishina corrections require ssc=True.")
+        if self.reverse_kn and not self.reverse_ssc:
+            raise ValueError("Reverse-shock Klein-Nishina corrections require reverse_ssc=True.")
+        if self.jet_duration <= 0.0:
+            raise ValueError("jet_duration must be positive.")
+        if self.magnetar_L0 is not None and self.magnetar_L0 > 0.0 and self.magnetar_t0 <= 0.0:
+            raise ValueError("magnetar_t0 must be positive when energy injection is enabled.")
+        self.vegas_resolutions = resolve_vegas_resolutions(
+            vegas_resolutions=vegas_resolutions,
+            vegas_resolution_phi=vegas_resolution_phi,
+            vegas_resolution_theta=vegas_resolution_theta,
+            vegas_resolution_t=vegas_resolution_t,
+        )
 
 
         # Initialize VegasAfterglow components
@@ -262,6 +360,7 @@ class powerlawVegasModel:
         # Build params dict from instance attributes (already converted in __init__)
         params = {
             "E52": self.E_iso52 / 1e52,  # Convert back for logging
+            "E_j_52": self.E_j_52,
             "lf0": self.lf0,             # Already linear from __init__
             "theta_c": self.theta_c,
             "theta_v": self.theta_v,
@@ -356,18 +455,28 @@ class powerlawVegasModel:
         else:
             raise ValueError(f"Unknown medium_type: {self.medium_type}")
 
+        magnetar = None
+        if self.magnetar_L0 is not None and self.magnetar_L0 > 0.0:
+            magnetar = Magnetar(L0=self.magnetar_L0, t0=self.magnetar_t0, q=self.magnetar_q)
+
         # Create jet
         if self.jet_type.lower() == 'tophat':
             jet = TophatJet(
                 theta_c=self.theta_c,
                 E_iso=self.E_iso52,
-                Gamma0=self.lf0
+                Gamma0=self.lf0,
+                spreading=self.lateral_spreading,
+                duration=self.jet_duration,
+                magnetar=magnetar,
             )
         elif self.jet_type.lower() == 'gaussian':
             jet = GaussianJet(
                 theta_c=self.theta_c,
                 E_iso=self.E_iso52,
-                Gamma0=self.lf0
+                Gamma0=self.lf0,
+                spreading=self.lateral_spreading,
+                duration=self.jet_duration,
+                magnetar=magnetar,
             )
         elif self.jet_type.lower() == 'powerlaw':
             if self.k_e is None or self.k_g is None:
@@ -377,7 +486,10 @@ class powerlawVegasModel:
                 E_iso=self.E_iso52,
                 Gamma0=self.lf0,
                 k_e=self.k_e,
-                k_g=self.k_g
+                k_g=self.k_g,
+                spreading=self.lateral_spreading,
+                duration=self.jet_duration,
+                magnetar=magnetar,
             )
         else:
             raise ValueError(f"Unknown jet_type: {self.jet_type}")
@@ -393,13 +505,38 @@ class powerlawVegasModel:
             eps_e=self.eps_e,
             eps_B=self.eps_b,
             p=self.p,
+            xi_e=self.xi_e,
+            ssc=self.ssc,
+            kn=self.kn,
+            cmb_cooling=self.cmb_cooling,
             smooth_fast_to_slow_transition=self.smooth_fast_to_slow_transition,
         )
+
+        reverse_radiation = None
+        if self.reverse_shock:
+            reverse_radiation = Radiation(
+                eps_e=self.reverse_eps_e,
+                eps_B=self.reverse_eps_b,
+                p=self.reverse_p,
+                xi_e=self.reverse_xi_e,
+                ssc=self.reverse_ssc,
+                kn=self.reverse_kn,
+                smooth_fast_to_slow_transition=self.smooth_fast_to_slow_transition,
+            )
 
         # Create the model - Note: Model expects (jet, medium, observer, fwd_rad)
         # print(f"DEBUG: Creating VegasAfterglow Model...")
         try:
-            self.vegas_model = Model(jet=jet, medium=medium, observer=observer, fwd_rad=radiation)
+            self.vegas_model = Model(
+                **model_kwargs_with_resolution(
+                    jet=jet,
+                    medium=medium,
+                    observer=observer,
+                    radiation=radiation,
+                    resolutions=self.vegas_resolutions,
+                    reverse_radiation=reverse_radiation,
+                )
+            )
             # print(f"DEBUG: Model created successfully!")
         except Exception as e:
             print(f"DEBUG: Model creation FAILED: {e}")

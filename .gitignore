@@ -1,7 +1,23 @@
 .idea/
 
+.DS_Store
+.cache/
+.pytest_cache/
+*.log
+*.pid
+*.stdout
+
 **/__pycache__/
 jetfit/**/__pycache__/
 jetfit/results/
+
+# Runtime and generated science products live in the shared campaign archive.
+logs/
+reports/
+plots/
+tmp/
+tmp.*/
+initial_positions/
+minimized_smoke_fixcheck/
 
 jetfit/models/rsrcs/hydro_sim/*.h5

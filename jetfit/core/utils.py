@@ -67,16 +67,86 @@ def get_plot_run_label():
     return label or None
 
 
-def apply_plot_run_label(fig=None, label=None, x=0.01, y=0.995, ha='left', va='top'):
+def get_plot_event_title(label=None):
     """
-    Adds a top-of-figure run label (event/folder) to saved plots.
+    Return the compact event title used for standard run products.
 
-    This is intentionally lightweight so all generated artifacts can be
-    identified quickly when opened outside their result directory.
+    Preferred source is ``JETFIT_PLOT_EVENT_TITLE``.  If that is absent, fall
+    back to the leading segment of the run label, e.g. ``GRB 050525A`` from
+    ``GRB 050525A | run_name``.
+    """
+    title = os.environ.get('JETFIT_PLOT_EVENT_TITLE', '').strip()
+    if title:
+        return title
+
+    if label is None:
+        label = get_plot_run_label()
+    if not label:
+        return None
+
+    first = str(label).split('|', 1)[0].strip()
+    return first or None
+
+
+def apply_plot_title(fig=None, title=None, y=0.99, top=0.90, fontsize=12):
+    """
+    Add a standard GRB title while reserving top margin.
+
+    ``title`` should describe the product; the GRB name is prepended from
+    ``JETFIT_PLOT_EVENT_TITLE`` when available.  The small run/folder label is
+    handled separately by ``apply_plot_run_label``.
     """
     if fig is None:
         fig = plt.gcf()
     if fig is None:
+        return
+    if getattr(fig, "_jetfit_plot_title_applied", False):
+        return
+
+    event_title = get_plot_event_title()
+    if title and event_title:
+        full_title = f"{event_title}: {title}"
+    elif title:
+        full_title = str(title)
+    else:
+        full_title = event_title
+    if not full_title:
+        return
+
+    fig.suptitle(full_title, fontsize=fontsize, y=y)
+    try:
+        current_top = fig.subplotpars.top
+        current_bottom = fig.subplotpars.bottom
+        fig.subplots_adjust(top=min(current_top, top), bottom=max(current_bottom, 0.08))
+    except Exception:
+        pass
+    fig._jetfit_plot_title_applied = True
+
+
+def apply_plot_run_label(
+    fig=None,
+    label=None,
+    x=0.5,
+    y=0.006,
+    ha='center',
+    va='bottom',
+    fontsize=5.5,
+):
+    """Optionally stamp internal run provenance onto a diagnostic plot.
+
+    Published campaign figures keep provenance in their result directory,
+    manifest, and machine-readable metadata instead of printing a run name or
+    source filename on the artwork.  Set ``JETFIT_STAMP_PLOT_RUN_LABEL=1`` for
+    an explicitly internal debugging export.
+    """
+    if fig is None:
+        fig = plt.gcf()
+    if fig is None:
+        return
+
+    if os.environ.get("JETFIT_STAMP_PLOT_RUN_LABEL", "").strip().lower() not in {
+        "1", "true", "yes", "on",
+    }:
         return
 
     if label is None:
@@ -94,17 +164,181 @@ def apply_plot_run_label(fig=None, label=None, x=0.01, y=0.995, ha='left', va='t
         str(label),
         ha=ha,
         va=va,
-        fontsize=9,
+        fontsize=fontsize,
         color='black',
         bbox={
             'facecolor': 'white',
-            'alpha': 0.65,
+            'alpha': 0.55,
             'edgecolor': 'none',
-            'pad': 1.2,
+            'pad': 0.8,
         },
         zorder=1000,
     )
     fig._jetfit_plot_label_applied = True
+
+
+def _artist_points_in_axes(ax):
+    """Return finite plotted artist coordinates transformed into axes space."""
+    points = []
+    to_axes = ax.transAxes.inverted()
+
+    def add_xy(x, y):
+        arr = np.column_stack([np.asarray(x, dtype=float).ravel(), np.asarray(y, dtype=float).ravel()])
+        if arr.size == 0:
+            return
+        mask = np.isfinite(arr).all(axis=1)
+        if not mask.any():
+            return
+        arr = arr[mask]
+        if arr.shape[0] > 1200:
+            arr = arr[np.linspace(0, arr.shape[0] - 1, 1200).astype(int)]
+        try:
+            points.append(to_axes.transform(ax.transData.transform(arr)))
+        except Exception:
+            pass
+
+    for line in ax.lines:
+        try:
+            add_xy(line.get_xdata(orig=False), line.get_ydata(orig=False))
+        except Exception:
+            pass
+
+    for collection in ax.collections:
+        try:
+            offsets = collection.get_offsets()
+        except Exception:
+            continue
+        if offsets is None or len(offsets) == 0:
+            continue
+        arr = np.asarray(offsets, dtype=float)
+        if arr.ndim == 2 and arr.shape[1] >= 2:
+            add_xy(arr[:, 0], arr[:, 1])
+
+    if not points:
+        return np.empty((0, 2), dtype=float)
+    pts = np.vstack(points)
+    return pts[np.isfinite(pts).all(axis=1)]
+
+
+def _label_box_axes(x, y, text, *, ha="left", va="top", fontsize=15):
+    """Approximate a text box in axes coordinates for overlap checks."""
+    width = min(0.46, max(0.16, 0.014 * fontsize * len(str(text)) / 10.0))
+    height = min(0.16, max(0.055, 0.0043 * fontsize))
+
+    if ha == "right":
+        x0, x1 = x - width, x
+    elif ha == "center":
+        x0, x1 = x - width / 2.0, x + width / 2.0
+    else:
+        x0, x1 = x, x + width
+
+    if va == "bottom":
+        y0, y1 = y, y + height
+    elif va == "center":
+        y0, y1 = y - height / 2.0, y + height / 2.0
+    else:
+        y0, y1 = y - height, y
+
+    return x0, x1, y0, y1
+
+
+def choose_axes_label_position(
+    ax,
+    text,
+    candidates,
+    *,
+    ha="left",
+    va="top",
+    fontsize=15,
+    pad=0.018,
+):
+    """
+    Pick the first axes-coordinate label position that avoids plotted data.
+
+    This lightweight collision check samples line and scatter artists already on
+    the axes and checks whether finite points fall inside an approximate text
+    box. If every candidate overlaps, the least-bad candidate is returned.
+    """
+    points = _artist_points_in_axes(ax)
+    if points.size == 0:
+        return candidates[0]
+
+    best = candidates[0]
+    best_count = None
+    for x, y in candidates:
+        x0, x1, y0, y1 = _label_box_axes(x, y, text, ha=ha, va=va, fontsize=fontsize)
+        x0 -= pad
+        x1 += pad
+        y0 -= pad
+        y1 += pad
+        in_box = (
+            (points[:, 0] >= x0)
+            & (points[:, 0] <= x1)
+            & (points[:, 1] >= y0)
+            & (points[:, 1] <= y1)
+        )
+        count = int(in_box.sum())
+        if count == 0:
+            return (x, y)
+        if best_count is None or count < best_count:
+            best = (x, y)
+            best_count = count
+    return best
+
+
+def add_collision_aware_grb_label(
+    ax,
+    text,
+    *,
+    corner="upper left",
+    candidates=None,
+    fontsize=15,
+    fontweight="semibold",
+    zorder=1000,
+):
+    """Add a GRB panel label and nudge it away from existing plotted data."""
+    if not text:
+        return None
+    label = str(text)
+    if not label.upper().startswith("GRB "):
+        label = f"GRB {label}"
+
+    if candidates is None:
+        if corner == "upper right":
+            ha = "right"
+            candidates = [
+                (0.965, 0.96),
+                (0.965, 0.875),
+                (0.965, 0.79),
+                (0.965, 0.705),
+                (0.90, 0.96),
+                (0.90, 0.875),
+            ]
+        else:
+            ha = "left"
+            candidates = [
+                (0.02, 0.96),
+                (0.02, 0.875),
+                (0.02, 0.79),
+                (0.02, 0.705),
+                (0.08, 0.96),
+                (0.08, 0.875),
+            ]
+    else:
+        ha = "right" if "right" in corner else "left"
+
+    x, y = choose_axes_label_position(ax, label, candidates, ha=ha, va="top", fontsize=fontsize)
+    return ax.text(
+        x,
+        y,
+        label,
+        transform=ax.transAxes,
+        ha=ha,
+        va="top",
+        fontsize=fontsize,
+        fontweight=fontweight,
+        zorder=zorder,
+    )
 
 
 def get_best_index(sampler):

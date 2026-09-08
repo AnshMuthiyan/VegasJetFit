@@ -14,10 +14,17 @@ LOG_FILE=""
 RESUME="0"
 KEEP_AWAKE="1"
 RUN_MINIMIZER="1"
+RUN_POSTFIT_PRODUCTS="1"
+SKIP_MCMC_PLOTS="0"
 MINIMIZE_MODE="walkers"
 MINIMIZE_MAX_WALKERS="0"
+MINIMIZE_PARALLEL_WORKERS="1"
 MINIMIZE_MINIMIZER="minimize"
+MINIMIZE_SCIPY_METHOD="Powell"
+MINIMIZE_FALLBACK_SCIPY_METHOD="Nelder-Mead"
 MINIMIZE_OUTPUT=""
+MINIMIZE_OBS=""
+MINIMIZE_PARAMS=""
 MINIMIZE_STRICT="0"
 MINIMIZE_SCRIPT=""
 DRIVE_SYNC_ENABLE="1"
@@ -25,6 +32,8 @@ DRIVE_ROOT=""
 DRIVE_OWNER=""
 DRIVE_RUN_LABEL=""
 SYNC_SCRIPT=""
+POSTFIT_PRODUCTS_SCRIPT=""
+CORE_POSTFIT_VALIDATOR=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -41,10 +50,17 @@ while [ "$#" -gt 0 ]; do
     --resume) RESUME="${2:-}"; shift 2 ;;
     --keep-awake) KEEP_AWAKE="${2:-}"; shift 2 ;;
     --run-minimizer) RUN_MINIMIZER="${2:-}"; shift 2 ;;
+    --run-postfit-products) RUN_POSTFIT_PRODUCTS="${2:-}"; shift 2 ;;
+    --skip-mcmc-plots) SKIP_MCMC_PLOTS="${2:-}"; shift 2 ;;
     --minimize-mode) MINIMIZE_MODE="${2:-}"; shift 2 ;;
     --minimize-max-walkers) MINIMIZE_MAX_WALKERS="${2:-}"; shift 2 ;;
+    --minimize-parallel-workers) MINIMIZE_PARALLEL_WORKERS="${2:-}"; shift 2 ;;
     --minimize-minimizer) MINIMIZE_MINIMIZER="${2:-}"; shift 2 ;;
+    --minimize-scipy-method) MINIMIZE_SCIPY_METHOD="${2:-}"; shift 2 ;;
+    --minimize-fallback-scipy-method) MINIMIZE_FALLBACK_SCIPY_METHOD="${2:-}"; shift 2 ;;
     --minimize-output) MINIMIZE_OUTPUT="${2:-}"; shift 2 ;;
+    --minimize-obs) MINIMIZE_OBS="${2:-}"; shift 2 ;;
+    --minimize-params) MINIMIZE_PARAMS="${2:-}"; shift 2 ;;
     --minimize-strict) MINIMIZE_STRICT="${2:-}"; shift 2 ;;
     --minimize-script) MINIMIZE_SCRIPT="${2:-}"; shift 2 ;;
     --drive-sync-enable) DRIVE_SYNC_ENABLE="${2:-}"; shift 2 ;;
@@ -68,6 +84,12 @@ done
 
 cd "$ROOT/VegasJetFit"
 
+# Ensure helper scripts executed by path (e.g. scripts/minimize.py) can import
+# the local `jetfit` package regardless of how Python initializes sys.path.
+export PYTHONPATH="$ROOT/VegasJetFit${PYTHONPATH:+:$PYTHONPATH}"
+POSTFIT_PRODUCTS_SCRIPT="$ROOT/VegasJetFit/scripts/generate_postfit_products.py"
+CORE_POSTFIT_VALIDATOR="$ROOT/VegasJetFit/scripts/validate_core_postfit_products.py"
+
 {
   echo "[run_fit_and_sync] start_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   echo "[run_fit_and_sync] event=$EVENT results=$RESULTS workers=$WORKERS keep_awake=$KEEP_AWAKE resume=$RESUME"
@@ -84,6 +106,9 @@ cmd=(/usr/bin/time -p "$PYTHON_BIN" -u -m jetfit.run
 
 if [ "$RESUME" = "1" ]; then
   cmd+=(--resume)
+fi
+if [ "$SKIP_MCMC_PLOTS" = "1" ]; then
+  cmd+=(--skip-plots)
 fi
 
 if [ "$KEEP_AWAKE" = "1" ] && command -v caffeinate >/dev/null 2>&1; then
@@ -105,6 +130,9 @@ if [ "$status" -eq 0 ] && [ "$RUN_MINIMIZER" = "1" ]; then
     --results "$RESULTS"
     --mode "$MINIMIZE_MODE"
     --minimizer "$MINIMIZE_MINIMIZER"
+    --scipy-method "$MINIMIZE_SCIPY_METHOD"
+    --fallback-scipy-method "$MINIMIZE_FALLBACK_SCIPY_METHOD"
+    --parallel-workers "$MINIMIZE_PARALLEL_WORKERS"
   )
   if [ "$MINIMIZE_MAX_WALKERS" != "0" ]; then
     min_cmd+=( --max-walkers "$MINIMIZE_MAX_WALKERS" )
@@ -112,10 +140,16 @@ if [ "$status" -eq 0 ] && [ "$RUN_MINIMIZER" = "1" ]; then
   if [ -n "$MINIMIZE_OUTPUT" ]; then
     min_cmd+=( --output "$MINIMIZE_OUTPUT" )
   fi
+  if [ -n "$MINIMIZE_OBS" ]; then
+    min_cmd+=( --obs "$MINIMIZE_OBS" )
+  fi
+  if [ -n "$MINIMIZE_PARAMS" ]; then
+    min_cmd+=( --params "$MINIMIZE_PARAMS" )
+  fi
 
   {
     echo "[run_fit_and_sync] minimizer_start_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-    echo "[run_fit_and_sync] minimizer_mode=$MINIMIZE_MODE minimizer=$MINIMIZE_MINIMIZER max_walkers=$MINIMIZE_MAX_WALKERS"
+    echo "[run_fit_and_sync] minimizer_mode=$MINIMIZE_MODE backend=$MINIMIZE_MINIMIZER method=$MINIMIZE_SCIPY_METHOD fallback=$MINIMIZE_FALLBACK_SCIPY_METHOD max_walkers=$MINIMIZE_MAX_WALKERS parallel_workers=$MINIMIZE_PARALLEL_WORKERS minimize_obs=${MINIMIZE_OBS:-auto} minimize_params=${MINIMIZE_PARAMS:-auto}"
   } >> "$LOG_FILE"
 
   if [ ! -f "$MINIMIZE_SCRIPT" ]; then
@@ -143,6 +177,25 @@ if [ "$status" -eq 0 ] && [ "$RUN_MINIMIZER" = "1" ]; then
   else
     echo "[run_fit_and_sync] minimizer_done status=0" >> "$LOG_FILE"
   fi
+fi
+
+if [ "$status" -eq 0 ] && [ "$RUN_POSTFIT_PRODUCTS" = "1" ] && [ -f "$POSTFIT_PRODUCTS_SCRIPT" ]; then
+  echo "[run_fit_and_sync] postfit_products_start_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$LOG_FILE"
+  if "$PYTHON_BIN" "$POSTFIT_PRODUCTS_SCRIPT" --results "$RESULTS" --event "$EVENT" >> "$LOG_FILE" 2>&1; then
+    if "$PYTHON_BIN" "$CORE_POSTFIT_VALIDATOR" --results "$RESULTS" >> "$LOG_FILE" 2>&1; then
+      echo "[run_fit_and_sync] postfit_products_done status=0 core_validation=passed" >> "$LOG_FILE"
+    else
+      postfit_status=$?
+      status="$postfit_status"
+      echo "[run_fit_and_sync] core_postfit_validation_failed status=$postfit_status" >> "$LOG_FILE"
+    fi
+  else
+    postfit_status=$?
+    status="$postfit_status"
+    echo "[run_fit_and_sync] postfit_products_failed status=$postfit_status" >> "$LOG_FILE"
+  fi
+elif [ "$status" -eq 0 ] && [ "$RUN_POSTFIT_PRODUCTS" != "1" ]; then
+  echo "[run_fit_and_sync] postfit_products_skipped RUN_POSTFIT_PRODUCTS=$RUN_POSTFIT_PRODUCTS" >> "$LOG_FILE"
 fi
 
 if [ "$status" -eq 0 ] && [ "$DRIVE_SYNC_ENABLE" = "1" ] && [ -n "$SYNC_SCRIPT" ] && [ -x "$SYNC_SCRIPT" ] && [ -d "$DRIVE_ROOT" ]; then

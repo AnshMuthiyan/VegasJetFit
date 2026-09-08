@@ -10,6 +10,8 @@ LOG_DIR="${LOG_DIR:-$PROJECT_ROOT/logs}"
 
 MODE="${MODE:-walkers}"
 MINIMIZER="${MINIMIZER:-minimize}"
+SCIPY_METHOD="${SCIPY_METHOD:-Powell}"
+FALLBACK_SCIPY_METHOD="${FALLBACK_SCIPY_METHOD:-Nelder-Mead}"
 PATTERN="${PATTERN:-*_powerlaw_tophat_theta1p0_*}"
 MAX_WALKERS="${MAX_WALKERS:-0}"
 
@@ -25,6 +27,8 @@ SUMMARY_CSV="$LOG_DIR/minimize_batch_${STAMP}.csv"
   echo "PATTERN=$PATTERN"
   echo "MODE=$MODE"
   echo "MINIMIZER=$MINIMIZER"
+  echo "SCIPY_METHOD=$SCIPY_METHOD"
+  echo "FALLBACK_SCIPY_METHOD=$FALLBACK_SCIPY_METHOD"
   echo "MAX_WALKERS=$MAX_WALKERS"
   echo "START_UTC=$STAMP"
 } | tee -a "$BATCH_LOG"
@@ -56,7 +60,17 @@ for results_dir in "${dirs[@]}"; do
   echo "Minimizing: $results_dir" | tee -a "$BATCH_LOG"
   echo "Event: $event" | tee -a "$BATCH_LOG"
 
-  cmd=( "$PYTHON_BIN" "$MIN_SCRIPT" --results "$results_dir" --mode "$MODE" --minimizer "$MINIMIZER" )
+  cmd=(
+    "$PYTHON_BIN" "$MIN_SCRIPT"
+    --results "$results_dir"
+    --mode "$MODE"
+    --minimizer "$MINIMIZER"
+    --scipy-method "$SCIPY_METHOD"
+    --fallback-scipy-method "$FALLBACK_SCIPY_METHOD"
+  )
+  if [ -f "$results_dir/model.toml" ]; then
+    cmd+=( --params "$results_dir/model.toml" )
+  fi
   if [ "$MAX_WALKERS" != "0" ]; then
     cmd+=( --max-walkers "$MAX_WALKERS" )
   fi

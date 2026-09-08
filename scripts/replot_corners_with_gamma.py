@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Batch replot corner PDFs using current diagnose.plot_corner logic.
+"""Batch regenerate the standard corner products using current pipeline logic.
 
 This is intended to backfill existing results after corner-plot layout updates
 (e.g., including lf0 / Gamma0).
@@ -8,14 +8,14 @@ This is intended to backfill existing results after corner-plot layout updates
 from __future__ import annotations
 
 import argparse
-import os
 import re
 from pathlib import Path
 
-import numpy as np
-
-from jetfit.mcmc.parameters import Parameters
-from scripts.plot import diagnose
+from generate_postfit_products import (
+    POSTFIT_PRODUCT_STYLE_VERSION,
+    load_model_toml,
+    regenerate_reduced_corner_plots,
+)
 
 
 EVENT_RE = re.compile(r"^([0-9]{6}[A-Z]?)")
@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Only print planned updates.",
     )
+    p.add_argument(
+        "--include-unvalidated",
+        action="store_true",
+        help="Also update directories without core_postfit_products.validated.",
+    )
     return p.parse_args()
 
 
@@ -54,7 +59,7 @@ def looks_like_drive_path(path: Path) -> bool:
     return "My Drive" in s or "VegasGRBruns" in s
 
 
-def iter_result_dirs(root: Path, drive_owner: str) -> list[Path]:
+def iter_result_dirs(root: Path, drive_owner: str, include_unvalidated: bool) -> list[Path]:
     out: list[Path] = []
     if not root.exists():
         return out
@@ -65,8 +70,13 @@ def iter_result_dirs(root: Path, drive_owner: str) -> list[Path]:
     for chain_file in root.rglob("chain.npz"):
         result_dir = chain_file.parent
 
+        if "trash" in result_dir.parts:
+            continue
+
         # Only touch completed runs.
         if not (result_dir / "best_fit.json").exists():
+            continue
+        if not include_unvalidated and not (result_dir / "core_postfit_products.validated").exists():
             continue
 
         # Keep collaborators' shared folders untouched by default.
@@ -148,22 +158,17 @@ def resolve_model_toml(result_dir: Path, vegas_dir: Path) -> Path | None:
     return None
 
 
-def flatten_chain(chain: np.ndarray) -> np.ndarray:
-    if chain.ndim == 2:
-        return chain
-    if chain.ndim == 3:
-        return chain.reshape((-1, chain.shape[-1]))
-    raise ValueError(f"Unexpected chain shape: {chain.shape}")
-
-
 def main() -> int:
     args = parse_args()
     vegas_dir = args.vegas_dir.resolve()
-    roots = [r.resolve() for r in args.root]
+    # Preserve a local Share_Folder symlink spelling.  Resolving it would make
+    # it look like a collaborator's Drive tree and incorrectly apply the
+    # owner-subtree filter below.
+    roots = [r.expanduser().absolute() for r in args.root]
 
     targets: list[Path] = []
     for root in roots:
-        targets.extend(iter_result_dirs(root, args.drive_owner))
+        targets.extend(iter_result_dirs(root, args.drive_owner, args.include_unvalidated))
     targets = sorted(set(targets))
 
     print(f"Found {len(targets)} completed result directories.")
@@ -174,23 +179,19 @@ def main() -> int:
 
     for result_dir in targets:
         model_toml = resolve_model_toml(result_dir, vegas_dir)
-        if model_toml is None:
+        if model_toml is None or model_toml != result_dir / "model.toml":
             print(f"SKIP (no model TOML): {result_dir}")
             skipped += 1
             continue
 
-        chain_file = result_dir / "chain.npz"
         try:
-            chain = np.load(chain_file)["chain"]
-            flat = flatten_chain(chain)
-            params = Parameters.from_toml(model_toml).fitting
+            model_name = str(load_model_toml(result_dir).get("name", ""))
         except Exception as exc:
             print(f"FAIL (load): {result_dir} :: {exc}")
             failed += 1
             continue
 
         event = infer_event(result_dir) or "UNKNOWN"
-        os.environ["JETFIT_PLOT_RUN_LABEL"] = f"GRB {event} | {result_dir.name}"
 
         if args.dry_run:
             print(f"DRYRUN: {result_dir}  model={model_toml}")
@@ -198,7 +199,10 @@ def main() -> int:
             continue
 
         try:
-            diagnose.plot_corner(flat, params, out_dir=result_dir)
+            regenerate_reduced_corner_plots(result_dir, event, model_name)
+            (result_dir / ".postfit_product_style_version").write_text(
+                POSTFIT_PRODUCT_STYLE_VERSION + "\n", encoding="utf-8"
+            )
             print(f"OK: {result_dir}")
             updated += 1
         except Exception as exc:

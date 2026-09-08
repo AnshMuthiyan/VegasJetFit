@@ -11,7 +11,15 @@ from jetfit.models.jetsim import JetSimpy
 from jetfit.models.vegasafterglow import VegasAfterglowModel
 from jetfit.models.powerlawVegas import powerlawVegasModel
 from jetfit.models.powerlawVegasDylanSpectrum import powerlawVegasDylanSpectrumModel
+from jetfit.models.powerlawJetVegasAfterglow import PowerlawJetVegasAfterglowModel
+from jetfit.models.powerlawJetVegasDylanSpectrum import (
+    PowerlawJetCommonSVegasDylanSpectrumModel,
+    PowerlawJetVegasDylanSpectrumModel,
+)
 from jetfit.models.bubbleVegas import BubbleVegasModel
+from jetfit.models.bubbleVegasDylanSpectrum import BubbleVegasDylanSpectrumModel
+from jetfit.models.empiricalBubbleVegas import EmpiricalBubbleVegasModel
+from jetfit.models.empiricalBubbleVegasDylanSpectrum import EmpiricalBubbleVegasDylanSpectrumModel
             
 
 def model_factory(name: str):
@@ -38,8 +46,20 @@ def model_factory(name: str):
             return powerlawVegasModel
         case 'powerlawVegasDylanSpectrumModel':
             return powerlawVegasDylanSpectrumModel
+        case 'PowerlawJetVegasAfterglowModel':
+            return PowerlawJetVegasAfterglowModel
+        case 'PowerlawJetVegasDylanSpectrumModel':
+            return PowerlawJetVegasDylanSpectrumModel
+        case 'PowerlawJetCommonSVegasDylanSpectrumModel':
+            return PowerlawJetCommonSVegasDylanSpectrumModel
         case 'BubbleVegasModel':
             return BubbleVegasModel
+        case 'BubbleVegasDylanSpectrumModel':
+            return BubbleVegasDylanSpectrumModel
+        case 'EmpiricalBubbleVegasModel':
+            return EmpiricalBubbleVegasModel
+        case 'EmpiricalBubbleVegasDylanSpectrumModel':
+            return EmpiricalBubbleVegasDylanSpectrumModel
         case _:
             raise ValueError(
                 f'Unknown model {name}.'
@@ -105,7 +125,8 @@ class Ampy:
     def run_mcmc(
         self, nwalkers, iterations, burn=0, sampler='ensemble',
         workers=None, ntemps=None, sampler_kw=None, run_kw=None,
-        resume=False, checkpoint_path=None, checkpoint_interval=0
+        resume=False, checkpoint_path=None, checkpoint_interval=0,
+        initial_positions=None
     ):
         """
         Runs the MCMC sampling routine.
@@ -151,7 +172,7 @@ class Ampy:
         self.mcmc.run(
             nwalkers, iterations, burn, sampler,
             workers, ntemps, sampler_kw, run_kw,
-            resume, checkpoint_path, checkpoint_interval
+            resume, checkpoint_path, checkpoint_interval, initial_positions
         )
         return self.mcmc
 

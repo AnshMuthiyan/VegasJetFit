@@ -26,6 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from jetfit.models.jet_energy import resolve_e_iso52
+
 # Supported model wrappers for mass-vs-time reconstruction.
 MODEL_CLASS_MAP: dict[str, str] = {
     "powerlawVegasModel": "jetfit.models.powerlawVegas:powerlawVegasModel",
@@ -333,8 +335,15 @@ def build_plot_for_run(sel: RunSelection, out_dir: Path) -> dict[str, Any]:
     swept_mass_iso_g = swept_mass_iso_g[order]
     gamma_dyn = gamma_dyn[order]
 
-    e52 = float(sel.params["model"]["E52"])
-    gamma0 = float(sel.params["model"]["lf0"])
+    model_params = sel.params["model"]
+    e52 = resolve_e_iso52(
+        E52=model_params.get("E52"),
+        E_j_52=model_params.get("E_j_52"),
+        jet_type="powerlaw" if "PowerlawJet" in sel.model_name else "tophat",
+        theta_c=float(model_params["theta_c"]),
+        k_e=model_params.get("k_e"),
+    )
+    gamma0 = float(model_params["lf0"])
     e_iso_erg = e52 * 1.0e52
     ejecta_mass_iso_g = e_iso_erg / (gamma0 * C2_CGS)
     decel_mass_target_g = ejecta_mass_iso_g / gamma0
@@ -444,7 +453,7 @@ def build_plot_for_run(sel: RunSelection, out_dir: Path) -> dict[str, Any]:
     ax.set_yscale("log")
     ax.set_xlabel("Observer Time [days]")
     ax.set_ylabel("Mass [g] (isotropic-equivalent)")
-    ax.set_title(f"{sel.event}  |  {sel.run_name}\nEjecta vs swept-up mass")
+    ax.set_title(f"GRB {sel.event}: Ejecta and swept-up mass")
     ax.grid(True, which="both", alpha=0.25)
     ax.legend(fontsize=9, loc="best")
     top = ax.secondary_xaxis("top", functions=(lambda d: d * SEC_PER_DAY, lambda s: s / SEC_PER_DAY))
