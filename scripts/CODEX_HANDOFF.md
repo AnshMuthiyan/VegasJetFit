@@ -4075,3 +4075,53 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
   still blocked by three obsolete tests that import removed `PowerLawPrior`,
   JetSimPy, and `jetfit.core.defns` components; this is a known legacy-suite
   cleanup item, not a failure of the active pipeline.
+
+## Current Diagnostic (2026-09-08): 080413B Fixed-Gamma0 Profile
+
+- Dan's live tracking note says the accepted 080413B solution is off-axis,
+  has no on-axis solutions, and still misses early optical plus early/late
+  X-ray behavior. The authoritative posterior also presses against the prior
+  ceiling `log10(Gamma_0_core_avg)=5`.
+- A controlled profile-likelihood grid fixes `log10(Gamma_0)` at
+  `3, 4, 5, 6, 7, 8`. At each point, `Gamma_0_core_avg` is removed from the
+  free coordinates and all 27 remaining fitted parameters are re-minimized
+  from 16 high-posterior walker solutions projected from the authoritative
+  full cloud. Data, model, other priors, and numerical grid are unchanged.
+- The source is the published 080413B directory in the July 23
+  `resolution_refinement__5_temperature_500x3000` campaign. Configuration and
+  checksums are recorded in
+  `fixed_loggamma0_profile_configs/080413B_20260908/profile_provenance.json`.
+- The grid runs on Pauley404-03 with 8 workers in tmux session
+  `grb_080413B_gamma_profile`. Lyra session
+  `grb_080413B_gamma_profile_watch` pulls terminal results every five minutes,
+  updates the CSV/plot, and publishes under
+  `Share_Folder/Fits/shorter_diagnostic_runs/prior_tests/26_09_08__080413B__fixed_logGamma0_profile`.
+- Preflight evaluations are finite for log-Gamma 3 through 7. At log-Gamma 8,
+  the inherited solution exceeds the forward-shock ODE 100,000-step guard;
+  report that point as numerically invalid if no finite re-minimized solution
+  is found. Do not interpret it as an ordinary finite fit penalty.
+
+## Future Refit Note (2026-09-08): 090424 Extinction Code
+
+- When Ansh and Ethan push their new source-frame extinction code, review its
+  implementation and tests against Adam's thesis before merge or production
+  use. Then run a controlled 090424 refit with `0 <= A_V <= 10`,
+  `-1 <= c2 <= 3.5`, `0 <= B_H <= 10`, and `0 <= c4 <= 2`.
+- Preserve the accepted 090424 data selection, model, numerical grid, and
+  provenance unless a departure is explicitly documented. These are
+  090424 test priors, not global defaults. Compare residuals, fit statistic,
+  and physical-parameter posterior against the authoritative 090424 fit.
+
+## Last Touched (2026-09-08): Fixed-Gamma0 Profile Launch
+
+- Added `prepare_fixed_loggamma0_profile.py`,
+  `run_fixed_loggamma0_profile_host.sh`,
+  `summarize_fixed_loggamma0_profile.py`, and
+  `watch_fixed_loggamma0_profile.sh`.
+- Generated and checksum-recorded six projected-cloud inputs, validated all
+  target configurations as 27-dimensional fixed-Gamma models, evaluated one
+  inherited walker at every grid point, synchronized inputs and runner to
+  Pauley404-03, and confirmed eight active minimizer workers.
+- Updated live tracking cells AB5 (080413B profile launch) and AB6 (future
+  090424 extinction-code review). Remaining uncertainty is whether the
+  log-Gamma 8 dynamics admit any finite solution at the retained grid.
