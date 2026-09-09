@@ -40,6 +40,18 @@ def log(ampy, out_dir):
     nmap = -2 * ampy.mcmc.sampler.get_log_prob(flat=True).max()
 
     out_params = ampy.get_best_params()
+    
+    # Compute physical dust parameters if Trotter model is active
+    if 'extinction' in out_params and 'c2' in out_params['extinction']:
+        from jetfit.mcmc.mcmc import trotter_dust_prior
+        ext = out_params['extinction']
+        c1, rv, bh, x0, gamma = trotter_dust_prior.get_physical_dust_params(ext['c2'], ext)
+        ext['c1_physical'] = float(c1)
+        ext['rv_physical'] = float(rv)
+        ext['bh_physical'] = float(bh)
+        ext['x0_physical'] = float(x0)
+        ext['gamma_physical'] = float(gamma)
+
     out_params['nmap'] = nmap
     out_params['mcmc'] = {
         'sampler': ampy.mcmc.sampler.name,
@@ -183,6 +195,8 @@ def main(obs_path, params_path, mcmc_path, results_dir, event, resume=False):
 
     # Plot some things
     plot_results(ampy, results_dir, event)
+    print(f"DEBUG: Results plotted!")
+    print(results_dir)
 
     return ampy
 
@@ -194,11 +208,12 @@ if __name__ == "__main__":
 
     # Specify the event to run
     if args.event is None:
-        event_name = '080413B'
+        event_name = '221009A'  # Default event
     else:
         event_name = args.event
 
     # Run AMPy
+    print( utils.get_event_path(sub_dir, event_name) / 'parameters.toml')
     main(
         **{
             'event':
@@ -213,6 +228,7 @@ if __name__ == "__main__":
                 Path(args.model)
                 if args.model is not None
                 else utils.get_event_path(sub_dir, event_name) / 'parameters.toml',
+                
 
             'obs_path':
                 Path(args.obs)
@@ -230,4 +246,3 @@ if __name__ == "__main__":
                 else False,
         }
     )
-    print(utils.get_results_path() / event_name)

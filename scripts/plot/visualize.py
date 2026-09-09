@@ -667,7 +667,7 @@ class FrequencyPlotter(Profiler):
         self.model = model
         self.model_kw = model_kw
 
-        self.samples = self.draw()
+        # self.samples = self.draw()
 
         self.axes = None
         self._set_axes()
@@ -731,7 +731,10 @@ class FrequencyPlotter(Profiler):
             )
 
         if best is None:
-            best = self.best(cat='model')
+            if self.chain is not None and self.log_prob is not None:
+                best = self.best(cat='model')
+            else:
+                raise ValueError("best must be provided when chain is None")
 
         # Plot best for all times
         model = self.model(**best.get('model'), **(self.model_kw or {}))
@@ -742,33 +745,43 @@ class FrequencyPlotter(Profiler):
         indices = model.spectral_index(times, obs.int_lowers()[0], obs.int_uppers()[0], fts=fts)
         self.axes[1].plot(times, indices, color='black', zorder=99, linestyle='--')
 
-        # Plot AMPy medians
-        for j, index in enumerate(obs.data[obs.sindex_loc]):
+        # Plot AMPy sample distributions - only if chain is available
+        if self.chain is not None:
+            samples = getattr(self, 'samples', None) or self.draw()
+            for j, index in enumerate(obs.data[obs.sindex_loc]):
 
-            for i, s in enumerate(self.samples):
-                p = self.params.samples_to_dict(s)
-                model = self.model(**p.get('model'), **(self.model_kw or {}))
-                index_spectrum = model.spectrum(times)
+                for i, s in enumerate(samples):
+                    p = self.params.samples_to_dict(s)
+                    model = self.model(**p.get('model'), **(self.model_kw or {}))
+                    index_spectrum = model.spectrum(times)
 
-                # Is there a fast-to-slow transition?
-                fts = False
+                    # Is there a fast-to-slow transition?
+                    fts = False
 
-                if not isinstance(model, JetSimpy):
-                    full_spectrum = model.spectrum(obs.times())
-                    fts = has_fts_transition(full_spectrum['nu_m'], full_spectrum['nu_c'])
+                    if not isinstance(model, JetSimpy):
+                        full_spectrum = model.spectrum(obs.times())
+                        fts = has_fts_transition(full_spectrum['nu_m'], full_spectrum['nu_c'])
 
-                # Model the spectral index
-                modeled = SpectralIndexModel(**index_spectrum).evaluate(
-                    index.int_range.lower.to_value('Hz'), index.int_range.upper.to_value('Hz'), fts=fts
+                    # Model the spectral index
+                    modeled = SpectralIndexModel(**index_spectrum).evaluate(
+                        index.int_range.lower.to_value('Hz'), index.int_range.upper.to_value('Hz'), fts=fts
+                    )
+
+                    self.axes[1].plot(times, modeled, alpha=0.2, color='royalblue', label='AMPy' if (j==0 and i==0) else None)
+
+                self.axes[1].errorbar(
+                    index.time.to_value('d'), index.value.value,
+                    yerr=((index.uncertainty.lower.value,), (index.uncertainty.lower.value,)),
+                    fmt='o', linestyle='none', capsize=3, color='black', zorder=999, label='XRT' if j==0 else None
                 )
-
-                self.axes[1].plot(times, modeled, alpha=0.2, color='royalblue', label='AMPy' if (j==0 and i==0) else None)
-
-            self.axes[1].errorbar(
-                index.time.to_value('d'), index.value.value,
-                yerr=((index.uncertainty.lower.value,), (index.uncertainty.lower.value,)),
-                fmt='o', linestyle='none', capsize=3, color='black', zorder=999, label='XRT' if j==0 else None
-            )
+        else:
+            # Plot just the data points without samples
+            for j, index in enumerate(obs.data[obs.sindex_loc]):
+                self.axes[1].errorbar(
+                    index.time.to_value('d'), index.value.value,
+                    yerr=((index.uncertainty.lower.value,), (index.uncertainty.lower.value,)),
+                    fmt='o', linestyle='none', capsize=3, color='black', zorder=999, label='XRT' if j==0 else None
+                )
         self.axes[1].legend(loc='best')
 
         handles, labels = [], []
@@ -801,25 +814,27 @@ class FrequencyPlotter(Profiler):
         times : np.ndarray
             The observer-frame times [d].
         """
-        if nsamps is not None:
-            samples = self.draw(nsamps)
-        else:
-            samples = self.samples
+        # Skip sample plotting if chain is not available
+        if self.chain is not None:
+            if nsamps is not None:
+                samples = self.draw(nsamps)
+            else:
+                samples = getattr(self, 'samples', None) or self.draw()
 
-        # Model the frequencies for each randomly sampled set
-        for sample in samples:
-            params = self.params.samples_to_dict(sample, cat='model')
+            # Model the frequencies for each randomly sampled set
+            for sample in samples:
+                params = self.params.samples_to_dict(sample, cat='model')
 
-            nu_m, nu_c, nu_a = model_freqs(
-                self.model, times, params, **(self.model_kw or {})
-            )
+                nu_m, nu_c, nu_a = model_freqs(
+                    self.model, times, params, **(self.model_kw or {})
+                )
 
-            # Plot the critical frequencies
-            if nu_a is not None:
-                self.axes[0].loglog(times, nu_a, color='tab:green', alpha=0.1)
+                # Plot the critical frequencies
+                if nu_a is not None:
+                    self.axes[0].loglog(times, nu_a, color='tab:green', alpha=0.1)
 
-            self.axes[0].loglog(times, nu_m, color='tab:blue', alpha=0.1)
-            self.axes[0].loglog(times, nu_c, color='tab:orange', alpha=0.1)
+                self.axes[0].loglog(times, nu_m, color='tab:blue', alpha=0.1)
+                self.axes[0].loglog(times, nu_c, color='tab:orange', alpha=0.1)
 
         self.plot_best(times, best)
 
@@ -833,7 +848,10 @@ class FrequencyPlotter(Profiler):
             The observer-frame times [d].
         """
         if best is None:
-            best = self.best(cat='model')
+            if self.chain is not None and self.log_prob is not None:
+                best = self.best(cat='model')
+            else:
+                raise ValueError("best must be provided when chain is None")
 
         # Model the most likely frequencies
         best_nu_ms, best_nu_cs, best_nu_as = model_freqs(
@@ -990,20 +1008,25 @@ class DensityProfiler(Profiler):
 
         best_params : dict, optional
         """
-        samples = self.draw(nsamps)
+        # Only draw samples if chain is available
+        if self.chain is not None:
+            samples = self.draw(nsamps)
 
-        for s in samples:
-            params = self.params.samples_to_dict(s).get('model')
+            for s in samples:
+                params = self.params.samples_to_dict(s).get('model')
 
-            # If jet-break, use as end time
-            times = np.geomspace(start, params.get('tj') or stop, 500)
+                # If jet-break, use as end time
+                times = np.geomspace(start, params.get('tj') or stop, 500)
 
-            # Model and store using random distribution of params
-            self.model(times, params, 'dist')
+                # Model and store using random distribution of params
+                self.model(times, params, 'dist')
 
         # Model and store using the best fitting params
         if best_params is None:
-            best_params = self.best().get('model')
+            if self.chain is not None and self.log_prob is not None:
+                best_params = self.best().get('model')
+            else:
+                raise ValueError("best_params must be provided when chain is None")
 
         times = np.geomspace(start, best_params.get('tj') or stop, 500)
 
@@ -1049,6 +1072,7 @@ class DensityProfiler(Profiler):
         self.plot_k(out_dir)
         self.plot_n(out_dir)
         self.plot_n0(out_dir)
+        plt.show()
 
     def plot_n(self, out_dir=None):
         """"
@@ -1081,7 +1105,7 @@ class DensityProfiler(Profiler):
         # ax.set_title(r'Number Density Profile')
         ax.set_ylabel(r'n [cm$^{-3}$]')
         ax.set_xlabel('Radius [cm]')
-
+        # plt.show()
         if out_dir:
             save_plot_unique('n_profile', 'pdf', str(out_dir), dpi=800)
         plt.close()
@@ -1136,17 +1160,49 @@ class DensityProfiler(Profiler):
         ax.set_ylabel(r'Power-Law Index k')
         ax.set_xlabel(r'Radius [cm]')
         ax.set_xscale('log')
+        # plt.show()
 
         if out_dir:
             save_plot_unique('k_profile', 'pdf', str(out_dir), dpi=1200)
         plt.close()
 # </editor-fold>
 
+def plot(self, x_dist, y_dist, x_best, y_best, log_scale=True):
+    """
+    Generic plotting method for profiles.
 
+    Parameters
+    ----------
+    x_dist : list
+        X-axis data for distribution.
 
+    y_dist : list
+        Y-axis data for distribution.
 
+    x_best : np.ndarray
+        X-axis data for best fit.
 
+    y_best : np.ndarray
+        Y-axis data for best fit.
 
+    log_scale : bool, optional, default=True
+        Whether to use log scale.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The plot axes.
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # Skip plotting distribution samples - only plot best fit
+    # for i in range(len(y_dist)):
+    #     ax.loglog(x_dist[i], y_dist[i], alpha=0.1, color='tab:blue') if log_scale else ax.plot(x_dist[i], y_dist[i], alpha=0.1, color='tab:blue')
+
+    ax.loglog(x_best, y_best, color='black', linewidth=2) if log_scale else ax.plot(x_best, y_best, color='black', linewidth=2)
+
+    ax.grid(alpha=0.3)
+    return ax
 
 
 

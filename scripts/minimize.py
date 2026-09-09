@@ -1,3 +1,4 @@
+import inspect
 import json
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from jetfit.core import utils
 from jetfit.mcmc.mcmc import log_posterior_fn
 from jetfit.mcmc.priors import GaussianPrior
 from jetfit.models.base import OpeningAngleModel
+from jetfit.models.fireball import FireballModel
 from scripts.plot.visualize import plot_light_curve
 
 
@@ -85,6 +87,80 @@ def run_minimizer(x0, func_args=(), bounds=(), minimizer='minimize'):
     raise ValueError(f"Unknown minimizer '{minimizer}'.")
 
 
+def plot_spectrum(ampy, params, out_dir, t_days=1.0):
+    """
+    Plot the best-fitting spectrum from the FireballModel at a fixed observer time.
+
+    Parameters
+    ----------
+    ampy : Ampy
+        The Ampy object (used for observed data overlay).
+
+    params : dict
+        The minimized parameters dict (output of samples_to_dict).
+
+    out_dir : Path
+        The output directory.
+
+    t_days : float, optional, default=1.0
+        Observer time [days] at which to evaluate the spectrum.
+    """
+    try:
+        plt.style.use(['science', 'no-latex'])
+    except OSError:
+        pass
+
+    # Filter model params to only those accepted by FireballModel
+    valid_keys = set(inspect.signature(FireballModel.__init__).parameters) - {'self'}
+    model_params = {k: v for k, v in params['model'].items() if k in valid_keys}
+    model = FireballModel(**model_params)
+
+    # Broad frequency grid: radio to hard X-ray
+    nu = np.logspace(9, 19, 200)
+    flux = model.spectral_flux(t_days, nu)  # mJy
+
+    # Break frequencies from analytic spectrum
+    spec = model.spectrum(t_days)
+    break_freqs = {
+        r'$\nu_a$': (float(np.atleast_1d(spec['nu_a'])[0]), 'C0'),
+        r'$\nu_m$': (float(np.atleast_1d(spec['nu_m'])[0]), 'C1'),
+        r'$\nu_c$': (float(np.atleast_1d(spec['nu_c'])[0]), 'C2'),
+    }
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.loglog(nu, np.atleast_1d(flux).ravel(), color='black', linewidth=1.0,
+              label=f't = {t_days} d')
+
+    for label, (nu_break, color) in break_freqs.items():
+        if np.isfinite(nu_break) and nu_break > 0:
+            ax.axvline(nu_break, ls='--', color=color, linewidth=1.0, label=label)
+
+    # Overlay observed data near t_days (within a factor of 2)
+    obs = ampy.obs.as_arrays
+    fmask = obs.flux_loc
+    t_near = (obs.times[fmask] >= 0.5 * t_days) & (obs.times[fmask] <= 2.0 * t_days)
+    if t_near.any():
+        nu_obs = obs.frequencies[fmask][t_near]
+        f_obs  = obs.values[fmask][t_near]
+        e_obs  = obs.errors[fmask][t_near]
+        bands  = obs.bands[fmask][t_near]
+        for band in np.unique(bands):
+            m = bands == band
+            ax.errorbar(nu_obs[m], f_obs[m], yerr=e_obs[m],
+                        fmt='.', markersize=4, elinewidth=0.5, label=band)
+
+    ax.set_xlim(nu[0], nu[-1])
+    ax.set_xlabel('Frequency [Hz]')
+    ax.set_ylabel('Flux Density [mJy]')
+    ax.set_title(f'Spectrum at t = {t_days} days')
+    ax.grid(alpha=0.3)
+    ax.legend(loc='best')
+
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    fig.savefig(Path(out_dir) / 'spectrum.pdf', bbox_inches='tight')
+    plt.close(fig)
+
+
 def plot_results(ampy, params, out_dir):
     """
     Plot the best fitting light curve from an Ampy object.
@@ -123,11 +199,11 @@ def log_results(p, out_dir):
     out_dir : Path
         The output directory.
     """
-    with open(out_dir / 'minimized.json', "w") as f:
+    with open(Path(out_dir) / 'minimized.json', "w") as f:
         json.dump(p, f, indent=4)  # type: ignore
 
 
-def main(obs_path, params_path, results_dir, initial_path):
+def main(obs_path, params_path, results_dir, initial_path, t_days=1.0):
     """
     Runs the BestFitinator and plots the light curve.
 
@@ -161,12 +237,18 @@ def main(obs_path, params_path, results_dir, initial_path):
     with open(initial_path, "r") as f:
         results = json.load(f)
 
+    print(results)
+
+    keys = list(results)
+    sliced = {k: results[k] for k in keys[:keys.index("slop") + 1]}
+    flat = {k: v for entry in sliced.values() for k, v in entry.items()}
+        # print(temp)
     # Set the initial search pos and bounds
     for p in ampy.mcmc.params.fitting:
         # Results are stored in linear space, but we
         # want them in their original fitting space
         initial.append(
-            utils.to_scale(results[p.name], from_s='linear', to_s=p.scale)
+            utils.to_scale(flat[p.name], from_s='linear', to_s=p.scale)
         )
 
         # Use the prior bounds as the search bounds
@@ -191,6 +273,7 @@ def main(obs_path, params_path, results_dir, initial_path):
 
     # Plot the minimized results
     # plot_results(ampy, min_params, results_dir)
+    # plot_spectrum(ampy, min_params, results_dir, t_days=t_days)
 
     # Write the results to a JSON file
     log_results(min_params, results_dir)
@@ -205,6 +288,7 @@ if __name__ == "__main__":
     parser.add_argument('--params',   help='The input parameter TOML file.')
     parser.add_argument('--results',  help='The results directory.')
     parser.add_argument('--initial',  help='The initial positions TOML file.')
+    parser.add_argument('--t_days',   help='Observer time [days] for spectrum plot.', type=float, default=1.0)
     args = parser.parse_args()
 
     # oa1 = OpeningAngleModel(1, 1, 0, 1).evaluate(10)
@@ -257,6 +341,7 @@ if __name__ == "__main__":
             'params_path':  args.params  or p_params,
             'results_dir':  args.results or d_results,
             'initial_path': args.initial or p_initial,
+            't_days':       args.t_days,
         }
     )
 
