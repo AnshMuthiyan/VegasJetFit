@@ -1,5 +1,6 @@
 import argparse
 import csv
+import inspect
 import json
 import multiprocessing as mp
 import sys
@@ -78,6 +79,80 @@ def run_backend_minimizer(
         )
 
     raise ValueError(f"Unknown minimizer '{minimizer}'.")
+
+
+def plot_spectrum(ampy, params, out_dir, t_days=1.0):
+    """
+    Plot the best-fitting spectrum from the FireballModel at a fixed observer time.
+
+    Parameters
+    ----------
+    ampy : Ampy
+        The Ampy object (used for observed data overlay).
+
+    params : dict
+        The minimized parameters dict (output of samples_to_dict).
+
+    out_dir : Path
+        The output directory.
+
+    t_days : float, optional, default=1.0
+        Observer time [days] at which to evaluate the spectrum.
+    """
+    try:
+        plt.style.use(['science', 'no-latex'])
+    except OSError:
+        pass
+
+    # Filter model params to only those accepted by FireballModel
+    valid_keys = set(inspect.signature(FireballModel.__init__).parameters) - {'self'}
+    model_params = {k: v for k, v in params['model'].items() if k in valid_keys}
+    model = FireballModel(**model_params)
+
+    # Broad frequency grid: radio to hard X-ray
+    nu = np.logspace(9, 19, 200)
+    flux = model.spectral_flux(t_days, nu)  # mJy
+
+    # Break frequencies from analytic spectrum
+    spec = model.spectrum(t_days)
+    break_freqs = {
+        r'$\nu_a$': (float(np.atleast_1d(spec['nu_a'])[0]), 'C0'),
+        r'$\nu_m$': (float(np.atleast_1d(spec['nu_m'])[0]), 'C1'),
+        r'$\nu_c$': (float(np.atleast_1d(spec['nu_c'])[0]), 'C2'),
+    }
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.loglog(nu, np.atleast_1d(flux).ravel(), color='black', linewidth=1.0,
+              label=f't = {t_days} d')
+
+    for label, (nu_break, color) in break_freqs.items():
+        if np.isfinite(nu_break) and nu_break > 0:
+            ax.axvline(nu_break, ls='--', color=color, linewidth=1.0, label=label)
+
+    # Overlay observed data near t_days (within a factor of 2)
+    obs = ampy.obs.as_arrays
+    fmask = obs.flux_loc
+    t_near = (obs.times[fmask] >= 0.5 * t_days) & (obs.times[fmask] <= 2.0 * t_days)
+    if t_near.any():
+        nu_obs = obs.frequencies[fmask][t_near]
+        f_obs  = obs.values[fmask][t_near]
+        e_obs  = obs.errors[fmask][t_near]
+        bands  = obs.bands[fmask][t_near]
+        for band in np.unique(bands):
+            m = bands == band
+            ax.errorbar(nu_obs[m], f_obs[m], yerr=e_obs[m],
+                        fmt='.', markersize=4, elinewidth=0.5, label=band)
+
+    ax.set_xlim(nu[0], nu[-1])
+    ax.set_xlabel('Frequency [Hz]')
+    ax.set_ylabel('Flux Density [mJy]')
+    ax.set_title(f'Spectrum at t = {t_days} days')
+    ax.grid(alpha=0.3)
+    ax.legend(loc='best')
+
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    fig.savefig(Path(out_dir) / 'spectrum.pdf', bbox_inches='tight')
+    plt.close(fig)
 
 
 def result_hits_bounds(

@@ -154,9 +154,7 @@ class powerlawVegasModel:
         hmf = 0.7,     # density power-law index: n(r) = n017 * (r/r0)^(-k)
         n_ism=None,
         A_star=None,
-        k_e=None,
-        k_g=None,
-        jet_type='tophat',
+        jet_type='powerlaw',
         medium_type='powerlaw',
         ref_radius=1.0e17,
         smooth_fast_to_slow_transition=False,
@@ -218,7 +216,7 @@ class powerlawVegasModel:
         self.p = p
         self.z = z
         self.hmf = hmf
-        self.lumi_dist = dl28 * 1e28  # dl28 is linear multiplier, convert to cm
+        self.lumi_dist = dL28 * 1e28  # dl28 is linear multiplier, convert to cm
         self.jet_type = jet_type
         self.medium_type = medium_type
         self.n017 = n017           # Already linear (JetFit converted from log10)
@@ -227,6 +225,7 @@ class powerlawVegasModel:
         self.A_star = A_star
         self.k_e = k_e
         self.k_g = k_g
+        self.s = s
         self.ref_radius = ref_radius  # Reference radius [cm]
         self.smooth_fast_to_slow_transition = bool(smooth_fast_to_slow_transition)
         self.lateral_spreading = bool(lateral_spreading)

@@ -29,7 +29,7 @@ scale = "log"
 
 #-------------- MODEL --------------
 #----------- TRANSITION ------------
-#--------------- nt ----------------
+#--------------- n017 ----------------
 [[model]]
 name  = "n017"
 scale = "log"
@@ -81,27 +81,6 @@ scale = "log"
     initial_guess = -3.64
     initial_sigma = 1.50
 
-#-----------MOdel------------------
-#------------k_e-------------------
-[[model]]
-name = "k_e"
-scale = "linear"
-value =2.0
-
-#-------------MODEL --------------
-#-----------------k_g-------------
-[[model]]
-name = "k_g"
-scale = "linear"
-value = 2.0
-
-#---------------MODEL ------------
-#----------------s-----------------
-[[model]]
-name = "s"
-scale = "linear"
-value = 4.0
-
 #-------------- MODEL --------------
 #---------------- p ----------------
 [[model]]
@@ -114,6 +93,27 @@ scale = "linear"
     upper = 3.0
     initial_guess = 2.347
     initial_sigma = 0.03
+
+#------------ MODEL  ---------------
+# ------------ k_e ----------------
+[[model]]
+name = "k_e"
+scale = "linear"
+value = 2
+
+#------------ MODEL  ---------------
+# ------------ k_g ----------------
+[[model]]
+name = "k_g"
+scale = "linear"
+value = 2
+
+#------------ MODEL  ---------------
+# ------------ s ----------------
+[[model]]
+name = "s"
+scale = "linear"
+value = 4
 
 #-------------- MODEL --------------
 #--------------- k1 ----------------
@@ -165,7 +165,7 @@ value = 0.151
 #-------------- MODEL --------------
 #---------------- dL ---------------
 [[model]]
-name  = "dl28"
+name  = "dL28"
 scale = "linear"
 value = 0.229
 
@@ -174,16 +174,13 @@ value = 0.229
 [[model]]
 name="theta_c"
 scale="linear"
-value = 1.5
 
-
-
-#[model.prior]
- #   type  = "uniform"
- #   lower = 0.001
- #   upper = 0.2
- #   initial_guess = 0.1
- #   initial_sigma = 0.01
+[model.prior]
+    type  = "uniform"
+    lower = 0.001
+    upper = 1.5
+    initial_guess = 0.1
+    initial_sigma = 0.01
 
 
 #------------- Model ----------
@@ -191,13 +188,14 @@ value = 1.5
 [[model]]
 name="theta_v"
 scale="linear"
+#value = 0.0
 
 [model.prior]
-	type = "uniform"
-	lower = 0.0
-	upper = 1.0
-	initial_guess= 0.01
-	initial_sigma = 0.1
+    type  = "uniform"
+    lower = 0.000
+    upper = 1.5
+    initial_guess = 0.1
+    initial_sigma = 0.01
 
 
 #----------- EXTINCTION ------------

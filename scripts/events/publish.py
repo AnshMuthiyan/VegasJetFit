@@ -1,5 +1,12 @@
+## Change parameters and json files
+
 import json
+import sys
 from pathlib import Path
+
+# Add VegasJetFit to path to use local modules instead of installed ones
+VEGASJETFIT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(VEGASJETFIT_ROOT))
 
 import argparse
 import numpy as np
@@ -135,16 +142,16 @@ def plot_light_curve(ampy, minimized, pretty=True, chain=None):
         for band, fluxes in best_modeled.items():
             lcg.ax1.loglog(times, fluxes * scales[band], color=OPTION_MAP[band]['color'])
 
-        # Plot the distribution of LCs
-        for band, fluxes in modeled.items():
+        # # Plot the distribution of LCs
+        # for band, fluxes in modeled.items():
 
-            # Get the 1-sigmas
-            p16, _, p84 = np.percentile(fluxes, [16, 50, 84], axis=0)
+        #     # Get the 1-sigmas
+        #     p16, _, p84 = np.percentile(fluxes, [16, 50, 84], axis=0)
 
-            lcg.ax1.fill_between(
-                times, p16 * scales[band], p84 * scales[band],
-                color=OPTION_MAP[band]['color'], alpha=0.2
-            )
+        #     lcg.ax1.fill_between(
+        #         times, p16 * scales[band], p84 * scales[band],
+        #         color=OPTION_MAP[band]['color'], alpha=0.2
+        #     )
 
         lcg.plot_observation(minimized, spreads=scales, offset=True, excluded=True, axes='lower')
         lcg.ax.set_xlim(times.min(), times.max())
@@ -306,22 +313,22 @@ def plot_corners(chain, ampy, fig=None, fig1=None, save=True, kwargs=None):
     return fig, fig1
 
 
-def plot_frequencies(chain, log_prob, ampy, minimized):
+def plot_frequencies( ampy, minimized):
     """ Plots the frequencies. """
     visualize.plot_frequencies(
-        chain, log_prob, ampy.obs, ampy.mcmc.params,
-        ampy.mcmc.models.afg_model, best=minimized,
-        out_dir=OUTPUT_DIR
+        chain = None, log_prob = None, obs=ampy.obs, params =  ampy.mcmc.params,
+        model = ampy.mcmc.models.afg_model, best=minimized,
+        out_dir=OUTPUT_DIR,
     )
 
 
-def plot_density_profile(chain, log_prob, ampy, minimized):
-    """ Plots the density profile. """
-    visualize.plot_density_profile(
-        chain, log_prob, ampy.mcmc.params, ampy.obs,
-        ampy.mcmc.models.afg_model, best=minimized.get('model'),
-        out_dir=OUTPUT_DIR
-    )
+# def plot_density_profile(ampy, minimized):
+#     """ Plots the density profile. """
+#     visualize.plot_density_profile(
+#         ampy.mcmc.params, ampy.obs,
+#         ampy.mcmc.models.afg_model, best=minimized.get('model'),
+#         out_dir=OUTPUT_DIR
+#     )
 
 
 def plot_jet_properties(chain, log_prob, ampy):
@@ -338,7 +345,7 @@ def plot_trace(chain, ampy):
     diagnose.plot_trace(ampy.mcmc.params, chain=chain, out_dir=OUTPUT_DIR)
 
 
-def main(obs, params, chain, log_prob, minimized):
+def main(obs, params, minimized):
     """ Does everything. """
     # Let ampy format everything
     ampy = Ampy(obs, params)
@@ -350,8 +357,8 @@ def main(obs, params, chain, log_prob, minimized):
         return v.reshape(s)
 
     # Flatten the walkers
-    flat_chain = flatten(chain)
-    flat_prob = flatten(log_prob)
+    # flat_chain = flatten(chain)
+    # flat_prob = flatten(log_prob)
 
     # Plot everything!
     # plot_trace(chain, ampy)
@@ -359,11 +366,12 @@ def main(obs, params, chain, log_prob, minimized):
     # plot_corners_custom(flat_chain, ampy, filename='corner_em.pdf', include=('p', 'k', 'k1', 'k2', 'sn', 'sni', 'ebv_source_frame', 'tj', 'sj', 'sji', 'slop'))
     # plot_corners(flat_chain, ampy)
     plt.close()
-    # plot_light_curve(ampy, minimized, pretty=False, chain=flat_chain)
+    plot_light_curve(ampy, minimized, pretty=False, chain=1)
     plt.close()
-    plot_frequencies(flat_chain, flat_prob, ampy, minimized)
+    plot_frequencies(ampy, minimized)
+    print("Ploting spectral indices...")
     plt.close()
-    # plot_density_profile(flat_chain, flat_prob, ampy, minimized)
+    # plot_density_profile( ampy, minimized)
     plt.close()
     # plot_jet_properties(flat_chain, flat_prob, ampy)
 
@@ -378,25 +386,26 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Or run the Publisher manually
-    event, sub_dir = "210905A", "grbs"
+    event, sub_dir = "221009A", "grbs"
     p_obs = utils.get_input_csv_path(sub_dir, event)
     p_params = utils.get_event_path(sub_dir, event) / 'parameters.toml'
-    p_minimized = Path(rf"C:\Server\FINAL\analytic\{event}\minimized\minimized.json")
-    p_sampler = rf"C:\Server\FINAL\analytic\{event}\chain.npz"
+    # p_minimized = Path(rf"VegasJetFit\jetfit\results\Vegastesting\test1\221009A\best_fit.json")
+    p_minimized = Path(rf"VegasJetFit\2210Test\best_fit.json")
+    # p_sampler = rf"C:\Server\FINAL\analytic\{event}\chain.npz" COMENTED BY ANSH
 
     # p_params = utils.get_event_path(sub_dir, event) / 'jetsim.toml'
     # p_minimized = Path(rf"C:\Server\FINAL\numerical\ism\{event}\best_fit.json")
     # p_sampler = rf"C:\Server\FINAL\numerical\ism\{event}\chain.npz"
 
-    # Load in the MCMC results
-    sampler = np.load(args.sampler or p_sampler)
+    # Load in the MCMC results COMMENTED BY ANSH
+    # sampler = np.load(args.sampler or p_sampler)
 
     # Load in the minimized results
     with open(args.best or p_minimized, 'r') as f:
         min_params = json.load(f)
 
-    global OUTPUT_DIR
-    OUTPUT_DIR = Path(rf"C:\Server\FINAL\analytic\{event}\paper")
+    # global OUTPUT_DIR
+    OUTPUT_DIR = Path(rf"VegasJetFit\jetfit\results\Vegastesting\test1\{event}")
     # OUTPUT_DIR = Path(rf"C:\Server\FINAL\numerical\ism\{event}\paper")
 
     main(
@@ -404,7 +413,5 @@ if __name__ == '__main__':
             'obs':        args.obs or p_obs,
             'params':     args.params or p_params,
             'minimized':  min_params,
-            'chain':      sampler['chain'],
-            'log_prob':   sampler['lnprob'],
         }
     )

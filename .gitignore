@@ -19,5 +19,61 @@ tmp/
 tmp.*/
 initial_positions/
 minimized_smoke_fixcheck/
-
 jetfit/models/rsrcs/hydro_sim/*.h5
+
+
+# =========================
+# Python Core & Build
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# =========================
+# Virtual Environments
+# =========================
+venv/
+.venv/
+env/
+.env/
+
+# =========================
+# Jupyter & Notebooks
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Testing & Coverage
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# =========================
+# IDEs & OS Files
+# =========================
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs & Temporary Files & Results
+# =========================
+*.log
+*.tmp
+*.png
+*.pdf
+*.csv
+*.json
+*.dat
+*.npz

@@ -473,10 +473,18 @@ class RadiationModel:
 
     def synchrotron_frequency(self, E, t_obs, adiabatic=True, tj=-1.0, sj=1.0):
         """ Observer-frame synchrotron frequency [Hz]. """
+        # Debug: t_obs is in days, convert to source-frame seconds for radius()
+        t_obs_sec = np.atleast_1d(t_obs) * 86400.0
+        t_src_sec = t_obs_sec / (1 + self.z)
+        r = radius(E, self.n0, self.k, t_src_sec, adiabatic)
+        # Print mid-point value for comparison with VegasAfterglow
+        idx = len(t_obs_sec) // 2
+        print(f"Radius FireballModel {r[idx]:.3e} cm at t_obs={t_obs_sec[idx]:.3e} s")
         return synchrotron_frequency(
             E, self.n0, self.k, self.p, self.eps_b, self.eps_e,
             self.z, self.hmf, t_obs, adiabatic, tj, sj
         )
+
 
     def absorption_frequency(self, E, t_obs, adiabatic=True, tj=-1.0, sj=1.0):
         """ Observer-frame self-absorption frequency [Hz]. """
@@ -1162,23 +1170,52 @@ def nu_m_ad(E, k, p, eps_b, eps_e, z, hmf, t_obs, tj=1.0, sj=1.0):
     float or np.ndarray of float
         The adiabatic, observer-frame synchrotron frequencies [Hz].
     """
+    # DEBUG: Print inputs (Numba-compatible)
+    print("=== nu_m_ad INPUTS ===")
+    print("E [erg] =", E)
+    print("k =", k)
+    print("p =", p)
+    print("eps_b =", eps_b)
+    print("eps_e =", eps_e)
+    print("z =", z)
+    print("hmf =", hmf)
+    print("t_obs [d] =", t_obs)
+    print("tj [d] =", tj)
+    print("sj =", sj)
+    
     t_obs_s = DAY2SEC * t_obs
 
     # Hydrodynamic coefficients
     hdc_a = 16.0 / (17.0 - 4.0 * k)
     hdc_b = 4.0 - k
-
+    
+    # DEBUG: Print intermediate values
+    print("=== nu_m_ad INTERMEDIATES ===")
+    print("t_obs_s [s] =", t_obs_s)
+    print("hdc_a =", hdc_a)
+    print("hdc_b =", hdc_b)
+    print("(p-2)/(p-1) =", (p - 2.0) / (p - 1.0))
+    
     nu_m = (hdc_a ** -0.5) * (hdc_b ** -1.5) * 0.041139 * (
         # 0.04 ~= 8 * sqrt(2) / pi * ECharge / MassE**3 * MassP**2 / SoL**-2.5
         (1.0 + hmf) ** -2.0 * (1.0 + z) ** 0.5 * eps_e ** 2.0 * eps_b ** 0.5 *
         E ** 0.5 * ((p - 2.0) / (p - 1.0)) ** 2.0 * t_obs_s ** -1.5
     )
 
+    # DEBUG: Print output
+    print("=== nu_m_ad OUTPUT ===")
+    print("nu_m (pre-jet) [Hz] =", nu_m)
+
     if tj != -1.0:
         # return jet-broken synchrotron frequency [Hz]
-        return nu_m * (1.0 + (t_obs / tj) ** sj) ** -(0.5 / sj)
+        jet_factor = (1.0 + (t_obs / tj) ** sj) ** -(0.5 / sj)
+        result = nu_m * jet_factor
+        print("jet_factor =", jet_factor)
+        print("nu_m (final) [Hz] =", result)
+        return result
 
     # return synchrotron frequency [Hz]
+    print("nu_m (final) [Hz] =", nu_m)
     return nu_m
 
 

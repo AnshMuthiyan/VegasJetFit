@@ -436,11 +436,42 @@ def plot_corner(chain, params, derived=None, out_dir=None):
     prior_ranges, prior_labels, prior_arrays = [], [], []
     h_ranges, h_labels, h_pos = [], [], []
     np_ranges, np_labels, np_pos = [], [], []
+    d_ranges, d_labels, d_pos = [], [], []
     param_pos = {}
 
+    c2_index = None
     for i, p in enumerate(params):
         name = _parameter_plot_name(p)
         param_pos[name] = i
+        if p.name == 'c2':
+            c2_index = i
+
+    if c2_index is not None:
+        from jetfit.mcmc.mcmc import trotter_dust_prior
+        custom_params = trotter_dust_prior.get_custom_param_names()
+        
+        params_dict = {}
+        for i, p in enumerate(params):
+            params_dict[p.name] = chain[:, i]
+            
+        c1, rv, bh, x0, gamma = trotter_dust_prior.get_physical_dust_params(chain[:, c2_index], params_dict)
+        
+        phys_arr = np.column_stack((c1, rv, bh, x0, gamma))
+        start_idx = chain.shape[1]
+        chain = np.hstack((chain, phys_arr))
+        
+        phys_names = ['c1_phys', 'rv_phys', 'bh_phys', 'x0_phys', 'gamma_phys']
+        for i, pname in enumerate(phys_names):
+            param_pos[pname] = start_idx + i
+            # Estimate range dynamically from chain values
+            p_min, p_max = np.min(phys_arr[:, i]), np.max(phys_arr[:, i])
+            # Add tiny padding to prevent corner plot errors if perfectly flat
+            if p_min == p_max: p_min -= 0.1; p_max += 0.1
+            ranges.append((p_min, p_max))
+            labels.append(latex(pname))
+            pos.append(start_idx + i)
+    else:
+        custom_params = set()
 
     # Split the parameters into groups (GRB physics, statistical, host).
     # Replace the fitted jet normalization and on-axis Gamma0 with matched
@@ -453,7 +484,12 @@ def plot_corner(chain, params, derived=None, out_dir=None):
         param_range = _corner_range(p)
         valid_range = param_range is not None
 
-        if '_offset' in name or 'slop' in name:
+        if p.name == 'c2' or p.name in custom_params:
+            d_ranges.append((p.prior.lower, p.prior.upper))
+            d_labels.append(latex(name))
+            d_pos.append(param_pos[name])
+
+        elif '_offset' in name or 'slop' in name:
             if valid_range:
                 np_ranges.append(param_range)
                 np_labels.append(_parameter_plot_label(p))
@@ -551,7 +587,12 @@ def plot_corner(chain, params, derived=None, out_dir=None):
                     fig.savefig(path, dpi=300)
                     fig.savefig(path.with_suffix('.png'), dpi=220)
 
-        # Non-physical parameters
+        # Dust Scatter & Hyper parameters
+    if d_ranges:
+        d_fig = corner.corner(chain[:, d_pos], bins=bins, labels=d_labels, range=d_ranges, **OPTIONS)
+        if out_dir: d_fig.savefig(out_dir / 'corner_dust.pdf', dpi=300)
+
+    # Non-physical parameters
         if np_ranges:
             np_fig = _make_corner(chain[:, np_pos], np_labels, np_ranges, bins=bins)
             if np_fig is not None:
