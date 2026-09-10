@@ -436,11 +436,35 @@ def plot_corner(chain, params, derived=None, out_dir=None):
     prior_ranges, prior_labels, prior_arrays = [], [], []
     h_ranges, h_labels, h_pos = [], [], []
     np_ranges, np_labels, np_pos = [], [], []
+    d_ranges, d_labels, d_arrays = [], [], []
     param_pos = {}
+    c2_index = None
 
     for i, p in enumerate(params):
         name = _parameter_plot_name(p)
         param_pos[name] = i
+        if p.name == 'c2':
+            c2_index = i
+
+    if c2_index is not None:
+        from jetfit.mcmc.trotter_extinction import trotter_dust_prior
+
+        extinction = {
+            p.name: chain[:, i]
+            for i, p in enumerate(params)
+            if p.category == 'extinction'
+        }
+        derived_dust = trotter_dust_prior.get_physical_dust_params(
+            chain[:, c2_index], extinction
+        )
+        for name, values in zip(
+            ('c1_phys', 'rv_phys', 'bh_phys', 'x0_phys', 'gamma_phys'),
+            derived_dust,
+        ):
+            values = np.asarray(values, dtype=float)
+            d_arrays.append(values)
+            d_labels.append(latex(name))
+            d_ranges.append(_posterior_zoom_range(values))
 
     # Split the parameters into groups (GRB physics, statistical, host).
     # Replace the fitted jet normalization and on-axis Gamma0 with matched
@@ -453,7 +477,14 @@ def plot_corner(chain, params, derived=None, out_dir=None):
         param_range = _corner_range(p)
         valid_range = param_range is not None
 
-        if '_offset' in name or 'slop' in name:
+        if c2_index is not None and p.category == 'extinction':
+            d_ranges.append(
+                param_range if valid_range else _posterior_zoom_range(chain[:, param_pos[name]])
+            )
+            d_labels.append(_parameter_plot_label(p))
+            d_arrays.append(np.asarray(chain[:, param_pos[name]], dtype=float))
+
+        elif '_offset' in name or 'slop' in name:
             if valid_range:
                 np_ranges.append(param_range)
                 np_labels.append(_parameter_plot_label(p))
@@ -514,6 +545,7 @@ def plot_corner(chain, params, derived=None, out_dir=None):
     fig = None
     np_fig = None
     h_fig = None
+    d_fig = None
 
     try:
         plot_reduced_corners(chain, params, derived=derived, out_dir=out_dir)
@@ -551,6 +583,19 @@ def plot_corner(chain, params, derived=None, out_dir=None):
                     fig.savefig(path, dpi=300)
                     fig.savefig(path.with_suffix('.png'), dpi=220)
 
+        if d_ranges and d_arrays:
+            n = min(values.size for values in d_arrays)
+            dust_data = np.column_stack([values[:n] for values in d_arrays])
+            dust_data = dust_data[np.all(np.isfinite(dust_data), axis=1)]
+            d_fig = _make_corner(dust_data, d_labels, d_ranges, bins=bins)
+            if d_fig is not None:
+                apply_plot_title(d_fig, "Trotter Source-Frame Dust Posterior", y=0.995, top=0.965, fontsize=11)
+                apply_plot_run_label(d_fig, x=0.99, ha='right')
+                if out_dir:
+                    path = out_dir / 'corner_dust.pdf'
+                    d_fig.savefig(path, dpi=300)
+                    d_fig.savefig(path.with_suffix('.png'), dpi=220)
+
         # Non-physical parameters
         if np_ranges:
             np_fig = _make_corner(chain[:, np_pos], np_labels, np_ranges, bins=bins)
@@ -573,6 +618,6 @@ def plot_corner(chain, params, derived=None, out_dir=None):
                     h_fig.savefig(path, dpi=300)
                     h_fig.savefig(path.with_suffix('.png'), dpi=220)
     finally:
-        for f in (fig, np_fig, h_fig):
+        for f in (fig, np_fig, h_fig, d_fig):
             if f is not None:
                 plt.close(f)

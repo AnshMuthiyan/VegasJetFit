@@ -9,6 +9,10 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
+from jetfit.mcmc.trotter_extinction import (
+    trotter_dust_prior,
+    trotter_source_attenuation,
+)
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -1321,7 +1325,9 @@ class MCMCModels:
         ebv_mw = ext.get('ebv_milky_way')
 
         # Apply source-frame extinction
-        if ebv_sf is not None:
+        if ext.get('av_source_frame') is not None:
+            modeled[pos] *= trotter_source_attenuation((1 + z) * wn, ext)
+        elif ebv_sf is not None:
             p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
             modeled[pos] *= self._model_extinction(p, (1 + z) * wn, self.ext_sf_pc)
 
@@ -1373,6 +1379,14 @@ def log_prior_fn(theta, params) -> float:
 
         if prior != 0:
             lp += np.log(prior)
+
+    p_dict = params.samples_to_dict(theta)
+    ext = p_dict.get('extinction')
+    if ext is not None and 'c2' in ext:
+        dust_prior = trotter_dust_prior.log_prior(ext)
+        if not np.isfinite(dust_prior):
+            return -np.inf
+        lp += dust_prior
 
     return lp
 

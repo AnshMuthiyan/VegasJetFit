@@ -102,6 +102,17 @@ def log(ampy, out_dir):
     nmap = -2 * ampy.mcmc.sampler.get_log_prob(flat=True).max()
 
     out_params = ampy.get_best_params()
+    if 'extinction' in out_params and 'c2' in out_params['extinction']:
+        from jetfit.mcmc.trotter_extinction import trotter_dust_prior
+        ext = out_params['extinction']
+        c1, rv, bh, x0, gamma = trotter_dust_prior.get_physical_dust_params(
+            ext['c2'], ext
+        )
+        ext['c1_physical'] = float(c1)
+        ext['rv_physical'] = float(rv)
+        ext['bh_physical'] = float(bh)
+        ext['x0_physical'] = float(x0)
+        ext['gamma_physical'] = float(gamma)
     out_params['nmap'] = nmap
     out_params['mcmc'] = {
         'sampler': ampy.mcmc.sampler.name,
