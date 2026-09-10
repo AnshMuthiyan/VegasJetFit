@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -127,6 +128,7 @@ def main():
     target_config = build_target_config(source_config, av_guess)
     target_model = output / "model.toml"
     target_model.write_text(toml.dumps(target_config), encoding="utf-8")
+    shutil.copy2(source_obs, output / "obs.csv")
     target_names = fitted_names(target_config)
 
     if chain.shape[0] < args.ntemps:
