@@ -7,11 +7,39 @@ from scripts.plot.visualize import (
     PROTON_MASS_G,
     density_shell_properties,
     model_galactic_extinction,
+    model_extinction,
     powerlaw_density_shell_properties,
 )
 
+from jetfit.mcmc.trotter_extinction import trotter_source_attenuation
+
 
 class TestPlotExtinction(unittest.TestCase):
+    def test_trotter_plot_path_matches_likelihood_attenuation(self):
+        class Wave:
+            def __init__(self, value):
+                self.value = value
+
+            def to_value(self, unit):
+                return self.value
+
+        data = [
+            type("Datum", (), {"wavelength": Wave(value)})()
+            for value in (1.0, 0.4, 0.15)
+        ]
+        extinction = {
+            "av_source_frame": 0.6,
+            "c2": 1.0,
+            "c4": 0.4,
+            "ebv_milky_way": 0.0,
+        }
+        params = {"model": {"z": 0.544}, "extinction": extinction, "host": None}
+        actual = model_extinction(np.ones(3), CCM89(Rv=3.1), data, params)
+        expected = trotter_source_attenuation(
+            1.544 * np.array([1.0, 2.5, 1.0 / 0.15]), extinction
+        )
+        np.testing.assert_allclose(actual, expected)
+
     def test_mixed_band_vector_applies_milky_way_extinction_per_band(self):
         """Radio/X-ray entries must not disable the optical correction."""
         wavenumbers = np.array([1.0e-4, 1.25, 2.0, 15.0])

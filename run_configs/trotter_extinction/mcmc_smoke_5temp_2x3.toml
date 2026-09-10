@@ -1,0 +1,10 @@
+# Fast end-to-end sampler smoke test for the Trotter extinction integration.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 2
+run_length = 3
+ntemps = 5
+workers = 15
+checkpoint_interval = 1

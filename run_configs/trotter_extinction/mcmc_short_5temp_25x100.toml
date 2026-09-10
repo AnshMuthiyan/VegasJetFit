@@ -1,0 +1,10 @@
+# Short scientific diagnostic before committing to a production continuation.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 25
+run_length = 100
+ntemps = 5
+workers = 15
+checkpoint_interval = 10

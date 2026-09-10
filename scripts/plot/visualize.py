@@ -652,9 +652,17 @@ def plot_density_profile(chain, log_prob, params, obs, model, model_kw=None, bes
 def model_extinction(flux, model, sdata, params):
     """ Model contamination. """
     wn = [1.0 / d.wavelength.to_value('um') for d in sdata]
+    extinction = params.get('extinction') or {}
 
     # Multiplicative source-frame extinction
-    if ebv_sf := params.get('extinction').get('ebv_source_frame'):
+    if extinction.get('av_source_frame') is not None:
+        from jetfit.mcmc.trotter_extinction import trotter_source_attenuation
+
+        z = params.get('model').get('z')
+        flux *= trotter_source_attenuation(
+            (1.0 + z) * np.asarray(wn), extinction
+        )
+    elif ebv_sf := extinction.get('ebv_source_frame'):
         z = params.get('model').get('z')
         flux *= model_source_extinction((1.0 + z) * np.array(wn), model, ebv_sf)
 
@@ -664,8 +672,8 @@ def model_extinction(flux, model, sdata, params):
         flux += model_host_contamination(np.array(bands), params.get('host'))
 
     # Multiplicative source-frame extinction
-    if ebv_mw := params.get('extinction').get('ebv_milky_way'):
-        rv = params.get('extinction').get('rv_milky_way')
+    if ebv_mw := extinction.get('ebv_milky_way'):
+        rv = extinction.get('rv_milky_way')
         flux *= model_galactic_extinction(np.array(wn), model, ebv_mw, rv)
 
     return flux
