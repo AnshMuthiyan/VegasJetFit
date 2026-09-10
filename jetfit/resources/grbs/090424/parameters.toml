@@ -115,16 +115,87 @@ value = 1.00
 
 #----------- EXTINCTION ------------
 #---------- source_frame -----------
+# c2: Master scaling parameter for the Trotter dust model
 [[extinction]]
-name  = "ebv_source_frame"
+name  = "c2"
 scale = "linear"
 
 [extinction.prior]
     type  = "uniform"
-    lower = 0.0
-    upper = 0.5
-    initial_guess = 0.02
-    initial_sigma = 0.01
+    lower = -5.0
+    upper = 5.0
+    initial_guess = 0.0
+    initial_sigma = 0.5
+
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+# delta_c1: Cosmic scatter for c1 parameter
+[[extinction]]
+name  = "delta_c1"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = -5.0
+    upper = 5.0
+    initial_guess = 0.0
+    initial_sigma = 0.1
+
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+# delta_rv: Cosmic scatter for Rv parameter
+[[extinction]]
+name  = "delta_rv"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = -5.0
+    upper = 5.0
+    initial_guess = 0.0
+    initial_sigma = 0.1
+
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+# delta_bh: Cosmic scatter for bump height parameter
+[[extinction]]
+name  = "delta_bh"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = -5.0
+    upper = 5.0
+    initial_guess = 0.0
+    initial_sigma = 0.1
+
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+# delta_x0: Cosmic scatter for bump center parameter
+[[extinction]]
+name  = "delta_x0"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = -5.0
+    upper = 5.0
+    initial_guess = 0.0
+    initial_sigma = 0.1
+
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+# delta_gamma: Cosmic scatter for bump width parameter
+[[extinction]]
+name  = "delta_gamma"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = -5.0
+    upper = 5.0
+    initial_guess = 0.0
+    initial_sigma = 0.1
 
 #----------- EXTINCTION ------------
 #------------ milky_way ------------
