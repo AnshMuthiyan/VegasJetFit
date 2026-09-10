@@ -4125,3 +4125,43 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
 - Updated live tracking cells AB5 (080413B profile launch) and AB6 (future
   090424 extinction-code review). Remaining uncertainty is whether the
   log-Gamma 8 dynamics admit any finite solution at the retained grid.
+
+## Last Touched (2026-09-10): Trotter Extinction Audit and Smoke Test
+
+- Reviewed `origin/jonathan-mac-version` commit `e100a87` against Adam
+  Trotter's 2011 thesis. The submitted code contained useful fitted-prior
+  constants, but the new parameters did not enter modeled flux, omitted
+  `A_V`, `c4`, and the three horizontal-scatter coordinates, used the wrong
+  asymmetric-Gaussian normalization, included a noncompiling corner-plot
+  edit, and arrived through a merge that regressed the current model API.
+- Ported the corrected implementation onto production commit `317b0a0` on
+  branch `codex/trotter-extinction-production`. The likelihood and plotting
+  paths now share `jetfit/mcmc/trotter_extinction.py`; legacy CCM
+  `ebv_source_frame` fits are unchanged. The first test conditions the Trotter
+  fitted-prior hierarchy on the peak hyperparameters in Tables 3.2--3.5 while
+  sampling all quoted cosmic-scatter coordinates.
+- Added `prepare_trotter_extinction_continuation.py`, which preserves the five
+  latest 100-walker source clouds, maps the old color excess to initial
+  `A_V=3.1 E(B-V)`, initializes only the new dust dimensions, and records
+  SHA-256 provenance. The 090424 source is
+  `090424_core_logangle_powerlawcsm_kminus10to3_finalfinal_sthawed_highres_5temp_1000x5000_alluv_v2`.
+- Focused tests pass for thesis normalization, CCM/FM continuity, far-UV-only
+  `c4` response, all horizontal-scatter relations, hard physical constraints,
+  likelihood sensitivity, and plot/likelihood agreement. The real 090424
+  forward model is finite. Pauley404-03 completed the 5-temperature,
+  100-walker, 2-burn plus 3-production smoke with 100/100 valid walkers at
+  every temperature and complete checkpoint/chain/best-fit artifacts.
+- Pauley404-01 is running the 25-burn plus 100-production diagnostic from the
+  same cloud with 8 workers. Pauley404-03 remains occupied by the 080413B
+  fixed-Gamma minimization; its test snapshot is installed but its active tree
+  should not be replaced mid-job. Pauley404-02 remains on the all-UVOIR
+  080319B `n017`-upper-25 fit and must not be updated until that source chain
+  completes. The 080319B Trotter continuation must seed from that exact new
+  cloud.
+- Academic-year policy: Pauley is the default MCMC pool at 8 workers; PCRC is
+  student infrastructure and may be used only when availability and permission
+  are explicitly confirmed. Lyra remains the post-processing and measured
+  high-memory-exception host; Carina is not a production-MCMC host.
+- Audit, paper prose, meeting notes, email draft, and run state are in
+  `reports/2026_09_10_trotter_extinction_review/`. Ethan's gas/Lyman absorption
+  implementation was not present in `e100a87` and remains a separate review.

@@ -1,0 +1,34 @@
+{
+  "created": "2026-09-10",
+  "code_branch": "codex/trotter-extinction-production",
+  "events": [
+    {
+      "event": "090424",
+      "source": "jetfit/results/090424_core_logangle_powerlawcsm_kminus10to3_finalfinal_sthawed_highres_5temp_1000x5000_alluv_v2",
+      "data": "all reviewed UV included; early X-ray flare excluded",
+      "host": "pauley404-01",
+      "stage": "short_diagnostic_running",
+      "sampler": "100 walkers, 5 temperatures, 25 burn, 100 production",
+      "next_gate": "compare UV residuals, nmap, dust posterior, and physical posterior"
+    },
+    {
+      "event": "080319B",
+      "source": "active n017-upper-25 all-UVOIR continuation on pauley404-02",
+      "data": "all 2372 observations included, including restored early UVOIR/UVOT",
+      "host": "next available Pauley after source completion",
+      "stage": "blocked_on_source_cloud",
+      "next_gate": "Pauley-02 chain and best_fit.json complete, then build Trotter seed from that exact cloud"
+    }
+  ],
+  "deployment": {
+    "pauley404-01": "candidate snapshot installed; short diagnostic running",
+    "pauley404-03": "candidate snapshot installed; smoke passed; active production tree update deferred while fixed-Gamma minimization runs",
+    "pauley404-02": "do not update until active 080319B fit completes"
+  },
+  "academic_year_host_policy": {
+    "pauley": "default MCMC compute pool; normally 8 workers on 10 logical CPUs",
+    "pcrc": "student resource; use only when availability and permission are explicitly confirmed",
+    "lyra": "post-processing and measured high-memory exceptions",
+    "carina": "interactive and light processing; no large MCMC"
+  }
+}
