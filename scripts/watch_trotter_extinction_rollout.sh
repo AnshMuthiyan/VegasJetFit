@@ -59,6 +59,43 @@ pull_090424_short() {
   fi
 }
 
+pull_and_postprocess_090424_weekend() {
+  local tag="090424_trotter_extinction_production_5temp_1000x5000_v1"
+  local remote="$REMOTE_VJF/jetfit/results/$tag"
+  local local_dir="$VJF/jetfit/results/$tag"
+
+  if [[ ! -f "$LOG_DIR/090424_weekend.pulled" ]]; then
+    if ! "${SSH[@]}" pauley404-01 \
+      "test -s '$remote/chain.npz' -a -s '$remote/best_fit.json' && ! pgrep -f '[j]etfit.run.*$tag' >/dev/null" \
+      2>/dev/null; then
+      return 0
+    fi
+    mkdir -p "$local_dir"
+    rsync -a "pauley404-01:$remote/" "$local_dir/" \
+      >>"$LOG_DIR/090424_weekend_pull.log" 2>&1 || return 1
+    cp "$VJF/run_configs/trotter_extinction/090424/model.toml" "$local_dir/model.toml"
+    cp "$VJF/run_configs/trotter_extinction/090424/obs.csv" "$local_dir/obs.csv"
+    cp "$VJF/run_configs/trotter_extinction/mcmc_weekend_5temp_1000x5000.toml" \
+      "$local_dir/mcmc_settings.toml"
+    cp "$VJF/run_configs/trotter_extinction/090424/provenance.json" "$local_dir/provenance.json"
+    touch "$LOG_DIR/090424_weekend.pulled"
+    log "pulled completed 090424 Trotter weekend production from pauley404-01"
+  fi
+
+  if [[ ! -f "$LOG_DIR/090424_weekend.postprocessed" ]]; then
+    if (cd "$VJF" && env PYTHONPATH=. MPLBACKEND=Agg \
+      /Users/jkeohane/GRBs/.venv/bin/python -u scripts/generate_postfit_products.py \
+      --results "$local_dir" --event 090424 --parallel-products \
+      --product-workers 4 --skip-frequency-plot) \
+      >>"$LOG_DIR/090424_weekend_postprocess.log" 2>&1; then
+      touch "$LOG_DIR/090424_weekend.postprocessed"
+      log "postprocessed 090424 Trotter weekend production on Lyra (frequency plot skipped)"
+    else
+      return 1
+    fi
+  fi
+}
+
 prepare_080319b() {
   local tag="080319B_core_logangle_powerlawcsm_kminus10to3_finalfinal_sthawed_alluvoir_n17upper25_5temp_1000x5000_v1"
   local remote="$REMOTE_VJF/jetfit/results/$tag"
@@ -102,6 +139,7 @@ launch_080319b() {
 log "Trotter rollout watcher started; PCRC intentionally excluded"
 while true; do
   pull_090424_short || log "warning: 090424 pull attempt failed"
+  pull_and_postprocess_090424_weekend || log "warning: 090424 weekend completion handling failed"
 
   if [[ ! -f "$LOG_DIR/pauley404-03.deployed" ]] && reachable pauley404-03 && ! busy pauley404-03; then
     deploy pauley404-03 || log "warning: pauley404-03 deployment failed"
