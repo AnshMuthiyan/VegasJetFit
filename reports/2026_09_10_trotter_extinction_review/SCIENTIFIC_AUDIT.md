@@ -101,11 +101,18 @@ break the requested provenance.
 
 ## Remaining Acceptance Gates
 
-1. Complete and inspect the 25-burn plus 100-production 090424 diagnostic.
-2. Compare UV residuals, `nmap`, dust posteriors, and physical afterglow
-   posteriors with the authoritative CCM fit.
+1. The 25-burn plus 100-production 090424 diagnostic completed with a finite
+   `(100, 100, 33)` cold chain. Its same-data best-point `-2 log L` is
+   `-23760.43`, compared with `-23761.93` for the authoritative CCM fit; lower
+   is better. The short Trotter result therefore does not yet improve the data
+   likelihood. It modestly improves `uvot-u` and `uvw1` residuals while
+   worsening `uvot-b`, `uvot-v`, and `uvm2`. See
+   `090424_ccm_vs_trotter_band_residuals.csv`.
+2. Complete the checkpointed weekend continuation seeded from all 500 terminal
+   temperature/walker positions: 5 temperatures, 100 walkers, 1000 fresh burn,
+   and 5000 production iterations. Then repeat the same-data residual and
+   physical-posterior comparison.
 3. Decide whether the production paper fit should retain the conditional
    peak-hyperparameter approximation or sample the full Trotter hierarchy.
 4. Ethan's absorption implementation is not present in commit `e100a87`; dust
    extinction and gas/Lyman absorption must not be described as jointly tested.
-
