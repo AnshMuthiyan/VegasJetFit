@@ -17,6 +17,7 @@ DEPLOY_FILES=(
   scripts/plot/visualize.py
   scripts/prepare_trotter_extinction_continuation.py
   test/mcmc/test_trotter_extinction.py
+  test/test_run_metadata.py
   test/test_plot_extinction.py
   run_configs/trotter_extinction
   reports/2026_09_10_trotter_extinction_review
@@ -39,7 +40,7 @@ deploy() {
   (cd "$VJF" && tar -cf - "${DEPLOY_FILES[@]}") |
     "${SSH[@]}" "$host" "tar -xf - -C '$REMOTE_VJF'" || return 1
   "${SSH[@]}" "$host" \
-    "cd '$REMOTE_VJF' && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m compileall -q jetfit scripts test && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m unittest discover -s test/mcmc -p 'test_trotter_extinction.py'" \
+    "cd '$REMOTE_VJF' && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m compileall -q jetfit scripts test && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m unittest discover -s test/mcmc -p 'test_trotter_extinction.py' && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m unittest discover -s test -p 'test_run_metadata.py'" \
     >>"$LOG_DIR/${host}_deploy_test.log" 2>&1 || return 1
   touch "$LOG_DIR/${host}.deployed"
   log "deployment verified on $host"

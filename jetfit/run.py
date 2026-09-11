@@ -86,7 +86,7 @@ def configure_multiprocessing(start_method):
     return current
 
 
-def log(ampy, out_dir):
+def log(ampy, out_dir, *, burn_length, run_length):
     """
     Write the best parameters and sampler metadata
     to a JSON file.
@@ -116,8 +116,8 @@ def log(ampy, out_dir):
     out_params['nmap'] = nmap
     out_params['mcmc'] = {
         'sampler': ampy.mcmc.sampler.name,
-        'prod_len': int(ampy.mcmc.sampler.iteration),
-        'burn_len': int(ampy.mcmc.sampler.iteration),
+        'prod_len': int(run_length),
+        'burn_len': int(burn_length),
         'nwalkers': ampy.mcmc.sampler.nwalkers,
         'model': ampy.mcmc.params.model,
     }
@@ -314,7 +314,12 @@ def main(
         ampy.mcmc.sampler.save(results_dir / 'chain.npz')
 
     # Log the best fit results and some metadata
-    log(ampy, results_dir)
+    log(
+        ampy,
+        results_dir,
+        burn_length=mcmc_params.burn_length,
+        run_length=mcmc_params.run_length,
+    )
 
     # Plot some things
     if not skip_plots:
