@@ -9,6 +9,7 @@ POLL_SECONDS="${POLL_SECONDS:-300}"
 mkdir -p "$LOG_DIR"
 
 SSH=(ssh -n -x -o ForwardX11=no -o BatchMode=yes -o ConnectTimeout=8)
+SSH_STREAM=(ssh -x -o ForwardX11=no -o BatchMode=yes -o ConnectTimeout=8)
 DEPLOY_FILES=(
   jetfit/mcmc/mcmc.py
   jetfit/mcmc/trotter_extinction.py
@@ -38,7 +39,7 @@ deploy() {
   local host="$1"
   log "deploying reviewed Trotter code to $host"
   (cd "$VJF" && tar -cf - "${DEPLOY_FILES[@]}") |
-    "${SSH[@]}" "$host" "tar -xf - -C '$REMOTE_VJF'" || return 1
+    "${SSH_STREAM[@]}" "$host" "tar -xf - -C '$REMOTE_VJF'" || return 1
   "${SSH[@]}" "$host" \
     "cd '$REMOTE_VJF' && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m compileall -q jetfit scripts test && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m unittest discover -s test/mcmc -p 'test_trotter_extinction.py' && PYTHONPATH=. /Users/jkeohane/GRBs/.venv/bin/python -m unittest discover -s test -p 'test_run_metadata.py'" \
     >>"$LOG_DIR/${host}_deploy_test.log" 2>&1 || return 1
@@ -86,7 +87,7 @@ launch_080319b() {
     if reachable "$host" && ! busy "$host"; then
       [[ -f "$LOG_DIR/${host}.deployed" ]] || deploy "$host" || continue
       (cd "$VJF" && tar -cf - run_configs/trotter_extinction/080319B) |
-        "${SSH[@]}" "$host" "tar -xf - -C '$REMOTE_VJF'" || continue
+        "${SSH_STREAM[@]}" "$host" "tar -xf - -C '$REMOTE_VJF'" || continue
       local result="$REMOTE_VJF/jetfit/results/080319B_trotter_extinction_short_5temp_25x100"
       "${SSH[@]}" "$host" \
         "tmux new-session -d -s trotter_080319B_short 'cd $REMOTE_VJF && exec env PYTHONPATH=. MPLBACKEND=Agg /usr/bin/time -p /Users/jkeohane/GRBs/.venv/bin/python -u -m jetfit.run --event 080319B --obs $REMOTE_VJF/run_configs/trotter_extinction/080319B/obs.csv --model $REMOTE_VJF/run_configs/trotter_extinction/080319B/model.toml --mcmc $REMOTE_VJF/run_configs/trotter_extinction/mcmc_short_5temp_25x100.toml --results $result --initial-positions $REMOTE_VJF/run_configs/trotter_extinction/080319B/initial_positions.npz --workers 8 --start-method spawn --skip-plots >$REMOTE_VJF/logs/080319B.trotter_short.log 2>&1'" || continue
