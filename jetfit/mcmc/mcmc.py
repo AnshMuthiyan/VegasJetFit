@@ -9,6 +9,7 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
+from jetfit.core import extinction
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -1320,8 +1321,21 @@ class MCMCModels:
         ebv_sf = ext.get('ebv_source_frame')
         ebv_mw = ext.get('ebv_milky_way')
 
-        # Apply source-frame extinction
-        if ebv_sf is not None:
+        # Apply source-frame extinction. Two mutually-exclusive paths:
+        #   - 'c2' present: the full Trotter/Reichart hybrid CCM+FM model
+        #     (jetfit.core.extinction), with c1, Rv, bump height/shape
+        #     derived from the sampled c2 by the already-existing
+        #     TrotterDustPrior machinery below. This is the physically
+        #     motivated source-frame dust law described in Trotter (2011)
+        #     Sec. 3.3.3; see jetfit/core/extinction.py for the evaluator
+        #     and its validation.
+        #   - otherwise: the previous plain CCM89 + E(B-V) shortcut,
+        #     unchanged, for any event that doesn't sample c2.
+        if 'c2' in ext:
+            modeled[pos] *= extinction.resolve_source_frame_transmission(
+                (1 + z) * wn, ext, trotter_dust_prior.get_physical_dust_params,
+            )
+        elif ebv_sf is not None:
             p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
             modeled[pos] *= self._model_extinction(p, (1 + z) * wn, self.ext_sf_pc)
 
