@@ -9,10 +9,7 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
-from jetfit.mcmc.trotter_extinction import (
-    trotter_dust_prior,
-    trotter_source_attenuation,
-)
+from jetfit.core import extinction
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -23,7 +20,6 @@ try:
 except ImportError:
     # ptemcee is required if using parallel tempering
     pass
-
 
 """
 MCMC framework for modeling afterglow light curves.
@@ -234,9 +230,9 @@ class PTSampler:
     name = 'parallel_tempered'
 
     def __init__(
-        self, ntemps, nwalkers, ndim, log_like, log_prior,
-        log_l_args=(), log_p_args=(), log_l_kwargs=(), log_p_kwargs=(),
-        pool=None, **kwargs
+            self, ntemps, nwalkers, ndim, log_like, log_prior,
+            log_l_args=(), log_p_args=(), log_l_kwargs=(), log_p_kwargs=(),
+            pool=None, **kwargs
     ):
         # Keep constructor state so reset() can rebuild robustly across ptemcee variants.
         self._ctor = {
@@ -442,9 +438,9 @@ class PTSampler:
         self._iteration = int(chain.shape[0])
 
     def save_resume_state(
-        self, path, completed_iterations, target_iterations=None,
-        chain=None, lnprob=None, phase='production',
-        burn_completed_iterations=None, burn_target_iterations=None,
+            self, path, completed_iterations, target_iterations=None,
+            chain=None, lnprob=None, phase='production',
+            burn_completed_iterations=None, burn_target_iterations=None,
     ):
         """
         Save resume state for ``parallel_tempered``.
@@ -609,12 +605,12 @@ class PTSampler:
                     f'at temperature {i}.'
                 )
             if valid.any():
-            # replace invalid walkers with the best walker for this temp
+                # replace invalid walkers with the best walker for this temp
                 best = np.nanargmax(log_p[i])
                 if not valid.all():
                     pos[i][~valid] = np.array(pos[i][best], copy=True)
             else:
-            # no valid walkers: try to resample positions until at least one is valid
+                # no valid walkers: try to resample positions until at least one is valid
                 max_tries = 1000
                 for attempt in range(max_tries):
                     # resample all walkers from priors
@@ -868,6 +864,7 @@ class MCMC:
     parameters : Parameters
         The model parameters.
     """
+
     def __init__(self, model, parameters):
         # Model
         self.models = model
@@ -936,7 +933,7 @@ class MCMC:
         if sampler == 'ensemble':
             self.sampler = EnsembleSampler(
                 nwalkers, self.ndim, log_posterior_fn,
-                args=(self.params, self.models), pool=pool, **kwargs # type: ignore
+                args=(self.params, self.models), pool=pool, **kwargs  # type: ignore
             )
 
         elif sampler == 'parallel_tempered':
@@ -971,10 +968,10 @@ class MCMC:
         )
 
     def run(
-        self, nwalkers, iterations, burn=0, sampler='ensemble',
-        workers=None, ntemps=None, sampler_kw=None, run_kw=None,
-        resume=False, checkpoint_path=None, checkpoint_interval=0,
-        initial_positions=None
+            self, nwalkers, iterations, burn=0, sampler='ensemble',
+            workers=None, ntemps=None, sampler_kw=None, run_kw=None,
+            resume=False, checkpoint_path=None, checkpoint_interval=0,
+            initial_positions=None
     ):
         """
         Runs the MCMC sampling routine.
@@ -1110,7 +1107,7 @@ class MCMC:
                                 target_iterations=target_iterations,
                                 phase='burn',
                                 burn_completed_iterations=(
-                                    burn_completed_offset + produced_burn
+                                        burn_completed_offset + produced_burn
                                 ),
                                 burn_target_iterations=burn_target_iterations,
                             )
@@ -1138,9 +1135,9 @@ class MCMC:
 
             if remaining_iterations == 0:
                 if (
-                    is_pt
-                    and resumed_chain is not None
-                    and resumed_log_prob is not None
+                        is_pt
+                        and resumed_chain is not None
+                        and resumed_log_prob is not None
                 ):
                     self.sampler.set_temp0_overrides(resumed_chain, resumed_log_prob)
                 return
@@ -1160,8 +1157,8 @@ class MCMC:
                     produced_iterations = int(self.sampler.iteration)
 
                     if (
-                        resumed_chain is not None
-                        and resumed_log_prob is not None
+                            resumed_chain is not None
+                            and resumed_log_prob is not None
                     ):
                         combined_chain = np.concatenate(
                             (resumed_chain, self.sampler.get_chain()),
@@ -1231,9 +1228,10 @@ class MCMCModels:
     ext_sf_pc : np.ndarray, optional
         The pre-computed source-frame extinction values.
     """
+
     def __init__(
-        self, obs, afg_model,
-        afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None
+            self, obs, afg_model,
+            afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None
     ):
         # Afterglow
         self.afg_model = afg_model
@@ -1324,9 +1322,20 @@ class MCMCModels:
         ebv_sf = ext.get('ebv_source_frame')
         ebv_mw = ext.get('ebv_milky_way')
 
-        # Apply source-frame extinction
-        if ext.get('av_source_frame') is not None:
-            modeled[pos] *= trotter_source_attenuation((1 + z) * wn, ext)
+        # Apply source-frame extinction. Two mutually-exclusive paths:
+        #   - 'c2' present: the full Trotter/Reichart hybrid CCM+FM model
+        #     (jetfit.core.extinction), with c1, Rv, bump height/shape
+        #     derived from the sampled c2 by the already-existing
+        #     TrotterDustPrior machinery below. This is the physically
+        #     motivated source-frame dust law described in Trotter (2011)
+        #     Sec. 3.3.3; see jetfit/core/extinction.py for the evaluator
+        #     and its validation.
+        #   - otherwise: the previous plain CCM89 + E(B-V) shortcut,
+        #     unchanged, for any event that doesn't sample c2.
+        if 'c2' in ext:
+            modeled[pos] *= extinction.resolve_source_frame_transmission(
+                (1 + z) * wn, ext, trotter_dust_prior.get_physical_dust_params,
+            )
         elif ebv_sf is not None:
             p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
             modeled[pos] *= self._model_extinction(p, (1 + z) * wn, self.ext_sf_pc)
@@ -1354,6 +1363,111 @@ class MCMCModels:
             **p.get('init')).extinguish(wn, **p.get('eval'))
 
 
+class TrotterDustPrior:
+    def __init__(self, sample_deltas=True, use_asymmetric_priors=True, float_hyperparams=False):
+        self.sample_deltas = sample_deltas
+        self.use_asymmetric_priors = use_asymmetric_priors
+        self.float_hyperparams = float_hyperparams
+
+        # Hyperparameters (peak, plus, minus) - all sigmas are absolute values
+        self.hyperparams = {
+            'b_c1': {'peak': -1.5038, 'plus': 0.0245, 'minus': 0.0246},
+            'theta_c1': {'peak': 106.953, 'plus': 0.145, 'minus': 0.141},
+            'b_rv1': {'peak': 4.8118, 'plus': 0.0990, 'minus': 0.1004},
+            'theta_rv1': {'peak': 95.995, 'plus': 0.548, 'minus': 0.522},
+            'b_rv2': {'peak': 2.8987, 'plus': 0.0138, 'minus': 0.0139},
+            'theta_rv2': {'peak': -6.945, 'plus': 1.165, 'minus': 1.104},
+            'b_bh1': {'peak': 2.4845, 'plus': 0.0925, 'minus': 0.0750},
+            'theta_bh1': {'peak': 262.749, 'plus': 0.677, 'minus': 0.607},
+            'b_bh2': {'peak': 2.2511, 'plus': 0.0259, 'minus': 0.0262},
+            'theta_bh2': {'peak': -64.803, 'plus': 0.402, 'minus': 0.379},
+            'x0_base': {'peak': 4.60604, 'plus': 0.00305, 'minus': 0.00286},
+            'gamma_base': {'peak': 0.84195, 'plus': 0.00897, 'minus': 0.00895}
+        }
+
+        # Deltas
+        self.deltas = {
+            'delta_c1': {'peak': 0.0, 'plus': 0.29313, 'minus': 0.29313},
+            'delta_rv': {'peak': 0.0, 'plus': 0.36246, 'minus': 0.36246},
+            'delta_bh': {'peak': 0.0, 'plus': 0.48315, 'minus': 0.48315},
+            'delta_x0': {'peak': 0.0, 'plus': 0.01212, 'minus': 0.03839},
+            'delta_gamma': {'peak': 0.0, 'plus': 0.16949, 'minus': 0.10605}
+        }
+
+    def get_custom_param_names(self):
+        """Returns set of all custom parameters that shouldn't use default prior evaluation."""
+        custom_params = set()
+        if self.sample_deltas:
+            custom_params.update(self.deltas.keys())
+        if self.float_hyperparams:
+            custom_params.update(self.hyperparams.keys())
+        return custom_params
+
+    def parse_params(self, params_dict):
+        """Extracts required parameters depending on the active configuration switches."""
+        parsed = {}
+
+        # Extract or hardcode deltas
+        for delta in self.deltas.keys():
+            if self.sample_deltas:
+                parsed[delta] = params_dict.get(delta, 0.0)
+            else:
+                parsed[delta] = 0.0
+
+        # Extract or hardcode hyperparams
+        for hp, props in self.hyperparams.items():
+            if self.float_hyperparams:
+                parsed[hp] = params_dict.get(hp, props['peak'])
+            else:
+                parsed[hp] = props['peak']
+
+        return parsed
+
+    def _penalty(self, val, center, sig_p, sig_m):
+        if not self.use_asymmetric_priors:
+            sig = (sig_p + sig_m) / 2.0
+            return -0.5 * ((val - center) / sig) ** 2 - 0.5 * np.log(2 * np.pi * sig ** 2)
+        else:
+            sig = np.where(val >= center, sig_p, sig_m)
+            return -0.5 * ((val - center) / sig) ** 2 - 0.5 * np.log(2 * np.pi * sig ** 2)
+
+    def log_prior(self, params_dict):
+        parsed = self.parse_params(params_dict)
+        lp = 0.0
+
+        if self.sample_deltas:
+            for delta, props in self.deltas.items():
+                lp += self._penalty(parsed[delta], props['peak'], props['plus'], props['minus'])
+
+        if self.float_hyperparams:
+            for hp, props in self.hyperparams.items():
+                lp += self._penalty(parsed[hp], props['peak'], props['plus'], props['minus'])
+
+        return lp
+
+    def get_physical_dust_params(self, c2, params_dict):
+        parsed = self.parse_params(params_dict)
+
+        c1 = parsed['b_c1'] + np.tan(np.radians(parsed['theta_c1'])) * (c2 - 1.2403) + parsed['delta_c1']
+
+        term1_rv = parsed['b_rv1'] + np.tan(np.radians(parsed['theta_rv1'])) * (c2 - (-0.0708))
+        term2_rv = parsed['b_rv2'] + np.tan(np.radians(parsed['theta_rv2'])) * (c2 - 1.4953)
+        rv = np.logaddexp(term1_rv, term2_rv) + parsed['delta_rv']
+
+        term1_bh = -parsed['b_bh1'] - np.tan(np.radians(parsed['theta_bh1'])) * (c2 - (-0.0143))
+        term2_bh = -parsed['b_bh2'] - np.tan(np.radians(parsed['theta_bh2'])) * (c2 - 1.4087)
+        bh = -np.logaddexp(term1_bh, term2_bh) + parsed['delta_bh']
+
+        x0 = parsed['x0_base'] + parsed['delta_x0']
+        gamma = parsed['gamma_base'] + parsed['delta_gamma']
+
+        return c1, rv, bh, x0, gamma
+
+
+# Instantiate globally for the MCMC run
+trotter_dust_prior = TrotterDustPrior(sample_deltas=True, use_asymmetric_priors=True, float_hyperparams=False)
+
+
 def log_prior_fn(theta, params) -> float:
     """
     Evaluates the natural log of the priors.
@@ -1373,20 +1487,24 @@ def log_prior_fn(theta, params) -> float:
     """
     lp = 0
 
+    custom_dust_params = trotter_dust_prior.get_custom_param_names()
+
     for i, p in enumerate(params.fitting):
+        # Skip default prior evaluation for the custom parameters handled collectively
+        if p.name in custom_dust_params:
+            continue
+
         if np.isinf(prior := p.prior.evaluate(theta[i])):
             return -np.inf
 
         if prior != 0:
             lp += np.log(prior)
 
+    # Evaluate custom dust prior if we have the parameters
     p_dict = params.samples_to_dict(theta)
     ext = p_dict.get('extinction')
     if ext is not None and 'c2' in ext:
-        dust_prior = trotter_dust_prior.log_prior(ext)
-        if not np.isfinite(dust_prior):
-            return -np.inf
-        lp += dust_prior
+        lp += trotter_dust_prior.log_prior(ext)
 
     return lp
 
@@ -1420,11 +1538,11 @@ def log_likelihood_fn(theta, params, models) -> float:
     eps_e = m.get('eps_e')
     eps_b = m.get('eps_b')
     if (
-        eps_e is not None
-        and eps_b is not None
-        and np.isfinite(eps_e)
-        and np.isfinite(eps_b)
-        and (eps_e + eps_b) >= 1.0
+            eps_e is not None
+            and eps_b is not None
+            and np.isfinite(eps_e)
+            and np.isfinite(eps_b)
+            and (eps_e + eps_b) >= 1.0
     ):
         return -np.inf
 
@@ -1441,9 +1559,9 @@ def log_likelihood_fn(theta, params, models) -> float:
         return -np.inf
     gamma0_core_avg = m.get('Gamma_0_core_avg')
     if (
-        gamma0_core_avg is not None
-        and np.isfinite(gamma0_core_avg)
-        and gamma0_core_avg <= 1.0
+            gamma0_core_avg is not None
+            and np.isfinite(gamma0_core_avg)
+            and gamma0_core_avg <= 1.0
     ):
         return -np.inf
 
