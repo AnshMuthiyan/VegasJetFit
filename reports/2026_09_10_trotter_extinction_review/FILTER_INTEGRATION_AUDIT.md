@@ -79,6 +79,34 @@ is the validated production setting; `--bandpass-nodes 0` performs the
 brute-force reference calculation. Both settings are written into
 `best_fit.json`.
 
+## End-to-End Sampler Validation
+
+A real 090424 smoke run exercised data loading, posterior-cloud initialization,
+five-temperature sampling, multiprocessing, checkpoint writing, and result
+metadata with the verified bandpass path enabled. It used all 607 observations,
+100 walkers, 2 burn-in steps, 3 production steps, and 8 workers. The completed
+chain has shape `(3, 100, 33)`; every chain and likelihood value is finite; all
+five temperatures retained 100/100 valid walkers; and `best_fit.json` records
+the `verified`, 16-node, photon-weighted AB-equivalent configuration. The smoke
+output is `/tmp/jetfit_bandpass_smoke_090424_20260913T2300`.
+
+Two posterior-cloud-seeded diagnostics were then launched sequentially on Lyra:
+
+- `090424_trotter_bandpass_verified_5temp_25x100_v1`, using the completed
+  Trotter posterior cloud.
+- `090424_ccm_bandpass_verified_5temp_25x100_v1`, using the authoritative CCM
+  final-final posterior cloud.
+
+Each uses five temperatures, 100 walkers, 25 burn-in steps, 100 production
+steps, eight workers, ten-step checkpoints, and the validated 16-node intrinsic
+spectrum interpolation. The tmux session is `bandpass_090424_diagnostics`; its
+sequential launcher prevents both diagnostics from competing for Lyra's cores.
+
+The full repository test suite has one pre-existing unrelated failure in
+`test_absorption_frequency_amc`; the same numerical expectation failure occurs
+on the unchanged main checkout. All bandpass, extinction, likelihood, metadata,
+and compilation checks pass.
+
 ## Remaining Physics Boundary
 
 Bandpass integration does not replace host H I or Lyman-forest absorption.
