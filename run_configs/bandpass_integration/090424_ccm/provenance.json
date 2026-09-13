@@ -1,0 +1,14 @@
+{
+  "purpose": "Controlled authoritative-CCM fit with verified photon-counting bandpass integration",
+  "source_results": "/Users/jkeohane/GRBs/VegasJetFit/jetfit/results/090424_core_logangle_powerlawcsm_kminus10to3_finalfinal_sthawed_highres_5temp_1000x5000_alluv_v2",
+  "source_checkpoint_sha256": "e41844cfe517fdc42c86490e02a5a186015dcb24e469429ed151b8c52627f4c0",
+  "seed": "all 5 temperatures x 100 terminal walkers from the completed source checkpoint",
+  "data": "authoritative 090424 all-reviewed-UV, early-X-ray-excluded observations",
+  "photometry": {
+    "mode": "verified",
+    "intrinsic_spectrum_nodes": 16,
+    "extinction_response_grid": "full",
+    "observable": "photon-weighted AB-equivalent F_nu"
+  },
+  "controlled_change": "filter integration only"
+}

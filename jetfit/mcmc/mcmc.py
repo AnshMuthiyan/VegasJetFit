@@ -9,6 +9,7 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
+from jetfit.core.bandpass import C_ANGSTROM_PER_SECOND, get_bandpass
 from jetfit.mcmc.trotter_extinction import (
     trotter_dust_prior,
     trotter_source_attenuation,
@@ -1233,7 +1234,8 @@ class MCMCModels:
     """
     def __init__(
         self, obs, afg_model,
-        afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None
+        afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None,
+        bandpass_integration=None, bandpass_nodes=None,
     ):
         # Afterglow
         self.afg_model = afg_model
@@ -1246,6 +1248,21 @@ class MCMCModels:
 
         # Observation
         self.obs = obs
+        setting = (
+            os.environ.get('JETFIT_BANDPASS_INTEGRATION', '')
+            if bandpass_integration is None else str(bandpass_integration)
+        ).strip().lower()
+        self.bandpass_enabled = setting in (
+            '1', 'true', 'yes', 'on', 'verified', 'swift_uvot'
+        )
+        self.bandpass_mode = 'verified' if self.bandpass_enabled else 'none'
+        configured_nodes = int(
+            os.environ.get('JETFIT_BANDPASS_NODES', '16')
+            if bandpass_nodes is None else bandpass_nodes
+        )
+        if self.bandpass_enabled and configured_nodes == 1:
+            raise ValueError('Bandpass nodes must be 0 (full curve) or at least 2.')
+        self.bandpass_nodes = None if configured_nodes <= 0 else configured_nodes
 
     def model(self, params):
         """
@@ -1261,9 +1278,15 @@ class MCMCModels:
         np.ndarray of float
             The modeled observed GRB afterglow flux.
         """
-        # Model the GRB afterglow data
+        # Instantiate once so the same dynamics can also evaluate passband nodes.
         try:
-            modeled = self.model_afterglow(params)
+            afterglow = self.afg_model(**params.get('model'), **self.afg_kw)
+            modeled = afterglow.model(self.obs)
+            bandpass_mask = np.zeros(self.obs.length, dtype=bool)
+            if self.bandpass_enabled:
+                modeled, bandpass_mask = self.model_bandpasses(
+                    afterglow, modeled, params
+                )
         except Exception as e:
             if os.environ.get('JETFIT_DEBUG_MODEL_EXCEPTIONS', '0') == '1':
                 print(e)
@@ -1273,7 +1296,7 @@ class MCMCModels:
             return np.array([np.nan])
 
         # Correct for dust and host then return
-        return self.model_extinction(modeled, params)
+        return self.model_extinction(modeled, params, skip_mask=bandpass_mask)
 
     def model_afterglow(self, params):
         """
@@ -1292,7 +1315,99 @@ class MCMCModels:
         return self.afg_model(
             **params.get('model'), **self.afg_kw).model(self.obs)
 
-    def model_extinction(self, modeled, params):
+    def model_bandpasses(self, afterglow, modeled, params):
+        """Replace supported monochromatic rows with photon-weighted fluxes.
+
+        Both dust screens are evaluated at every response wavelength. The
+        smooth intrinsic spectrum is sampled at response quantiles plus both
+        tails, then interpolated in log wavelength/log flux. Unsupported or
+        instrument-ambiguous labels retain the historical monochromatic model.
+        """
+        modeled = np.asarray(modeled, dtype=float).copy()
+        integrated = np.zeros(self.obs.length, dtype=bool)
+        spectral = self.obs.as_arrays.sflux_loc
+        bands = self.obs.as_arrays.bands
+        times = self.obs.as_arrays.times
+
+        for band in np.unique(bands[spectral]):
+            response = get_bandpass(str(band))
+            if response is None:
+                continue
+            rows = spectral & (bands == band)
+            indices = np.flatnonzero(rows)
+            wavelength, weights = response.photon_quadrature(None)
+            if self.bandpass_nodes is None:
+                sample_wavelength = wavelength
+            else:
+                compressed_wavelength, _ = response.photon_quadrature(
+                    self.bandpass_nodes
+                )
+                # Keep both response tails. They matter when strong UV
+                # extinction makes a weak optical red leak dominate counts.
+                sample_wavelength = np.unique(
+                    np.concatenate((
+                        wavelength[:1], compressed_wavelength, wavelength[-1:]
+                    ))
+                )
+            frequencies = C_ANGSTROM_PER_SECOND / sample_wavelength
+
+            eval_times = np.repeat(times[indices], sample_wavelength.size)
+            eval_frequencies = np.tile(frequencies, indices.size)
+            sampled_intrinsic = np.asarray(
+                afterglow.spectral_flux(eval_times, eval_frequencies), dtype=float
+            ).reshape(indices.size, sample_wavelength.size)
+            if self.bandpass_nodes is None:
+                intrinsic = sampled_intrinsic
+            else:
+                if np.any(sampled_intrinsic <= 0.0):
+                    raise ValueError('Bandpass model flux must be positive.')
+                intrinsic = np.exp(np.asarray([
+                    np.interp(
+                        np.log(wavelength),
+                        np.log(sample_wavelength),
+                        np.log(row),
+                    )
+                    for row in sampled_intrinsic
+                ]))
+
+            wave_numbers = 1.0e4 / wavelength
+            attenuation = self._node_extinction(wave_numbers, params)
+            modeled[indices] = np.sum(
+                intrinsic * attenuation[np.newaxis, :] * weights[np.newaxis, :],
+                axis=1,
+            )
+            integrated[indices] = True
+        return modeled, integrated
+
+    def _node_extinction(self, wave_numbers, params):
+        """Return source-frame times Milky-Way attenuation at filter nodes."""
+        wave_numbers = np.asarray(wave_numbers, dtype=float)
+        attenuation = np.ones_like(wave_numbers)
+        model = params.get('model') or {}
+        extinction = params.get('extinction') or {}
+        z = float(model.get('z') or 0.0)
+
+        av_source = extinction.get('av_source_frame')
+        ebv_source = extinction.get('ebv_source_frame')
+        if av_source is not None:
+            attenuation *= trotter_source_attenuation(
+                (1.0 + z) * wave_numbers, extinction
+            )
+        elif ebv_source is not None:
+            rv = extinction.get('rv_source_frame') or 3.1
+            attenuation *= self.ext_model(Rv=rv).extinguish(
+                (1.0 + z) * wave_numbers, Ebv=ebv_source
+            )
+
+        ebv_mw = extinction.get('ebv_milky_way')
+        if ebv_mw is not None:
+            rv = extinction.get('rv_milky_way') or 3.1
+            attenuation *= self.ext_model(Rv=rv).extinguish(
+                wave_numbers, Ebv=ebv_mw
+            )
+        return attenuation
+
+    def model_extinction(self, modeled, params, skip_mask=None):
         """
         Corrects the afterglow flux, ``modeled``, for
         dust extinction and host galaxy contributions.
@@ -1315,7 +1430,14 @@ class MCMCModels:
         np.ndarray of float
             The extinguished and host galaxy corrected flux.
         """
-        pos = self.obs.extinguishable
+        all_pos = self.obs.extinguishable
+        skip_mask = (
+            np.zeros(np.asarray(all_pos).shape, dtype=bool)
+            if skip_mask is None else np.asarray(skip_mask, dtype=bool)
+        )
+        if skip_mask.shape != all_pos.shape:
+            raise ValueError('skip_mask must match the included observation rows.')
+        pos = all_pos & ~skip_mask
         wn = self.obs.as_arrays.wave_numbers[pos]
 
         # Extinction params TEMP!
@@ -1329,7 +1451,8 @@ class MCMCModels:
             modeled[pos] *= trotter_source_attenuation((1 + z) * wn, ext)
         elif ebv_sf is not None:
             p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
-            modeled[pos] *= self._model_extinction(p, (1 + z) * wn, self.ext_sf_pc)
+            pc = self._subset_precomputed_extinction(self.ext_sf_pc, all_pos, pos)
+            modeled[pos] *= self._model_extinction(p, (1 + z) * wn, pc)
 
         # Apply host galaxy correction
         if params.get('host') is not None and self.obs.hosts is not None:
@@ -1339,10 +1462,21 @@ class MCMCModels:
         # Apply Milky Way extinction
         if ebv_mw is not None:
             p = {'init': {'Rv': ext.get('rv_milky_way') or 3.1}, 'eval': {'Ebv': ebv_mw}}
-            modeled[pos] *= self._model_extinction(p, wn, self.ext_mw_pc)
+            pc = self._subset_precomputed_extinction(self.ext_mw_pc, all_pos, pos)
+            modeled[pos] *= self._model_extinction(p, wn, pc)
 
         # return corrected flux.
         return modeled
+
+    @staticmethod
+    def _subset_precomputed_extinction(values, all_pos, selected_pos):
+        if values is None:
+            return None
+        values = np.asarray(values)
+        selected_within_extinguishable = selected_pos[np.asarray(all_pos, dtype=bool)]
+        if values.shape[0] != selected_within_extinguishable.size:
+            raise ValueError('Precomputed extinction does not match observation mask.')
+        return values[selected_within_extinguishable]
 
     def _model_extinction(self, p, wn, pc=None):
         """ Internal use only. """

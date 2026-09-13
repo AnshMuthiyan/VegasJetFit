@@ -83,7 +83,10 @@ class Ampy:
     model_kw : dict, optional, default=None
         Any kwargs passed to the model constructor.
     """
-    def __init__(self, obs, params, model_kw=None):
+    def __init__(
+        self, obs, params, model_kw=None,
+        bandpass_integration=None, bandpass_nodes=None,
+    ):
 
         if isinstance(obs, (str, Path)):
             obs = Observation.from_csv(obs)
@@ -105,7 +108,9 @@ class Ampy:
         model = model_factory(params.model)
 
         wrapper = MCMCModels(
-            obs, model, (model_kw or {}), CCM89, ext_mw_pc=ext_mw_pc
+            obs, model, (model_kw or {}), CCM89, ext_mw_pc=ext_mw_pc,
+            bandpass_integration=bandpass_integration,
+            bandpass_nodes=bandpass_nodes,
         )
 
         self.mcmc = MCMC(wrapper, params)

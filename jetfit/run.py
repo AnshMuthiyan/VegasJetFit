@@ -44,6 +44,21 @@ def parse_args():
         choices=('auto', 'fork', 'spawn', 'forkserver'),
         help='Multiprocessing start method. Default comes from JETFIT_MP_START_METHOD or auto.',
     )
+    parser.add_argument(
+        '--bandpass-integration',
+        default='none',
+        choices=('none', 'verified', 'swift_uvot'),
+        help='Integrate supported photometry through verified response curves.',
+    )
+    parser.add_argument(
+        '--bandpass-nodes',
+        type=int,
+        default=16,
+        help=(
+            'Intrinsic-spectrum samples per supported filter; extinction uses the '
+            'full response curve. Use 0 for a brute-force reference (default: 16).'
+        ),
+    )
     return parser.parse_args()
 
 
@@ -121,6 +136,16 @@ def log(ampy, out_dir, *, burn_length, run_length):
         'nwalkers': ampy.mcmc.sampler.nwalkers,
         'model': ampy.mcmc.params.model,
     }
+    models = getattr(ampy.mcmc, 'models', None)
+    bandpass_mode = getattr(models, 'bandpass_mode', 'none')
+    bandpass_nodes = getattr(models, 'bandpass_nodes', None)
+    out_params['photometry'] = {
+        'bandpass_integration': bandpass_mode,
+        'bandpass_nodes': (
+            'full' if bandpass_nodes is None else int(bandpass_nodes)
+        ),
+        'observable': 'photon_weighted_ab_equivalent_fnu',
+    }
 
     with open(out_dir / 'best_fit.json', "w") as f:
         json.dump(out_params, f, indent=4)  # type: ignore
@@ -189,7 +214,7 @@ def plot_results(ampy, results_dir, event):
 def main(
     obs_path, params_path, mcmc_path, results_dir, event,
     resume=False, workers_override=None, skip_plots=False,
-    initial_positions_path=None
+    initial_positions_path=None, bandpass_integration='none', bandpass_nodes=16,
 ):
     """
     Run MCMC using AMPy.
@@ -235,7 +260,12 @@ def main(
     print(f"DEBUG: Creating Ampy object...")
     print(f"  obs_path: {obs_path}")
     print(f"  params_path: {params_path}")
-    ampy = Ampy(obs_path, params_path)
+    ampy = Ampy(
+        obs_path,
+        params_path,
+        bandpass_integration=bandpass_integration,
+        bandpass_nodes=bandpass_nodes,
+    )
     print(f"DEBUG: Ampy object created successfully!")
 
     initial_positions = None
@@ -381,6 +411,12 @@ if __name__ == "__main__":
 
             'initial_positions_path':
                 Path(args.initial_positions) if args.initial_positions is not None else None,
+
+            'bandpass_integration':
+                args.bandpass_integration,
+
+            'bandpass_nodes':
+                args.bandpass_nodes,
         }
     )
     print(results_path)

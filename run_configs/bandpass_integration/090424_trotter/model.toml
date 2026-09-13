@@ -1,0 +1,356 @@
+name = "PowerlawJetVegasDylanSpectrumModel"
+[[model]]
+name = "E_j_core_52"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = -4.0
+upper = 2.0
+[[model]]
+name = "Gamma_0_core_avg"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = 1.6989700043360187
+upper = 5.0
+[[model]]
+name = "n017"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = -6.0
+upper = 10.0
+initial_guess = -1.9640043230151112
+initial_sigma = 1.5366542961922198
+[[model]]
+name = "eps_e"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = -6.0
+upper = 0.0
+initial_guess = -0.8272441801821435
+initial_sigma = 0.7063335822107103
+[[model]]
+name = "eps_b"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = -10.0
+upper = 0.0
+initial_guess = -0.4626257497451723
+initial_sigma = 1.6322624793959575
+[[model]]
+name = "p"
+scale = "linear"
+
+[model.prior]
+type = "uniform"
+lower = 2.0
+upper = 3.5
+initial_guess = 2.115780668927651
+initial_sigma = 0.030423729965681767
+[[model]]
+name = "k"
+scale = "linear"
+
+[model.prior]
+type = "uniform"
+lower = -10.0
+upper = 3.0
+initial_guess = 1.8277075631868591
+initial_sigma = 0.1539616211689777
+[[model]]
+name = "hmf"
+scale = "linear"
+value = 0.7
+
+[[model]]
+name = "z"
+scale = "linear"
+value = 0.544
+
+[[model]]
+name = "dl28"
+scale = "linear"
+value = 1.0
+
+[[model]]
+name = "theta_c"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = -3.0
+upper = 0.0
+initial_guess = -0.9081784719569883
+initial_sigma = 0.20822661291579964
+[[model]]
+name = "theta_v"
+scale = "log"
+
+[model.prior]
+type = "uniform"
+lower = -4.0
+upper = 0.0
+initial_guess = -2.589992008220441
+initial_sigma = 0.25820462741147154
+[[model]]
+name = "k_e"
+scale = "linear"
+value = 2.0
+
+[[model]]
+name = "k_g"
+scale = "linear"
+value = 2.0
+
+[[model]]
+name = "s"
+scale = "linear"
+
+[model.prior]
+type = "uniform"
+lower = 0.1
+upper = 10.0
+initial_guess = 4.0
+initial_sigma = 0.4
+[[model]]
+name = "vegas_resolution_phi"
+scale = "linear"
+value = 0.15
+
+[[model]]
+name = "vegas_resolution_theta"
+scale = "linear"
+value = 0.5
+
+[[model]]
+name = "vegas_resolution_t"
+scale = "linear"
+value = 15.0
+
+[[extinction]]
+name = "av_source_frame"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = 0.0
+upper = 10.0
+initial_guess = 0.6757418197336463
+initial_sigma = 0.13514836394672927
+[[extinction]]
+name = "c2"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -1.0
+upper = 3.5
+initial_guess = 1.0
+initial_sigma = 0.2
+[[extinction]]
+name = "c4"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = 0.0
+upper = 2.0
+initial_guess = 0.5
+initial_sigma = 0.25
+[[extinction]]
+name = "ebv_milky_way"
+scale = "linear"
+value = 0.022
+
+[[extinction]]
+name = "delta_c2_c1"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -0.436
+upper = 0.436
+initial_guess = 0.0
+initial_sigma = 0.0872
+[[extinction]]
+name = "delta_c1"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -1.4656500000000001
+upper = 1.4656500000000001
+initial_guess = 0.0
+initial_sigma = 0.29313
+[[extinction]]
+name = "delta_c2_rv"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -0.77475
+upper = 0.77475
+initial_guess = 0.0
+initial_sigma = 0.15495
+[[extinction]]
+name = "delta_rv"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -1.8123
+upper = 1.8123
+initial_guess = 0.0
+initial_sigma = 0.36246
+[[extinction]]
+name = "delta_c2_bh"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -0.7123
+upper = 0.7123
+initial_guess = 0.0
+initial_sigma = 0.14246
+[[extinction]]
+name = "delta_bh"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -2.41575
+upper = 2.41575
+initial_guess = 0.0
+initial_sigma = 0.48315
+[[extinction]]
+name = "delta_x0"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -0.19195
+upper = 0.0606
+initial_guess = 0.0
+initial_sigma = 0.01212
+[[extinction]]
+name = "delta_gamma"
+scale = "linear"
+
+[extinction.prior]
+type = "uniform"
+lower = -0.53025
+upper = 0.84745
+initial_guess = 0.0
+initial_sigma = 0.10605
+[[offsets]]
+name = "r_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.03
+[[offsets]]
+name = "i_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.03
+[[offsets]]
+name = "uvw2_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.04
+[[offsets]]
+name = "uvm2_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.03
+[[offsets]]
+name = "uvw1_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.04
+[[offsets]]
+name = "uvot-u_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.03
+[[offsets]]
+name = "uvot-b_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.02
+[[offsets]]
+name = "uvot-v_offset"
+scale = "linear"
+
+[offsets.prior]
+type = "gaussian"
+mu = 0.0
+sigma = 0.02
+[[host]]
+name = "r_host"
+scale = "log"
+
+[host.prior]
+type = "uniform"
+lower = -2.8
+upper = -1.2
+initial_guess = -2.237651716598399
+initial_sigma = 0.022788610400100717
+[[host]]
+name = "i_host"
+scale = "log"
+
+[host.prior]
+type = "uniform"
+lower = -2.8
+upper = -1.6
+initial_guess = -2.162419498323052
+initial_sigma = 0.0218014414347385
+[[slop]]
+name = "slop_uvot"
+scale = "linear"
+
+[slop.prior]
+type = "uniform"
+lower = 0.0
+upper = 0.3
+initial_guess = 0.19882251083228375
+initial_sigma = 0.04372670461421882
+[[slop]]
+name = "slop_other"
+scale = "linear"
+
+[slop.prior]
+type = "uniform"
+lower = 0.0
+upper = 0.2
+initial_guess = 0.019405044098245693
+initial_sigma = 0.006529858473691152
