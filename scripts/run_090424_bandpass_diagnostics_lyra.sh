@@ -12,12 +12,16 @@ run_variant() {
   local config="$VJF/run_configs/bandpass_integration/090424_${variant}"
   local results="$VJF/jetfit/results/$tag"
   local log="$VJF/logs/${tag}.log"
+  local -a resume_args=()
 
   if [[ -s "$results/chain.npz" && -s "$results/best_fit.json" ]]; then
     echo "Already complete: $tag"
     return
   fi
-  if [[ -e "$results/chain.npz" || -e "$results/pt_resume_state.npz" ]]; then
+  if [[ -s "$results/pt_resume_state.npz" ]]; then
+    echo "Resuming $tag from $results/pt_resume_state.npz"
+    resume_args+=(--resume)
+  elif [[ -e "$results/chain.npz" ]]; then
     echo "Refusing to overwrite incomplete result: $results" >&2
     return 1
   fi
@@ -35,6 +39,7 @@ run_variant() {
       --start-method fork \
       --bandpass-integration verified \
       --bandpass-nodes 16 \
+      "${resume_args[@]}" \
       --skip-plots \
       >"$log" 2>&1
   echo "Completed $tag at $(date -u +%Y-%m-%dT%H:%M:%SZ)"

@@ -101,6 +101,9 @@ Each uses five temperatures, 100 walkers, 25 burn-in steps, 100 production
 steps, eight workers, ten-step checkpoints, and the validated 16-node intrinsic
 spectrum interpolation. The tmux session is `bandpass_090424_diagnostics`; its
 sequential launcher prevents both diagnostics from competing for Lyra's cores.
+The companion `watch_bandpass_090424_diagnostics` session checks every five
+minutes, resumes a saved parallel-tempered checkpoint after an unexpected exit,
+and stops permanently after both result sets are complete.
 
 The full repository test suite has one pre-existing unrelated failure in
 `test_absorption_frequency_amc`; the same numerical expectation failure occurs
