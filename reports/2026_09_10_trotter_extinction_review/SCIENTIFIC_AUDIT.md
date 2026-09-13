@@ -116,3 +116,28 @@ break the requested provenance.
    peak-hyperparameter approximation or sample the full Trotter hierarchy.
 4. Ethan's absorption implementation is not present in commit `e100a87`; dust
    extinction and gas/Lyman absorption must not be described as jointly tested.
+
+## Ethan Integration Review (2026-09-13)
+
+Ethan's follow-up commit `6d679c3` adds a comprehensive deterministic
+Trotter/Reichart extinction evaluator in `jetfit/core/extinction.py`. It was
+selectively ported onto the reviewed production branch rather than merging the
+student branch wholesale, because that branch still contains the earlier
+production regressions documented above.
+
+- Across `0.3 < x < 10.97` inverse microns, Ethan's evaluator agrees with the
+  independently implemented and thesis-checked evaluator to a maximum relative
+  difference of `4.3e-15`, including the 1.82 and 3.3 inverse-micron splice
+  boundaries.
+- The integration explicitly maps the project's sampled `c4` parameter to
+  Ethan's configurable `c4_key`. His default expects `c4_source_frame`; using
+  the commit unchanged would silently omit the sampled far-UV curvature.
+- The existing `0.3 < x < 10.97` validity guard is retained so the dust law is
+  not extrapolated through the Lyman-limit regime. Hydrogen/Lyman absorption
+  remains a separate, not-yet-present model.
+- Five independent core tests were added because the test file referenced by
+  Ethan's module documentation was not included in commit `6d679c3`. The tests
+  cover bump-height conversion, zero-extinction identity, splice continuity,
+  the `c4` integration key, and fixed reference-curve values.
+- Ethan's unrelated transient relaxation of the Django requirement was not
+  imported because it is not needed by the extinction implementation.

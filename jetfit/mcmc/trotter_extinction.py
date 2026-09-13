@@ -108,35 +108,6 @@ class TrotterDustPrior:
         return c1, rv, bh, x0, gamma
 
 
-def _ccm_a_b(wavenumber):
-    """Return CCM89 a(x), b(x) for the IR/optical interval used here."""
-    x = np.asarray(wavenumber, dtype=float)
-    a = np.empty_like(x)
-    b = np.empty_like(x)
-    infrared = x < 1.1
-    a[infrared] = 0.574 * x[infrared] ** 1.61
-    b[infrared] = -0.527 * x[infrared] ** 1.61
-
-    y = x[~infrared] - 1.82
-    a[~infrared] = np.polyval(
-        [0.32999, -0.77530, 0.01979, 0.72085, -0.02427, -0.50447, 0.17699, 1.0], y
-    )
-    b[~infrared] = np.polyval(
-        [-2.09002, 5.30260, -0.62251, -5.38434, 1.07233, 2.28305, 1.41338, 0.0], y
-    )
-    return a, b
-
-
-def _fm_extinction_magnitudes(x, av, c1, c2, bh, c4, rv, x0, gamma):
-    far_uv = np.where(
-        x > 5.9,
-        0.5392 * (x - 5.9) ** 2 + 0.05644 * (x - 5.9) ** 3,
-        0.0,
-    )
-    drude = x**2 / (((x**2 - x0**2) ** 2) / gamma**2 + x**2)
-    return av * (1.0 + (c1 + c2 * x + bh * drude + c4 * far_uv) / rv)
-
-
 def trotter_source_attenuation(wavenumber, extinction, prior=None):
     """Return source-frame flux attenuation for inverse microns.
 
@@ -152,44 +123,14 @@ def trotter_source_attenuation(wavenumber, extinction, prior=None):
     if not np.any(valid):
         return float(attenuation[0]) if scalar else attenuation
 
-    xv = x[valid]
-    av = float(extinction["av_source_frame"])
-    c2 = float(extinction["c2"])
-    c4 = float(extinction["c4"])
-    c1, rv, bh, x0, gamma = prior.get_physical_dust_params(c2, extinction)
-    c1, rv, bh, x0, gamma = map(float, (c1, rv, bh, x0, gamma))
+    from jetfit.core.extinction import resolve_source_frame_transmission
 
-    magnitudes = np.empty_like(xv)
-    ccm = xv < 1.82
-    if np.any(ccm):
-        a, b = _ccm_a_b(xv[ccm])
-        magnitudes[ccm] = av * (a + b / rv)
-
-    transition = (xv >= 1.82) & (xv <= 3.3)
-    if np.any(transition):
-        xt = xv[transition]
-        a, b = _ccm_a_b(xt)
-        ccm_t = av * (a + b / rv)
-        a33, b33 = _ccm_a_b(np.asarray([3.3]))
-        ccm_33 = av * (a33[0] + b33[0] / rv)
-        fm_33 = _fm_extinction_magnitudes(
-            np.asarray([3.3]), av, c1, c2, bh, c4, rv, x0, gamma
-        )[0]
-        if av == 0.0:
-            magnitudes[transition] = 0.0
-        else:
-            scale = 1.0 + ((fm_33 - ccm_33) / ccm_33) * (
-                (xt - 1.82) / (3.3 - 1.82)
-            )
-            magnitudes[transition] = ccm_t * scale
-
-    ultraviolet = xv > 3.3
-    if np.any(ultraviolet):
-        magnitudes[ultraviolet] = _fm_extinction_magnitudes(
-            xv[ultraviolet], av, c1, c2, bh, c4, rv, x0, gamma
-        )
-
-    attenuation[valid] = 10.0 ** (-0.4 * magnitudes)
+    attenuation[valid] = resolve_source_frame_transmission(
+        x[valid],
+        extinction,
+        prior.get_physical_dust_params,
+        c4_key="c4",
+    )
     return float(attenuation[0]) if scalar else attenuation
 
 
