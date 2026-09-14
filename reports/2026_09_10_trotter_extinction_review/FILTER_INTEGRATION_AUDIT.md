@@ -105,6 +105,19 @@ The companion `watch_bandpass_090424_diagnostics` session checks every five
 minutes, resumes a saved parallel-tempered checkpoint after an unexpected exit,
 and stops permanently after both result sets are complete.
 
+The Trotter diagnostic completed in 1.91 hours with a finite `(100,100,33)`
+cold chain and `nmap=-23875.2822`. A cross-evaluation separates response effects
+from sampler movement: the previous long-run Trotter best point changes from
+`nmap=-23874.5042` under monochromatic evaluation to `-23878.7940` under the
+verified responses. The new short-run best point has `nmap=-23875.2822` under
+the verified responses. Although that new point has a better data likelihood
+than the old point by 3.95 in `-2 log L`, its fitted-prior penalty is larger and
+its posterior is worse by 3.51 in `-2 log posterior`. Consequently, the short
+run validates the machinery but is not long enough to replace the physical
+posterior from the long run. The matched CCM diagnostic remains the required
+control for deciding whether flexible Trotter extinction is scientifically
+favored.
+
 The full repository test suite has one pre-existing unrelated failure in
 `test_absorption_frequency_amc`; the same numerical expectation failure occurs
 on the unchanged main checkout. All bandpass, extinction, likelihood, metadata,
