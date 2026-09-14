@@ -61,3 +61,10 @@ meeting.  The resulting comparison must distinguish raw fit improvement from
 the cost of Trotter's additional dust coordinates; it reports pure likelihood,
 approximate AIC/BIC, residual changes by band, and shifts in shared physical and
 nuisance parameters.
+
+After both chains complete, the Lyra watcher also writes a compact LaTeX/PDF
+comparison report.  Its runtime section uses the final `/usr/bin/time -p`
+records from both Pauley hosts and reports hours, absolute difference, and the
+slower-to-faster ratio.  The two short diagnostics took 1.91 hours (Trotter)
+and 1.99 hours (CCM), but those sequential Lyra measurements differ by only
+4.3% and are not the controlled paired timing result.

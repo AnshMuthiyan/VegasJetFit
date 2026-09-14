@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -38,7 +39,20 @@ VARIANTS = {
 }
 
 
-def evaluate(result: Path, config: Path, label: str):
+def wall_clock_seconds(result: Path, explicit_log: Path | None = None) -> float | None:
+    candidates = [explicit_log, result / "run.log", ROOT / "logs" / f"{result.name}.log"]
+    for path in candidates:
+        if path is None or not path.is_file():
+            continue
+        matches = re.findall(r"^real\s+([0-9]+(?:\.[0-9]+)?)\s*$", path.read_text(), re.MULTILINE)
+        if matches:
+            return float(matches[-1])
+    return None
+
+
+def evaluate(
+    result: Path, config: Path, label: str, runtime_log: Path | None = None
+):
     best = json.loads((result / "best_fit.json").read_text())
     ampy = Ampy(
         config / "obs.csv",
@@ -76,7 +90,7 @@ def evaluate(result: Path, config: Path, label: str):
             "q16": float(q16),
             "median": float(q50),
             "q84": float(q84),
-            "scale": str(parameter.scale),
+            "scale": str(getattr(parameter.scale, "value", parameter.scale)),
         }
     summary = {
         "model": label,
@@ -87,7 +101,11 @@ def evaluate(result: Path, config: Path, label: str):
         "minus2_log_prior": float((-2.0 * logpost) - (-2.0 * loglike)),
         "aic": float(-2.0 * loglike + 2.0 * nparams),
         "bic": float(-2.0 * loglike + nparams * math.log(ndata)),
+        "best_extinction": best.get("extinction", {}),
     }
+    runtime = wall_clock_seconds(result, runtime_log)
+    summary["wall_clock_seconds"] = runtime
+    summary["wall_clock_hours"] = runtime / 3600.0 if runtime is not None else None
 
     rows = []
     for band in sorted(set(bands[flux]), key=str.lower):
@@ -232,6 +250,8 @@ def main():
         type=Path,
         default=Path("reports/2026_09_10_trotter_extinction_review"),
     )
+    parser.add_argument("--ccm-log", type=Path, default=None)
+    parser.add_argument("--trotter-log", type=Path, default=None)
     parser.add_argument(
         "--ccm-results",
         type=Path,
@@ -255,9 +275,12 @@ def main():
     summaries = {}
     posteriors = {}
     rows = []
+    runtime_logs = {"CCM": args.ccm_log, "Trotter": args.trotter_log}
     for label, variant in VARIANTS.items():
         config = root / "run_configs" / "bandpass_integration" / f"090424_{variant}"
-        summary, model_rows, posterior = evaluate(results[label], config, label)
+        summary, model_rows, posterior = evaluate(
+            results[label], config, label, runtime_logs[label]
+        )
         summaries[label] = summary
         posteriors[label] = posterior
         rows.extend(model_rows)

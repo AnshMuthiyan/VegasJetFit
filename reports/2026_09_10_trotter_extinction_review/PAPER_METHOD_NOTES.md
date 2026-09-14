@@ -50,3 +50,10 @@ the comparison reports the pure likelihood and residual contribution by band,
 alongside approximate AIC/BIC and shifts in parameters common to both fits.
 Raw posterior or fit-statistic improvement alone is not treated as evidence for
 the more flexible extinction law.
+
+The two production fits were run simultaneously on identical M1 Max Pauley
+hosts so their wall-clock ratio is interpretable.  Runtime is read from the
+completed process timing record, not inferred from file timestamps.  The final
+comparison report gives both host times in hours and seconds, their absolute
+difference, and the slower-to-faster ratio; this separates any cost of the ten
+additional Trotter dust coordinates from ordinary host differences.

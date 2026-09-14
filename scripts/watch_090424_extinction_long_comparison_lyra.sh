@@ -79,6 +79,8 @@ pull_complete_result() {
   mkdir -p "$incoming"
   ssh_stream "$key_alias" "$host" \
     "tar -cf - -C '$REMOTE_VJF/jetfit/results/$tag' ." | tar -xf - -C "$incoming"
+  ssh_stream "$key_alias" "$host" \
+    "cat '$REMOTE_VJF/logs/$tag.log'" >"$incoming/run.log"
   "$PY" - "$incoming" <<'PY'
 import json
 import sys
@@ -91,11 +93,15 @@ with np.load(path / "chain.npz", allow_pickle=False) as archive:
 if chain.shape[:2] != (800, 100):
     raise SystemExit(f"Unexpected completed chain shape: {chain.shape}")
 json.loads((path / "best_fit.json").read_text())
+text = (path / "run.log").read_text()
+if not any(line.startswith("real ") for line in text.splitlines()):
+    raise SystemExit("Remote timing log does not contain a completed real-time record.")
 PY
   if [[ -e "$destination" ]]; then
     mv "$destination" "${destination}.superseded.$(date -u +%Y%m%dT%H%M%SZ)"
   fi
   mv "$incoming" "$destination"
+  cp "$destination/run.log" "$VJF/logs/$tag.log"
   echo "Pulled and validated $tag from $host at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
@@ -108,7 +114,7 @@ while :; do
     key_alias="${key_aliases[$index]}"
     tag="090424_${variant}_bandpass_verified_5temp_100x800_v1"
     if ssh_cmd "$key_alias" "$host" \
-      "test -s '$REMOTE_VJF/jetfit/results/$tag/chain.npz' -a -s '$REMOTE_VJF/jetfit/results/$tag/best_fit.json'"; then
+      "test -s '$REMOTE_VJF/jetfit/results/$tag/chain.npz' -a -s '$REMOTE_VJF/jetfit/results/$tag/best_fit.json' && grep -q '^Completed ' '$REMOTE_VJF/logs/$tag.log'"; then
       pull_complete_result "$host" "$key_alias" "$tag"
     else
       all_complete=0
@@ -124,6 +130,8 @@ while :; do
     "$PY" "$VJF/scripts/compare_090424_bandpass_models.py" \
       --ccm-results "$VJF/jetfit/results/090424_ccm_bandpass_verified_5temp_100x800_v1" \
       --trotter-results "$VJF/jetfit/results/090424_trotter_bandpass_verified_5temp_100x800_v1" \
+      --output-dir "$OUTPUT_DIR"
+    "$PY" "$VJF/scripts/write_090424_extinction_comparison_report.py" \
       --output-dir "$OUTPUT_DIR"
     touch "$OUTPUT_DIR/comparison.complete"
     echo "Comparison complete at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
