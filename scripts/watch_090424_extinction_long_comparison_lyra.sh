@@ -11,6 +11,8 @@ OUTPUT_DIR="$VJF/reports/2026_09_14_090424_extinction_long_comparison"
 variants=(trotter ccm)
 hosts=(jkeohane@pauley404-01.local jkeohane@pauley404-02.local)
 key_aliases=(100.84.118.63 100.118.36.86)
+trotter_restarts=0
+ccm_restarts=0
 
 ssh_cmd() {
   local key_alias="$1"
@@ -24,6 +26,47 @@ ssh_stream() {
   shift
   ssh -x -o ForwardX11=no -o BatchMode=yes -o ConnectTimeout=12 \
     -o HostKeyAlias="$key_alias" "$@"
+}
+
+restart_count() {
+  case "$1" in
+    trotter) echo "$trotter_restarts" ;;
+    ccm) echo "$ccm_restarts" ;;
+  esac
+}
+
+increment_restart_count() {
+  case "$1" in
+    trotter) trotter_restarts=$((trotter_restarts + 1)) ;;
+    ccm) ccm_restarts=$((ccm_restarts + 1)) ;;
+  esac
+}
+
+resume_if_needed() {
+  local host="$1" key_alias="$2" variant="$3" tag="$4"
+  local session="extcmp_090424_${variant}_long"
+  local checkpoint="$REMOTE_VJF/jetfit/results/$tag/pt_resume_state.npz"
+  local count
+  count="$(restart_count "$variant")"
+  if ssh_cmd "$key_alias" "$host" \
+    "tmux has-session -t '$session' 2>/dev/null || pgrep -f '[j]etfit.run.*$tag' >/dev/null"; then
+    return 0
+  fi
+  if ! ssh_cmd "$key_alias" "$host" "test -s '$checkpoint'"; then
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $variant stopped before its first checkpoint; manual review required"
+    return 0
+  fi
+  if (( count >= 3 )); then
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $variant reached the three-restart limit; manual review required"
+    return 0
+  fi
+  ssh_cmd "$key_alias" "$host" "
+    tmux new-session -d -s '$session' \
+      \"cd '$REMOTE_VJF' && exec caffeinate -is bash scripts/run_090424_extinction_long_variant.sh '$variant'\"
+    tmux has-session -t '$session'
+  "
+  increment_restart_count "$variant"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) resumed $variant from checkpoint (attempt $((count + 1))/3)"
 }
 
 pull_complete_result() {
@@ -69,6 +112,7 @@ while :; do
       pull_complete_result "$host" "$key_alias" "$tag"
     else
       all_complete=0
+      resume_if_needed "$host" "$key_alias" "$variant" "$tag"
       status="$(ssh_cmd "$key_alias" "$host" \
         "p='$REMOTE_VJF/jetfit/results/$tag/pt_resume_state.npz'; if test -s \"\$p\"; then '$PY' -c 'import sys; import numpy as np; z=np.load(sys.argv[1]); burn=int(z[\"burn_completed_iterations\"]) if \"burn_completed_iterations\" in z.files else 0; print(str(z[\"phase\"].item()), burn, int(z[\"completed_iterations\"]))' \"\$p\"; else echo starting; fi" \
         2>/dev/null || echo unreachable)"

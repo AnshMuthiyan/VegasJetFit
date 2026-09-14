@@ -30,3 +30,23 @@ degrees of freedom must be constrained by the wavelength coverage.
 Do not claim that the new gas-absorption model was tested in this experiment.
 That implementation was not present in the reviewed student commit.
 
+## Controlled CCM-versus-Trotter Production Comparison
+
+For GRB 090424, the source-frame extinction prescriptions were compared with
+the afterglow data selection, emission model, numerical resolution, foreground
+Milky Way extinction, calibration offsets, host terms, and error-inflation
+terms held fixed.  The common data set contains 607 observations, includes all
+reviewed UV/optical/IR measurements, and excludes the early X-ray interval
+classified as a flare.  Supported UVOT and HST measurements were evaluated by
+photon-counting integration through verified response curves using 16 nodes for
+the smooth intrinsic spectrum and the full response grid for extinction.
+
+The two fits used five temperatures, 100 walkers, 100 burn-in steps, 800
+retained production steps, eight workers, and 50-step checkpoints.  Each was
+initialized from all five temperatures and all 100 terminal walkers of its
+completed short verified-bandpass diagnostic.  Trotter necessarily introduces
+additional fitted dust coordinates relative to one-parameter CCM; therefore,
+the comparison reports the pure likelihood and residual contribution by band,
+alongside approximate AIC/BIC and shifts in parameters common to both fits.
+Raw posterior or fit-statistic improvement alone is not treated as evidence for
+the more flexible extinction law.
