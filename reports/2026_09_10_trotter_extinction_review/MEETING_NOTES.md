@@ -38,7 +38,26 @@ Trotter thesis peak values for this diagnostic.
 ## Operational Note
 
 During the academic year, Pauley is the normal fit pool.  PCRC belongs primarily
-to student use and is available only when explicitly confirmed.  The 090424
-short diagnostic is on Pauley-01.  The corresponding 080319B test remains
-blocked until Pauley-02 finishes the all-UVOIR, `n017`-upper-25 source chain.
+to student use and is available only when explicitly confirmed.  The completed
+short 090424 diagnostics established the starting clouds for the longer paired
+comparison.  The earlier Pauley-02 dependency on the 080319B all-UVOIR,
+`n017`-upper-25 source chain has cleared.
 
+## Paired Overnight Comparison: 2026-09-14
+
+The production comparison runs the two extinction prescriptions concurrently
+on identical M1 Max Pauley hosts.  Trotter runs on Pauley-01 and CCM runs on
+Pauley-02.  Both use the same 607-point reviewed data file, exclude the early
+X-ray flare, use verified photon-counting filter integration with 16 intrinsic
+spectrum nodes, and retain the same Vegas numerical grid.  Each run starts from
+all five temperatures and all 100 terminal walkers of its completed short
+verified-bandpass diagnostic.
+
+The overnight sampler uses five temperatures, 100 walkers, 100 burn-in steps,
+800 retained production steps, eight workers, and checkpoints every 50 steps.
+This is long enough to test whether the short-run model differences persist,
+while fitting within the preparation window before the 2026-09-15 16:00 EDT
+meeting.  The resulting comparison must distinguish raw fit improvement from
+the cost of Trotter's additional dust coordinates; it reports pure likelihood,
+approximate AIC/BIC, residual changes by band, and shifts in shared physical and
+nuisance parameters.

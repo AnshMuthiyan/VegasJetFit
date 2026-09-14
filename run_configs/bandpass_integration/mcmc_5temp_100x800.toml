@@ -1,0 +1,10 @@
+# Overnight comparison from the completed verified-bandpass posterior clouds.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 100
+run_length = 800
+ntemps = 5
+workers = 8
+checkpoint_interval = 50

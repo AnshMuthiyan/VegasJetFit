@@ -4,12 +4,12 @@
   "events": [
     {
       "event": "090424",
-      "source": "jetfit/results/090424_core_logangle_powerlawcsm_kminus10to3_finalfinal_sthawed_highres_5temp_1000x5000_alluv_v2",
+      "source": "the completed verified-bandpass 25-burn/100-production terminal clouds for each extinction prescription",
       "data": "all reviewed UV included; early X-ray flare excluded",
-      "host": "pauley404-01",
-      "stage": "weekend_production_running_on_pauley404-01",
-      "sampler": "100 walkers, 5 temperatures, 25 burn, 100 production",
-      "next_gate": "complete 1000-burn plus 5000-production continuation, then compare same-data likelihood, UV residuals, dust posterior, and physical posterior"
+      "host": "Trotter on pauley404-01; CCM on pauley404-02",
+      "stage": "paired_overnight_comparison_preflight",
+      "sampler": "100 walkers, 5 temperatures, 100 burn, 800 production, 8 workers, checkpoint every 50 steps",
+      "next_gate": "pull and validate both chains, then compare same-data likelihood, complexity-aware scores, residuals by band, dust posterior, and common physical posterior"
     },
     {
       "event": "080319B",
@@ -21,9 +21,9 @@
     }
   ],
   "deployment": {
-    "pauley404-01": "candidate snapshot installed; short diagnostic completed and pulled to Lyra; metadata fix verified",
+    "pauley404-01": "assigned to the long verified-bandpass Trotter comparison",
     "pauley404-03": "candidate snapshot installed; smoke passed; active production tree update deferred while fixed-Gamma minimization runs",
-    "pauley404-02": "do not update until active 080319B fit completes"
+    "pauley404-02": "080319B work completed; assigned to the matched long verified-bandpass CCM comparison"
   },
   "academic_year_host_policy": {
     "pauley": "default MCMC compute pool; normally 8 workers on 10 logical CPUs",
