@@ -68,3 +68,5 @@ records from both Pauley hosts and reports hours, absolute difference, and the
 slower-to-faster ratio.  The two short diagnostics took 1.91 hours (Trotter)
 and 1.99 hours (CCM), but those sequential Lyra measurements differ by only
 4.3% and are not the controlled paired timing result.
+The canonical completed package is written to the synced VegasGRBruns share at
+`Reports/Meeting_Books/26_09_15__090424_ccm_vs_trotter_extinction_comparison/`.

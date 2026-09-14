@@ -6,7 +6,7 @@ REMOTE_VJF="${REMOTE_VJF:-/Users/jkeohane/GRBs/VegasJetFit}"
 PY="${PY:-/Users/jkeohane/GRBs/.venv/bin/python}"
 POLL_SECONDS="${POLL_SECONDS:-300}"
 WATCH_ONCE="${WATCH_ONCE:-0}"
-OUTPUT_DIR="$VJF/reports/2026_09_14_090424_extinction_long_comparison"
+OUTPUT_DIR="${OUTPUT_DIR:-/Users/jkeohane/GRBs/Share_Folder/Reports/Meeting_Books/26_09_15__090424_ccm_vs_trotter_extinction_comparison}"
 
 variants=(trotter ccm)
 hosts=(jkeohane@pauley404-01.local jkeohane@pauley404-02.local)
