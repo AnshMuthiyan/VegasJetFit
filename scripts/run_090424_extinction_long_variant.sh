@@ -42,7 +42,7 @@ echo "Starting $tag at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     --start-method spawn \
     --bandpass-integration verified \
     --bandpass-nodes 16 \
-    "${resume_args[@]}" \
+    ${resume_args[@]+"${resume_args[@]}"} \
     --skip-plots \
     >>"$log" 2>&1
 echo "Completed $tag at $(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$log"
