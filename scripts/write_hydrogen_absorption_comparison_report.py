@@ -173,6 +173,7 @@ def evaluate(event: str, variant: str) -> tuple[dict, list[dict], dict]:
         "wall_clock_seconds": runtime,
         "wall_clock_hours": runtime / 3600.0 if runtime is not None else None,
         "best_absorption": best.get("absorption", {}),
+        "host_log10_nhi_posterior": posterior.get("nhi_host"),
         "gas_models": {
             "igm": ampy.mcmc.params.igm_absorption_model,
             "host_hi": ampy.mcmc.params.host_hi_absorption_model,
@@ -410,8 +411,26 @@ def build_tex(output: Path, payload: dict) -> str:
         + "."
     )
     for event in EVENTS:
+        host_summary = payload["events"][event]["summaries"]["igm_host"]
+        host_posterior = host_summary.get("host_log10_nhi_posterior")
+        host_prior = payload["events"][event]["provenance"].get(
+            "host_nhi_log10_prior", [None, None]
+        )
         lines.extend((
             r"\clearpage", rf"\section{{GRB {event}}}",
+            table(
+                (
+                    r"$\log_{10}(N_{\rm HI}/{\rm cm}^{-2})$ quantity",
+                    "Value",
+                ),
+                [
+                    ("Prior bounds", f"{number(host_prior[0], 2)} to {number(host_prior[1], 2)}"),
+                    ("16th percentile", number(host_posterior["q16"], 3)),
+                    ("Posterior median", number(host_posterior["median"], 3)),
+                    ("84th percentile", number(host_posterior["q84"], 3)),
+                ] if host_posterior else [("Posterior", "not available")],
+                r">{\raggedright\arraybackslash}Xr",
+            ),
             r"\begin{figure}[H]\centering",
             rf"\includegraphics[width=0.96\textwidth,height=0.37\textheight,keepaspectratio]{{{event}_hydrogen_absorption_transmission.pdf}}",
             r"\caption{Observer-frame transmission in the three controlled variants. The mean IGM curve includes 39 Lyman-series transitions and Lyman-continuum opacity. The host curve uses the retained best-fit neutral-hydrogen column. Dashed and dotted lines locate the host-redshifted Ly-alpha line and Lyman limit.}", r"\end{figure}",
