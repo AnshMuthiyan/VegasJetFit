@@ -29,6 +29,22 @@ class TrotterDustPrior:
         "gamma_base": 0.84195,
     }
 
+    # Asymmetric uncertainties (sigma_plus, sigma_minus) for the hyperparameters
+    hyperparam_sigmas = {
+        'b_c1':      (0.0245, 0.0246),
+        'theta_c1':  (0.145, 0.141),
+        'b_rv1':     (0.0990, 0.1004),
+        'theta_rv1': (0.548, 0.522),
+        'b_rv2':     (0.0138, 0.0139),
+        'theta_rv2': (1.165, 1.104),
+        'b_bh1':     (0.0925, 0.0750),
+        'theta_bh1': (0.677, 0.607),
+        'b_bh2':     (0.0259, 0.0262),
+        'theta_bh2': (0.402, 0.379),
+        'x0_base':   (0.00305, 0.00286),
+        'gamma_base':(0.00897, 0.00895)
+    }
+
     # Zero-mean nuisance priors.  Symmetric entries are (sigma+, sigma-).
     delta_sigmas = {
         "delta_c2_c1": (0.08720, 0.08720),
@@ -41,8 +57,14 @@ class TrotterDustPrior:
         "delta_gamma": (0.16949, 0.10605),
     }
 
+    def __init__(self, float_hyperparams=False):
+        self.float_hyperparams = float_hyperparams
+
     def get_custom_param_names(self):
-        return set(self.delta_sigmas)
+        names = set(self.delta_sigmas)
+        if self.float_hyperparams:
+            names.update(self.hyperparam_sigmas.keys())
+        return names
 
     @staticmethod
     def _asymmetric_logpdf(value, sigma_plus, sigma_minus):
@@ -78,6 +100,15 @@ class TrotterDustPrior:
                 extinction.get(name, 0.0), sigma_plus, sigma_minus
             )
 
+        if self.float_hyperparams:
+            for name, peak in self.hyperparams.items():
+                if name in extinction:
+                    sigma_plus, sigma_minus = self.hyperparam_sigmas[name]
+                    # We penalize the deviation from the peak empirical value
+                    total += self._asymmetric_logpdf(
+                        extinction[name] - peak, sigma_plus, sigma_minus
+                    )
+
         c1, rv, bh, x0, gamma = self.get_physical_dust_params(
             extinction["c2"], extinction
         )
@@ -102,7 +133,13 @@ class TrotterDustPrior:
         Mathematically, log(e^A + e^B) acts as a soft-maximum function, smoothly transitioning 
         between the linear asymptote A and the linear asymptote B.
         """
-        hp = self.hyperparams
+        hp = {}
+        for key, peak in self.hyperparams.items():
+            if self.float_hyperparams:
+                hp[key] = extinction.get(key, peak)
+            else:
+                hp[key] = peak
+
         c2 = np.asarray(c2)
 
         # c1 is a strict linear function of c2 plus its cosmic scatter (δ_c1)
