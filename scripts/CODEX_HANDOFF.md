@@ -4249,8 +4249,10 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
   `MCMCModels.integrate_spectral_bandpass()`.
 - Added matched gas-off, Inoue-only, and Inoue-plus-host-H-I comparison tooling
   for authoritative 160131A and 220101A posterior clouds. The meeting diagnostic
-  uses 5 temperatures, 100 walkers, 25 burn-in, 100 production, 8 workers, and
+  uses 5 temperatures, 100 walkers, 12 burn-in, 40 production, 8 workers, and
   a broad uniform `log10(N_HI/cm^-2)` prior of 18.0--23.5 in the host variant.
+  This deadline-bounded cadence supersedes the preflight plan of 25+100 after
+  measured smoke timings showed that the longer plan would miss the meeting.
 - Validation: the Inoue transmission matches independent EAZY reference values
   at z=0.97, 2.198, 4.61, and 6.318 to floating-point precision; 48 focused
   absorption/extinction/bandpass tests pass. The collectable broader suite has
