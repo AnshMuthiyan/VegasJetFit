@@ -481,13 +481,53 @@ def build_tex(output: Path, payload: dict) -> str:
         (
             "This controlled diagnostic replaces the historical use of free per-band offsets "
             "as surrogates for Lyman suppression. For GRBs 160131A and 220101A, three fits "
-            "share the same authoritative data, emission model, source-frame CCM dust law, "
-            "Vegas grid, and correlated posterior-cloud draws: gas off; the deterministic "
-            "mean Inoue et al. (2014) intergalactic attenuation; and that IGM model plus a "
-            "log-uniform fitted host neutral-hydrogen column using the Trotter (2011) damped-"
-            "Ly-alpha profile. Verified UVOT/HST response curves are integrated in the likelihood."
+            "share the same authoritative data, emission model, source-frame Cardelli, "
+            "Clayton, and Mathis (1989; CCM) dust law, Vegas grid, and correlated posterior-"
+            "cloud draws: gas off; the deterministic mean Inoue et al. (2014) attenuation "
+            "by neutral hydrogen in the intergalactic medium (IGM); and that IGM model plus "
+            "a log-uniform fitted neutral-hydrogen column in the GRB host galaxy using the "
+            "Trotter (2011) damped-Ly-alpha profile. Verified UVOT/HST response curves are "
+            "integrated in the likelihood."
         ),
         r"\end{abstract}",
+        r"\section{Where the Attenuation Occurs}",
+        (
+            "Dust extinction and neutral-hydrogen absorption are physically distinct. "
+            "Dust extinction combines absorption and scattering by grains, whereas neutral "
+            "hydrogen removes photons through the Lyman-series resonances and the Lyman "
+            "continuum. Along the observer's line of sight, the optical/ultraviolet model "
+            "multiplies the intrinsic afterglow by four separate transmission terms: host-"
+            "galaxy dust, optional host neutral hydrogen, intervening IGM neutral hydrogen, "
+            "and Milky Way foreground dust."
+        ),
+        r"\begin{itemize}",
+        (
+            r"\item \textbf{Milky Way foreground:} dust in our Galaxy is applied at "
+            "redshift zero using the independently specified foreground reddening. It is "
+            "held fixed across the gas-model comparison. The new Lyman model does not add "
+            "a second Milky Way neutral-hydrogen correction."
+        ),
+        (
+            r"\item \textbf{Intergalactic medium (IGM):} neutral-hydrogen absorbers are "
+            "distributed over the redshift interval between the Milky Way and the GRB. "
+            "Their many differently redshifted Lyman lines form the Lyman-alpha forest, "
+            "and higher columns also contribute Lyman-continuum absorption. The Inoue et "
+            "al. (2014) prescription supplies a redshift-dependent mean transmission, not "
+            "one fitted column at a single location."
+        ),
+        (
+            r"\item \textbf{GRB host galaxy:} host dust and host neutral hydrogen lie at "
+            "the known GRB redshift. Host dust remains a separate CCM extinction term. The "
+            r"optional host-gas model instead fits $N_{\rm HI}$ and places its damped Lyman-"
+            "alpha profile and Lyman limit at the host redshift."
+        ),
+        r"\end{itemize}",
+        (
+            "These terms affect the observed optical/ultraviolet spectrum at different "
+            "redshifted wavelengths. They are also distinct from the metal-sensitive "
+            "photoelectric absorption correction used for X-ray fluxes; this diagnostic "
+            "does not reapply that X-ray correction."
+        ),
         r"\section{Scientific Audit}",
         (
             "Dylan's dissertation explicitly states that its fits did not model Lyman-forest "

@@ -208,15 +208,19 @@ def build_document(output_dir: Path, payload: dict) -> str:
         r"\maketitle",
         r"\noindent\textbf{Code branch and commit:} \texttt{codex/trotter-extinction-production @ 63092ae}\\",
         r"\noindent\textbf{Comparison folder:}\\",
-        rf"\noindent\scriptsize\texttt{{\detokenize{{{output_dir}}}}}\normalsize",
+        rf"\noindent\scriptsize\path{{{output_dir}}}\normalsize",
         r"\begin{abstract}",
         (
             "This controlled experiment tests whether the Trotter/Reichart flexible "
             "source-frame dust prescription materially improves the GRB 090424 fit "
-            "relative to the one-parameter CCM source-frame model. Both fits use the "
-            "same 607 observations, include all reviewed UV/OIR data, exclude the early "
-            "X-ray flare, use the same afterglow model and Vegas grid, and integrate "
-            "supported photometry through verified response curves."
+            "relative to the one-parameter Cardelli, Clayton, and Mathis (1989; CCM) "
+            "source-frame model. Source-frame extinction here means attenuation by dust "
+            "in the GRB host galaxy, evaluated at the host-rest-frame wavelength. It is "
+            "distinct from the independently applied Milky Way foreground dust at "
+            "redshift zero. Both fits use the same 607 observations, include all reviewed "
+            "UV/OIR data, exclude the early X-ray flare, use the same afterglow model and "
+            "Vegas grid, and integrate supported photometry through verified response "
+            "curves."
         ),
         r"\end{abstract}",
         r"\section{Executive Comparison}",
@@ -281,9 +285,9 @@ def build_document(output_dir: Path, payload: dict) -> str:
         r"\item AIC and BIC are useful checks, but final model acceptance should also consider posterior stability, wavelength-local residuals, physical extinction curves, and convergence diagnostics.",
         r"\end{itemize}",
         r"\noindent\textbf{CCM result:}\\",
-        rf"\scriptsize\texttt{{\detokenize{{{result_paths['CCM']}}}}}\normalsize\\[4pt]",
+        rf"\scriptsize\path{{{result_paths['CCM']}}}\normalsize\\[4pt]",
         r"\noindent\textbf{Trotter result:}\\",
-        rf"\scriptsize\texttt{{\detokenize{{{result_paths['Trotter']}}}}}\normalsize",
+        rf"\scriptsize\path{{{result_paths['Trotter']}}}\normalsize",
         r"\end{document}",
     ]
     return "\n\n".join(lines) + "\n"

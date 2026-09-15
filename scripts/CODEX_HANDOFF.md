@@ -2,6 +2,20 @@
 
 This directory contains active post-fit product scripts.
 
+## Last Touched (2026-09-15): Dust and Gas Terminology in Comparison Reports
+
+- The CCM-versus-Trotter report now defines CCM as Cardelli, Clayton, and
+  Mathis (1989) and distinguishes source-frame host dust from independently
+  applied Milky Way foreground dust.
+- The hydrogen-absorption report now includes a line-of-sight explanation of
+  host dust, host neutral hydrogen, intergalactic neutral hydrogen, and Milky
+  Way dust. It explicitly distinguishes dust extinction from Lyman absorption
+  and from the X-ray photoelectric-absorption correction.
+- Both report generators were recompiled and their September 15 reports were
+  regenerated. The changed pages were rendered for visual inspection; the
+  dust generator also uses breakable path text so absolute provenance paths do
+  not run beyond the page margin.
+
 ## Last Touched (2026-09-14): Redshift-Dependent Lyman Absorption
 
 - `jetfit/core/hydrogen_absorption.py` implements deterministic mean IGM
