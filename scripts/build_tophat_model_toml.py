@@ -26,11 +26,15 @@ from typing import Any
 import tomllib
 
 from jetfit.mcmc.parameters import (
+    hydrogen_absorption_models_from_config,
+    hydrogen_absorption_toml_lines,
     source_extinction_model_from_config,
     source_extinction_toml_lines,
 )
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 # Keep only fields supported by powerlawVegasModel.__init__
 KEEP_MODEL_NAMES = {
@@ -147,6 +151,9 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
     if "name" in data:
         lines.append(f"name = {_fmt_value(data['name'])}")
     lines.extend(source_extinction_toml_lines(source_extinction_model_from_config(data)))
+    lines.extend(hydrogen_absorption_toml_lines(
+        *hydrogen_absorption_models_from_config(data)
+    ))
     lines.append("")
 
     for section in SECTION_ORDER:
@@ -352,7 +359,7 @@ def build_tophat_config(
     out["model"] = filtered_model
 
     # Keep nuisance/systematics sections untouched.
-    for section in ("extinction", "offsets", "host", "slop"):
+    for section in ("extinction", "absorption", "offsets", "host", "slop"):
         if section in source:
             out[section] = copy.deepcopy(source[section])
 

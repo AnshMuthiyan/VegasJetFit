@@ -16,7 +16,9 @@ from jetfit.mcmc.parameters import add_source_extinction_toml_comments
 from jetfit.mcmc.trotter_extinction import TrotterDustPrior
 
 
-SECTIONS = ("model", "extinction", "offsets", "host", "slop")
+SECTIONS = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 
 def sha256(path):

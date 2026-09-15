@@ -75,6 +75,10 @@ PARAMETER_LABELS = {
     "theta_v": (r"$\theta_v$", "Viewing angle [rad]"),
     "s": (r"$s$", "Structured-jet angular-shape parameter"),
     "ebv_source_frame": (r"$E(B-V)_{\rm sf}$", "Source-frame color excess [mag]"),
+    "nhi_host": (
+        r"$N_{\mathrm{H\,I,host}}$",
+        r"Host neutral-hydrogen column density [$\mathrm{cm}^{-2}$]",
+    ),
     "ebv_milky_way": (r"$E(B-V)_{\rm MW}$", "Milky-Way foreground color excess [mag]"),
     "rv_milky_way": (r"$R_{V,\rm MW}$", "Milky-Way extinction-law parameter"),
     "slop": (r"$\sigma_{\rm slop}$", "Additional fractional/model scatter"),
@@ -142,7 +146,9 @@ def canonical_event_name(event: Path | str) -> str:
 def fitted_and_fixed(model: dict[str, Any]) -> tuple[list[tuple[str, str, str]], list[tuple[str, str, str]]]:
     fitted: list[tuple[str, str, str]] = []
     fixed: list[tuple[str, str, str]] = []
-    for section in ("model", "extinction", "host", "offsets", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "host", "offsets", "slop"
+    ):
         for entry in model.get(section, []):
             if not isinstance(entry, dict) or "name" not in entry:
                 continue
@@ -165,7 +171,9 @@ def fitted_and_fixed(model: dict[str, Any]) -> tuple[list[tuple[str, str, str]],
 def fitted_scales(model: dict[str, Any]) -> list[tuple[str, str]]:
     """Return fitted coordinates in the exact chain-column order."""
     rows: list[tuple[str, str]] = []
-    for section in ("model", "extinction", "host", "offsets", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "host", "offsets", "slop"
+    ):
         for entry in model.get(section, []):
             if isinstance(entry, dict) and "name" in entry and isinstance(entry.get("prior"), dict):
                 rows.append((str(entry["name"]), str(entry.get("scale", "linear"))))
@@ -177,7 +185,9 @@ def flatten_parameters(payload: dict[str, Any]) -> list[tuple[str, object]]:
     rows: list[tuple[str, object]] = []
     if not isinstance(params, dict):
         return rows
-    for section in ("model", "extinction", "host", "offsets", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "host", "offsets", "slop"
+    ):
         values = params.get(section, {})
         if isinstance(values, dict):
             rows.extend((str(name), value) for name, value in values.items())

@@ -20,7 +20,9 @@ from pathlib import Path
 import toml
 
 from jetfit.mcmc.parameters import (
+    add_hydrogen_absorption_toml_comments,
     add_source_extinction_toml_comments,
+    hydrogen_absorption_models_from_config,
     source_extinction_model_from_config,
 )
 
@@ -140,9 +142,13 @@ def main():
         for variant, out_dir in variants.items():
             cfg = build_variant(base, variant)
             cfg["source_extinction_model"] = source_extinction_model_from_config(cfg)
+            igm_model, host_model = hydrogen_absorption_models_from_config(cfg)
+            cfg["igm_absorption_model"] = igm_model
+            cfg["host_hi_absorption_model"] = host_model
             out_path = out_dir / f"{event}.toml"
+            rendered = add_source_extinction_toml_comments(toml.dumps(cfg))
             out_path.write_text(
-                add_source_extinction_toml_comments(toml.dumps(cfg)),
+                add_hydrogen_absorption_toml_comments(rendered),
                 encoding="utf-8",
             )
             print(f"wrote {out_path}")

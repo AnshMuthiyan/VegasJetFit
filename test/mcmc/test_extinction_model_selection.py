@@ -8,6 +8,9 @@ from jetfit.mcmc.mcmc import MCMCModels
 from jetfit.mcmc.parameters import (
     Parameters,
     add_source_extinction_toml_comments,
+    hydrogen_absorption_toml_lines,
+    normalize_host_hi_absorption_model,
+    normalize_igm_absorption_model,
     normalize_source_extinction_model,
 )
 
@@ -118,6 +121,64 @@ class SourceExtinctionDispatchTests(unittest.TestCase):
         actual = wrapper.model_extinction(np.ones(3), params)
         expected = CCM89(Rv=3.1).extinguish(1.5 * arrays.wave_numbers, Ebv=0.1)
         np.testing.assert_allclose(actual, expected)
+
+
+class HydrogenAbsorptionConfigurationTests(unittest.TestCase):
+    def test_unmarked_legacy_config_remains_gas_off(self):
+        params = Parameters.from_toml(model_config({}))
+        self.assertEqual(params.igm_absorption_model, 'none')
+        self.assertEqual(params.host_hi_absorption_model, 'none')
+        self.assertEqual(params.igm_absorption_model_origin, 'legacy_default_off')
+
+    def test_inoue_requires_one_fixed_known_redshift(self):
+        config = model_config({}) | {
+            'igm_absorption_model': 'inoue14',
+            'model': [fixed_parameter('z', 3.375)],
+        }
+        params = Parameters.from_toml(config)
+        self.assertEqual(params.igm_absorption_model, 'inoue2014')
+
+        without_z = model_config({}) | {'igm_absorption_model': 'inoue2014'}
+        with self.assertRaisesRegex(ValueError, 'fixed, known model redshift'):
+            Parameters.from_toml(without_z)
+
+    def test_host_model_requires_nhi_host(self):
+        config = model_config({}) | {
+            'host_hi_absorption_model': 'trotter2011',
+            'model': [fixed_parameter('z', 3.375)],
+        }
+        with self.assertRaisesRegex(ValueError, 'requires.*nhi_host'):
+            Parameters.from_toml(config)
+
+        config['absorption'] = [{
+            'name': 'nhi_host',
+            'scale': 'log',
+            'prior': {'type': 'uniform', 'lower': 18.0, 'upper': 23.0},
+        }]
+        params = Parameters.from_toml(config)
+        self.assertEqual(params.host_hi_absorption_model, 'trotter2011')
+        sample = params.samples_to_dict(np.array([21.0]))
+        self.assertAlmostEqual(sample['absorption']['nhi_host'], 1.0e21)
+
+    def test_cli_overrides_are_atomic(self):
+        params = Parameters.from_toml(model_config({}) | {
+            'model': [fixed_parameter('z', 1.0)],
+        })
+        params.set_hydrogen_absorption_models(igm_model='inoue')
+        self.assertEqual(params.igm_absorption_model, 'inoue2014')
+        with self.assertRaisesRegex(ValueError, 'requires.*nhi_host'):
+            params.set_hydrogen_absorption_models(host_model='trotter')
+        self.assertEqual(params.host_hi_absorption_model, 'none')
+
+    def test_toml_comments_distinguish_gas_from_dust(self):
+        lines = hydrogen_absorption_toml_lines('inoue2014', 'none')
+        text = '\n'.join(lines)
+        self.assertIn('separate from dust extinction', text)
+        self.assertIn('Inoue et al. 2014', text)
+        self.assertIn('Trotter 2011', text)
+        self.assertIn("igm_absorption_model = 'inoue2014'", text)
+        self.assertEqual(normalize_host_hi_absorption_model('off'), 'none')
+        self.assertEqual(normalize_igm_absorption_model('inoue14'), 'inoue2014')
 
 
 if __name__ == '__main__':

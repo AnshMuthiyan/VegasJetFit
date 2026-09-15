@@ -340,7 +340,7 @@ def main() -> int:
 
     emit_table_array(lines, "model", out_models)
 
-    for section in ("extinction", "offsets", "hosts", "slop"):
+    for section in ("extinction", "absorption", "offsets", "hosts", "slop"):
         blocks = source.get(section, [])
         if isinstance(blocks, list) and blocks:
             emit_table_array(lines, section, blocks)

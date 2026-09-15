@@ -47,7 +47,9 @@ def validate_uniform_bounds(
     positions: np.ndarray, parameter_names: list[str], config: dict
 ) -> None:
     entries = []
-    for section in ("model", "extinction", "offsets", "host", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "offsets", "host", "slop"
+    ):
         entries.extend(config.get(section, []))
     by_name = {entry["name"]: entry for entry in entries}
     for index, name in enumerate(parameter_names):

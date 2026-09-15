@@ -17,7 +17,11 @@ from jetfit.ampy import Ampy
 from jetfit.core import utils
 from jetfit.mcmc.parameters import (
     DEFAULT_SOURCE_EXTINCTION_MODEL,
+    HOST_HI_ABSORPTION_MODELS,
+    IGM_ABSORPTION_MODELS,
     SOURCE_EXTINCTION_MODELS,
+    normalize_host_hi_absorption_model,
+    normalize_igm_absorption_model,
     normalize_source_extinction_model,
 )
 
@@ -73,6 +77,26 @@ def parse_args():
             "Override source_extinction_model from the model TOML. Choices are "
             "trotter2011 (the default for new configs) and ccm89; the short "
             "aliases trotter and ccm are accepted."
+        ),
+    )
+    parser.add_argument(
+        '--igm-absorption-model',
+        type=normalize_igm_absorption_model,
+        choices=IGM_ABSORPTION_MODELS,
+        default=None,
+        help=(
+            "Override igm_absorption_model from the model TOML. Choices are "
+            "none and inoue2014; aliases off, inoue, and inoue14 are accepted."
+        ),
+    )
+    parser.add_argument(
+        '--host-hi-absorption-model',
+        type=normalize_host_hi_absorption_model,
+        choices=HOST_HI_ABSORPTION_MODELS,
+        default=None,
+        help=(
+            "Override host_hi_absorption_model from the model TOML. Choices "
+            "are none and trotter2011; trotter2011 requires nhi_host."
         ),
     )
     return parser.parse_args()
@@ -177,6 +201,22 @@ def log(ampy, out_dir, *, burn_length, run_length):
         'observable': 'photon_weighted_ab_equivalent_fnu',
         'source_extinction_model': source_extinction_model,
         'source_extinction_model_origin': source_extinction_model_origin,
+        'igm_absorption_model': getattr(
+            ampy.mcmc.params, 'igm_absorption_model', 'none'
+        ),
+        'igm_absorption_model_origin': getattr(
+            ampy.mcmc.params,
+            'igm_absorption_model_origin',
+            'legacy_unrecorded',
+        ),
+        'host_hi_absorption_model': getattr(
+            ampy.mcmc.params, 'host_hi_absorption_model', 'none'
+        ),
+        'host_hi_absorption_model_origin': getattr(
+            ampy.mcmc.params,
+            'host_hi_absorption_model_origin',
+            'legacy_unrecorded',
+        ),
     }
 
     with open(out_dir / 'best_fit.json', "w") as f:
@@ -248,6 +288,7 @@ def main(
     resume=False, workers_override=None, skip_plots=False,
     initial_positions_path=None, bandpass_integration='none', bandpass_nodes=16,
     source_extinction_model=None,
+    igm_absorption_model=None, host_hi_absorption_model=None,
 ):
     """
     Run MCMC using AMPy.
@@ -299,12 +340,21 @@ def main(
         bandpass_integration=bandpass_integration,
         bandpass_nodes=bandpass_nodes,
         source_extinction_model=source_extinction_model,
+        igm_absorption_model=igm_absorption_model,
+        host_hi_absorption_model=host_hi_absorption_model,
     )
     print(f"DEBUG: Ampy object created successfully!")
     print(
         "  source_extinction_model: "
         f"{ampy.mcmc.params.source_extinction_model} "
         f"({ampy.mcmc.params.source_extinction_model_origin})"
+    )
+    print(
+        "  hydrogen_absorption: "
+        f"IGM={ampy.mcmc.params.igm_absorption_model} "
+        f"({ampy.mcmc.params.igm_absorption_model_origin}), "
+        f"host_HI={ampy.mcmc.params.host_hi_absorption_model} "
+        f"({ampy.mcmc.params.host_hi_absorption_model_origin})"
     )
 
     initial_positions = None
@@ -459,6 +509,12 @@ if __name__ == "__main__":
 
             'source_extinction_model':
                 args.source_extinction_model,
+
+            'igm_absorption_model':
+                args.igm_absorption_model,
+
+            'host_hi_absorption_model':
+                args.host_hi_absorption_model,
         }
     )
     print(results_path)

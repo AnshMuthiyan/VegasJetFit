@@ -132,7 +132,9 @@ def compute_tdec_days(model: dict[str, Any]) -> float | None:
 
 
 def _iter_prior_entries(cfg: dict[str, Any]):
-    for section in ("model", "extinction", "offsets", "host", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "offsets", "host", "slop"
+    ):
         entries = cfg.get(section, [])
         if not isinstance(entries, list):
             continue

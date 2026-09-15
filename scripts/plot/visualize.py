@@ -649,32 +649,39 @@ def plot_density_profile(chain, log_prob, params, obs, model, model_kw=None, bes
 
 
 # <editor-fold desc="Light Curve">
-def model_extinction(flux, model, sdata, params):
-    """ Model contamination. """
-    wn = [1.0 / d.wavelength.to_value('um') for d in sdata]
+def model_extinction(
+    flux, model, sdata, params, attenuation_wrapper=None
+):
+    """Apply propagation and host terms to monochromatic plot fluxes."""
+    wn = np.asarray([1.0 / d.wavelength.to_value('um') for d in sdata])
     extinction = params.get('extinction') or {}
+    wrapper = attenuation_wrapper
+    if wrapper is not None:
+        flux *= wrapper._node_source_attenuation(wn, params)
+    else:
+        # Multiplicative source-frame dust extinction
+        if extinction.get('av_source_frame') is not None:
+            from jetfit.mcmc.trotter_extinction import trotter_source_attenuation
 
-    # Multiplicative source-frame extinction
-    if extinction.get('av_source_frame') is not None:
-        from jetfit.mcmc.trotter_extinction import trotter_source_attenuation
-
-        z = params.get('model').get('z')
-        flux *= trotter_source_attenuation(
-            (1.0 + z) * np.asarray(wn), extinction
-        )
-    elif ebv_sf := extinction.get('ebv_source_frame'):
-        z = params.get('model').get('z')
-        flux *= model_source_extinction((1.0 + z) * np.array(wn), model, ebv_sf)
+            z = params.get('model').get('z')
+            flux *= trotter_source_attenuation(
+                (1.0 + z) * wn, extinction
+            )
+        elif ebv_sf := extinction.get('ebv_source_frame'):
+            z = params.get('model').get('z')
+            flux *= model_source_extinction((1.0 + z) * wn, model, ebv_sf)
 
     # Additive host galaxy contamination
     if params.get('host') is not None:
         bands = [d.band for d in sdata]
         flux += model_host_contamination(np.array(bands), params.get('host'))
 
-    # Multiplicative source-frame extinction
-    if ebv_mw := extinction.get('ebv_milky_way'):
+    # Multiplicative Milky-Way foreground extinction
+    if wrapper is not None:
+        flux *= wrapper._node_milky_way_attenuation(wn, params)
+    elif ebv_mw := extinction.get('ebv_milky_way'):
         rv = extinction.get('rv_milky_way')
-        flux *= model_galactic_extinction(np.array(wn), model, ebv_mw, rv)
+        flux *= model_galactic_extinction(wn, model, ebv_mw, rv)
 
     return flux
 
@@ -739,6 +746,7 @@ class LightCurvePlot:
         self.model = model
         self.params = params
         self.observation = observation
+        self.attenuation_wrapper = getattr(observation, '_jetfit_models', None)
         self.meta = meta if meta is not None else {}
 
         self.ax = None
@@ -821,14 +829,35 @@ class LightCurvePlot:
 
     def model_spectral_flux(self, sdata, params, t, ext_model=None):
         """ Model the spectral fluxes. """
+        if (
+            self.attenuation_wrapper is not None
+            and self.attenuation_wrapper.bandpass_enabled
+            and len(sdata) == 1
+        ):
+            from jetfit.core.bandpass import get_bandpass
+
+            band = str(sdata[0].band)
+            if get_bandpass(band) is not None:
+                ag_model = self.model(**params.get('model'), **self.meta)
+                flux = self.attenuation_wrapper.integrate_spectral_bandpass(
+                    ag_model, band, t, params
+                )
+                host = params.get('host') or {}
+                return flux + (host.get(f'{band}_host') or 0.0)
+
         nu = np.array([d.frequency.to_value('Hz') for d in sdata])
 
         # Unextinguished spectral flux
         sflux = self.model_flux(params.get('model'), t, dict(nu=nu))
 
-        return (
-            sflux if ext_model is None else
-            model_extinction(sflux, ext_model, sdata, params)
+        if ext_model is None and self.attenuation_wrapper is None:
+            return sflux
+        return model_extinction(
+            sflux,
+            ext_model,
+            sdata,
+            params,
+            attenuation_wrapper=self.attenuation_wrapper,
         )
 
     def model_integrated_flux(self, idata, params, t):

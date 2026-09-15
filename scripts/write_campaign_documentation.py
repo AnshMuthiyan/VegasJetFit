@@ -28,7 +28,9 @@ def load_toml(path: Path) -> dict[str, Any]:
 
 
 def fitted_entries(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    sections = ("model", "extinction", "offsets")
+    sections = (
+        "model", "extinction", "absorption", "offsets", "host", "slop"
+    )
     result: dict[str, dict[str, Any]] = {}
     for section in sections:
         for entry in config.get(section, []):

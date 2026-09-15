@@ -25,8 +25,12 @@ from build_thesis_reproduction_model_toml import (
 from thesis_reproduction_data import THESIS, normalize_event_name
 
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
-RESULT_SECTION_ORDER = ("model", "extinction", "host", "offsets", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
+RESULT_SECTION_ORDER = (
+    "model", "extinction", "absorption", "host", "offsets", "slop"
+)
 
 
 def flatten_minimized_params(payload: dict[str, Any]) -> dict[str, float]:

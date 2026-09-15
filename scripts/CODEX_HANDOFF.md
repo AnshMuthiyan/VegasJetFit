@@ -4183,3 +4183,31 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
   CCM and 33 Trotter fitted coordinates; 33 focused tests passed. The broader
   suite retains unrelated legacy/environment failures documented in the task
   output (missing optional `jetsimpy`/LaTeX and old numerical/data tests).
+
+## Last Touched (2026-09-14): Redshift-Dependent Lyman Absorption
+
+- Added explicit, independent gas switches `igm_absorption_model` and
+  `host_hi_absorption_model`; omitted historical keys remain off for provenance.
+  The IGM option implements the mean Inoue et al. (2014) 39-line plus continuum
+  attenuation. The optional host option implements Trotter (2011) Eq. 3.39 and
+  source Lyman limit with fitted `absorption.nhi_host`.
+- Dylan's dissertation explicitly says the 160131A `uvm2/uvw1`, 220101A `r/R`,
+  and 210905A `i/I/z` offsets absorbed Lyman suppression because his model did
+  not include it. Treat this as newly added propagation physics, not a recovered
+  hidden AMPy feature. Dust and optical/UV H I remain separate; do not apply the
+  host H I column to absorption-corrected XRT integrated-flux products.
+- Verified UVOT and HST filters evaluate source dust, IGM, host H I, and Milky
+  Way dust inside the full photon-counting response integral. Generic filter
+  labels remain central-wavelength approximations until instrument provenance
+  and response curves are known. Likelihood and post-fit plotting share
+  `MCMCModels.integrate_spectral_bandpass()`.
+- Added matched gas-off, Inoue-only, and Inoue-plus-host-H-I comparison tooling
+  for authoritative 160131A and 220101A posterior clouds. The meeting diagnostic
+  uses 5 temperatures, 100 walkers, 25 burn-in, 100 production, 8 workers, and
+  a broad uniform `log10(N_HI/cm^-2)` prior of 18.0--23.5 in the host variant.
+- Validation: the Inoue transmission matches independent EAZY reference values
+  at z=0.97, 2.198, 4.61, and 6.318 to floating-point precision; 48 focused
+  absorption/extinction/bandpass tests pass. The collectable broader suite has
+  163 passes and 3 skips, with only three pre-existing legacy failures; full
+  collection also retains its three already documented obsolete/optional-import
+  blockers.

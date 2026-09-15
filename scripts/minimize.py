@@ -243,7 +243,9 @@ def flatten_best_fit(best_fit: dict[str, Any]) -> dict[str, float]:
     """Flatten sectioned best-fit JSON into a single name->value map."""
     flat: dict[str, float] = {}
 
-    for section in ("model", "extinction", "host", "offsets", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "host", "offsets", "slop"
+    ):
         values = best_fit.get(section, {})
         if isinstance(values, dict):
             for key, val in values.items():

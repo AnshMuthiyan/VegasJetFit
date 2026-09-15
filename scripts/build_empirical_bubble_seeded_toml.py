@@ -17,12 +17,16 @@ from pathlib import Path
 from typing import Any
 
 from jetfit.mcmc.parameters import (
+    hydrogen_absorption_models_from_config,
+    hydrogen_absorption_toml_lines,
     source_extinction_model_from_config,
     source_extinction_toml_lines,
 )
 
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 
 def _fmt_value(value: Any) -> str:
@@ -39,6 +43,9 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
     if "name" in data:
         lines.append(f"name = {_fmt_value(data['name'])}")
     lines.extend(source_extinction_toml_lines(source_extinction_model_from_config(data)))
+    lines.extend(hydrogen_absorption_toml_lines(
+        *hydrogen_absorption_models_from_config(data)
+    ))
     lines.append("")
 
     for section in SECTION_ORDER:

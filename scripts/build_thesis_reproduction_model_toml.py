@@ -10,13 +10,17 @@ from typing import Any
 import tomllib
 
 from jetfit.mcmc.parameters import (
+    hydrogen_absorption_models_from_config,
+    hydrogen_absorption_toml_lines,
     source_extinction_model_from_config,
     source_extinction_toml_lines,
 )
 from thesis_reproduction_data import THESIS, normalize_event_name
 
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 SOURCE_MODEL_ALIASES = {
     "dL28": "dl28",
@@ -96,6 +100,9 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
     if "name" in data:
         lines.append(f"name = {_fmt_value(data['name'])}")
     lines.extend(source_extinction_toml_lines(source_extinction_model_from_config(data)))
+    lines.extend(hydrogen_absorption_toml_lines(
+        *hydrogen_absorption_models_from_config(data)
+    ))
     lines.append("")
 
     for section in SECTION_ORDER:

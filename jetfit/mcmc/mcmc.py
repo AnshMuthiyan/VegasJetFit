@@ -10,11 +10,16 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
 from jetfit.core.bandpass import C_ANGSTROM_PER_SECOND, get_bandpass
+from jetfit.core.hydrogen_absorption import hydrogen_transmission
 from jetfit.mcmc.trotter_extinction import (
     trotter_dust_prior,
     trotter_source_attenuation,
 )
-from jetfit.mcmc.parameters import normalize_source_extinction_model
+from jetfit.mcmc.parameters import (
+    normalize_host_hi_absorption_model,
+    normalize_igm_absorption_model,
+    normalize_source_extinction_model,
+)
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -1238,6 +1243,7 @@ class MCMCModels:
         afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None,
         bandpass_integration=None, bandpass_nodes=None,
         source_extinction_model=None,
+        igm_absorption_model=None, host_hi_absorption_model=None,
     ):
         # Afterglow
         self.afg_model = afg_model
@@ -1249,6 +1255,12 @@ class MCMCModels:
         self.ext_sf_pc = ext_sf_pc
         self.source_extinction_model = normalize_source_extinction_model(
             source_extinction_model
+        )
+        self.igm_absorption_model = normalize_igm_absorption_model(
+            igm_absorption_model
+        )
+        self.host_hi_absorption_model = normalize_host_hi_absorption_model(
+            host_hi_absorption_model
         )
 
         # Observation
@@ -1340,56 +1352,78 @@ class MCMCModels:
                 continue
             rows = spectral & (bands == band)
             indices = np.flatnonzero(rows)
-            wavelength, weights = response.photon_quadrature(None)
-            if self.bandpass_nodes is None:
-                sample_wavelength = wavelength
-            else:
-                compressed_wavelength, _ = response.photon_quadrature(
-                    self.bandpass_nodes
-                )
-                # Keep both response tails. They matter when strong UV
-                # extinction makes a weak optical red leak dominate counts.
-                sample_wavelength = np.unique(
-                    np.concatenate((
-                        wavelength[:1], compressed_wavelength, wavelength[-1:]
-                    ))
-                )
-            frequencies = C_ANGSTROM_PER_SECOND / sample_wavelength
-
-            eval_times = np.repeat(times[indices], sample_wavelength.size)
-            eval_frequencies = np.tile(frequencies, indices.size)
-            sampled_intrinsic = np.asarray(
-                afterglow.spectral_flux(eval_times, eval_frequencies), dtype=float
-            ).reshape(indices.size, sample_wavelength.size)
-            if self.bandpass_nodes is None:
-                intrinsic = sampled_intrinsic
-            else:
-                if np.any(sampled_intrinsic <= 0.0):
-                    raise ValueError('Bandpass model flux must be positive.')
-                intrinsic = np.exp(np.asarray([
-                    np.interp(
-                        np.log(wavelength),
-                        np.log(sample_wavelength),
-                        np.log(row),
-                    )
-                    for row in sampled_intrinsic
-                ]))
-
-            wave_numbers = 1.0e4 / wavelength
-            attenuation = self._node_extinction(wave_numbers, params)
-            modeled[indices] = np.sum(
-                intrinsic * attenuation[np.newaxis, :] * weights[np.newaxis, :],
-                axis=1,
+            modeled[indices] = self.integrate_spectral_bandpass(
+                afterglow, str(band), times[indices], params
             )
             integrated[indices] = True
         return modeled, integrated
 
+    def integrate_spectral_bandpass(self, afterglow, band, times, params):
+        """Evaluate one spectral band at arbitrary observer times.
+
+        The intrinsic spectrum may use compressed response nodes, but the
+        attenuation and final quadrature always use the complete archived
+        response curve. This is the shared implementation for the likelihood
+        and post-fit light-curve products.
+        """
+        response = get_bandpass(str(band))
+        if response is None:
+            raise ValueError(f'No verified response curve for {band!r}.')
+
+        times = np.atleast_1d(np.asarray(times, dtype=float))
+        wavelength, weights = response.photon_quadrature(None)
+        if self.bandpass_nodes is None:
+            sample_wavelength = wavelength
+        else:
+            compressed_wavelength, _ = response.photon_quadrature(
+                self.bandpass_nodes
+            )
+            # Keep both response tails. They matter when sharp absorption or
+            # strong UV extinction makes a weak optical red leak dominate.
+            sample_wavelength = np.unique(np.concatenate((
+                wavelength[:1], compressed_wavelength, wavelength[-1:]
+            )))
+        frequencies = C_ANGSTROM_PER_SECOND / sample_wavelength
+
+        eval_times = np.repeat(times, sample_wavelength.size)
+        eval_frequencies = np.tile(frequencies, times.size)
+        sampled_intrinsic = np.asarray(
+            afterglow.spectral_flux(eval_times, eval_frequencies), dtype=float
+        ).reshape(times.size, sample_wavelength.size)
+        if self.bandpass_nodes is None:
+            intrinsic = sampled_intrinsic
+        else:
+            if np.any(sampled_intrinsic <= 0.0):
+                raise ValueError('Bandpass model flux must be positive.')
+            intrinsic = np.exp(np.asarray([
+                np.interp(
+                    np.log(wavelength),
+                    np.log(sample_wavelength),
+                    np.log(row),
+                )
+                for row in sampled_intrinsic
+            ]))
+
+        attenuation = self._node_extinction(1.0e4 / wavelength, params)
+        return np.sum(
+            intrinsic * attenuation[np.newaxis, :] * weights[np.newaxis, :],
+            axis=1,
+        )
+
     def _node_extinction(self, wave_numbers, params):
-        """Return source-frame times Milky-Way attenuation at filter nodes."""
+        """Return dust and neutral-hydrogen attenuation at filter nodes."""
+        return (
+            self._node_source_attenuation(wave_numbers, params)
+            * self._node_milky_way_attenuation(wave_numbers, params)
+        )
+
+    def _node_source_attenuation(self, wave_numbers, params):
+        """Return source-dust plus IGM/host-H-I attenuation."""
         wave_numbers = np.asarray(wave_numbers, dtype=float)
         attenuation = np.ones_like(wave_numbers)
         model = params.get('model') or {}
         extinction = params.get('extinction') or {}
+        absorption = params.get('absorption') or {}
         z = float(model.get('z') or 0.0)
 
         if self.source_extinction_model == 'trotter2011':
@@ -1406,6 +1440,25 @@ class MCMCModels:
                     (1.0 + z) * wave_numbers, Ebv=ebv_source
                 )
 
+        if (
+            self.igm_absorption_model != 'none'
+            or self.host_hi_absorption_model != 'none'
+        ):
+            attenuation *= hydrogen_transmission(
+                1.0e4 / wave_numbers,
+                z,
+                igm_model=self.igm_absorption_model,
+                host_model=self.host_hi_absorption_model,
+                nhi_host_cm2=absorption.get('nhi_host'),
+            )
+
+        return attenuation
+
+    def _node_milky_way_attenuation(self, wave_numbers, params):
+        """Return Milky-Way foreground attenuation at observer wavelengths."""
+        wave_numbers = np.asarray(wave_numbers, dtype=float)
+        attenuation = np.ones_like(wave_numbers)
+        extinction = params.get('extinction') or {}
         ebv_mw = extinction.get('ebv_milky_way')
         if ebv_mw is not None:
             rv = extinction.get('rv_milky_way') or 3.1
@@ -1416,13 +1469,14 @@ class MCMCModels:
 
     def model_extinction(self, modeled, params, skip_mask=None):
         """
-        Corrects the afterglow flux, ``modeled``, for
-        dust extinction and host galaxy contributions.
+        Corrects the afterglow flux, ``modeled``, for dust extinction,
+        neutral-hydrogen absorption, and host galaxy contributions.
 
         Applies the corrections in the order:
             1. Source-frame dust extinction.
-            2. Host galaxy contribution.
-            3. Milky Way dust extinction.
+            2. Intergalactic and host H I absorption.
+            3. Host galaxy contribution.
+            4. Milky Way dust extinction.
 
         Parameters
         ----------
@@ -1437,7 +1491,7 @@ class MCMCModels:
         np.ndarray of float
             The extinguished and host galaxy corrected flux.
         """
-        all_pos = self.obs.extinguishable
+        all_pos = np.asarray(self.obs.extinguishable, dtype=bool)
         skip_mask = (
             np.zeros(np.asarray(all_pos).shape, dtype=bool)
             if skip_mask is None else np.asarray(skip_mask, dtype=bool)
@@ -1449,7 +1503,8 @@ class MCMCModels:
 
         # Extinction params TEMP!
         z = params.get('model').get('z')
-        ext = params.get('extinction')
+        ext = params.get('extinction') or {}
+        absorption = params.get('absorption') or {}
         ebv_mw = ext.get('ebv_milky_way')
 
         # Apply source-frame extinction
@@ -1462,6 +1517,27 @@ class MCMCModels:
                 p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
                 pc = self._subset_precomputed_extinction(self.ext_sf_pc, all_pos, pos)
                 modeled[pos] *= self._model_extinction(p, (1 + z) * wn, pc)
+
+        # Gas attenuation applies to spectral flux even outside the dust law's
+        # historical wavelength mask. Rows already integrated through a
+        # verified response are skipped because the same transmission was
+        # evaluated inside their bandpass integral.
+        if (
+            self.igm_absorption_model != 'none'
+            or self.host_hi_absorption_model != 'none'
+        ):
+            spectral = np.asarray(
+                getattr(self.obs.as_arrays, 'sflux_loc', all_pos), dtype=bool
+            )
+            gas_pos = spectral & ~skip_mask
+            gas_wn = self.obs.as_arrays.wave_numbers[gas_pos]
+            modeled[gas_pos] *= hydrogen_transmission(
+                1.0e4 / gas_wn,
+                z,
+                igm_model=self.igm_absorption_model,
+                host_model=self.host_hi_absorption_model,
+                nhi_host_cm2=absorption.get('nhi_host'),
+            )
 
         # Apply host galaxy correction
         if params.get('host') is not None and self.obs.hosts is not None:

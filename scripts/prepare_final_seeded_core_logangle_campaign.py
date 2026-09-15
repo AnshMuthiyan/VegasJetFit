@@ -29,7 +29,9 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "structured_jet_core_logangle_powerlaw_15grb
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "reports/core_logangle_powerlaw_15grb_kminus10to3_10temp_final_seeded_pending"
 RUN_TAG = "core_logangle_powerlawcsm_kminus10to3_final_seeded_10temp_5000x5000_v1"
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 HST_OFFSETS_220101A = {
     "F775W_offset": 0.03,
     "F125W_offset": 0.04,

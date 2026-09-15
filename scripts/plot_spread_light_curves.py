@@ -171,10 +171,31 @@ def fast_model_fluxes(lcg: LightCurvePlot, params: dict[str, Any], times: np.nda
     ag_model = lcg.model(**params.get("model"), **lcg.meta)
     fluxes: dict[str, np.ndarray] = {}
 
-    # Spectral-flux bands are grouped into one paired time/frequency call.
-    bands = [str(d.band) for d in spectral_data]
-    nu = np.asarray([d.frequency.to_value("Hz") for d in spectral_data], dtype=float)
-    nband = len(spectral_data)
+    # Verified filters share the likelihood's exact response integration.
+    # Remaining instrument-ambiguous bands retain the historical central
+    # wavelength approximation and are evaluated together for speed.
+    wrapper = lcg.attenuation_wrapper
+    bandpass_data = []
+    central_data = []
+    for datum in spectral_data:
+        response = None
+        if wrapper is not None and wrapper.bandpass_enabled:
+            from jetfit.core.bandpass import get_bandpass
+
+            response = get_bandpass(str(datum.band))
+        (bandpass_data if response is not None else central_data).append(datum)
+
+    for datum in bandpass_data:
+        band = str(datum.band)
+        flux = wrapper.integrate_spectral_bandpass(
+            ag_model, band, times, params
+        )
+        host = params.get('host') or {}
+        fluxes[band] = flux + (host.get(f'{band}_host') or 0.0)
+
+    bands = [str(d.band) for d in central_data]
+    nu = np.asarray([d.frequency.to_value("Hz") for d in central_data], dtype=float)
+    nband = len(central_data)
     nt = len(times)
 
     if nband:
@@ -182,11 +203,17 @@ def fast_model_fluxes(lcg: LightCurvePlot, params: dict[str, Any], times: np.nda
         # bands at each time rather than all times for each band.
         t_flat = np.repeat(np.asarray(times, dtype=float), nband)
         nu_flat = np.tile(nu, nt)
-        sdata_flat = [d for _ in range(nt) for d in spectral_data]
+        sdata_flat = [d for _ in range(nt) for d in central_data]
 
         flux_flat = np.asarray(ag_model.spectral_flux(t_flat, nu_flat), dtype=float)
-        if ext_model is not None:
-            flux_flat = np.asarray(model_extinction(flux_flat, ext_model, sdata_flat, params), dtype=float)
+        if ext_model is not None or wrapper is not None:
+            flux_flat = np.asarray(model_extinction(
+                flux_flat,
+                ext_model,
+                sdata_flat,
+                params,
+                attenuation_wrapper=wrapper,
+            ), dtype=float)
 
         flux_grid = flux_flat.reshape(nt, nband).T
         fluxes.update({band: flux_grid[i] for i, band in enumerate(bands)})

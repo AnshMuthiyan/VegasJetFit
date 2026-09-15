@@ -26,8 +26,12 @@ from build_thesis_reproduction_model_toml import _load_toml, _write_toml
 from thesis_reproduction_data import normalize_event_name
 
 
-RESULT_SECTION_ORDER = ("model", "extinction", "host", "offsets", "slop")
-CONFIG_SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+RESULT_SECTION_ORDER = (
+    "model", "extinction", "absorption", "host", "offsets", "slop"
+)
+CONFIG_SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 SECTION_KEY_ALIASES = {
     "model": {
@@ -37,6 +41,7 @@ SECTION_KEY_ALIASES = {
         "eps_B": "eps_b",
     },
     "extinction": {},
+    "absorption": {},
     "offsets": {},
     "host": {},
     "slop": {},

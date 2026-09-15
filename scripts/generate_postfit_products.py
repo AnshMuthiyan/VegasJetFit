@@ -80,6 +80,7 @@ AMPY_PARAM_LABELS = {
     "k1": r"$k_1$",
     "k2": r"$k_2$",
     "ebv_source_frame": r"$E(B-V)$",
+    "nhi_host": r"$N_{\mathrm{H\,I,host}}$",
     "theta_c": r"$\theta_c$",
     "theta_v": r"$\theta_v$",
     "slop": "slop",
@@ -712,7 +713,9 @@ def thesis_physical_value(name: str, median: float) -> float:
 
 def flatten_sections(params: dict[str, Any]) -> dict[str, float]:
     flat: dict[str, float] = {}
-    for section in ("model", "extinction", "host", "offsets", "slop"):
+    for section in (
+        "model", "extinction", "absorption", "host", "offsets", "slop"
+    ):
         values = params.get(section, {})
         if not isinstance(values, dict):
             continue

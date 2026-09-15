@@ -23,6 +23,30 @@ _SOURCE_EXTINCTION_MODEL_ALIASES = {
     'ccm89': 'ccm89',
 }
 
+IGM_ABSORPTION_MODELS = ('none', 'inoue2014')
+HOST_HI_ABSORPTION_MODELS = ('none', 'trotter2011')
+HYDROGEN_ABSORPTION_REFERENCE_COMMENTS = (
+    'Neutral-hydrogen absorption references (separate from dust extinction):',
+    'Inoue et al. 2014, MNRAS, 442, 1805: mean intergalactic Lyman absorption.',
+    'Trotter 2011 thesis, Section 3.4.1: host DLA and source Lyman limit.',
+    'Totani et al. 2006, PASJ, 58, 485: host damped-Lyman-alpha profile.',
+    'Allowed IGM models: "none" or "inoue2014".',
+    'Allowed host H I models: "none" or "trotter2011" (requires nhi_host).',
+)
+_IGM_ABSORPTION_MODEL_ALIASES = {
+    'none': 'none',
+    'off': 'none',
+    'inoue': 'inoue2014',
+    'inoue14': 'inoue2014',
+    'inoue2014': 'inoue2014',
+}
+_HOST_HI_ABSORPTION_MODEL_ALIASES = {
+    'none': 'none',
+    'off': 'none',
+    'trotter': 'trotter2011',
+    'trotter2011': 'trotter2011',
+}
+
 
 def normalize_source_extinction_model(value):
     """Return the canonical source-frame extinction model name."""
@@ -37,6 +61,39 @@ def normalize_source_extinction_model(value):
         raise ValueError(
             f"Unknown source extinction model {value!r}; choose one of: {choices}."
         ) from exc
+
+
+def _normalize_model_name(value, aliases, choices, label):
+    if value is None:
+        return 'none'
+    key = str(value).strip().lower().replace('-', '').replace('_', '')
+    try:
+        return aliases[key]
+    except KeyError as exc:
+        allowed = ', '.join(choices)
+        raise ValueError(
+            f"Unknown {label} {value!r}; choose one of: {allowed}."
+        ) from exc
+
+
+def normalize_igm_absorption_model(value):
+    """Return the canonical intergalactic H I absorption model name."""
+    return _normalize_model_name(
+        value,
+        _IGM_ABSORPTION_MODEL_ALIASES,
+        IGM_ABSORPTION_MODELS,
+        'IGM absorption model',
+    )
+
+
+def normalize_host_hi_absorption_model(value):
+    """Return the canonical host-galaxy H I absorption model name."""
+    return _normalize_model_name(
+        value,
+        _HOST_HI_ABSORPTION_MODEL_ALIASES,
+        HOST_HI_ABSORPTION_MODELS,
+        'host H I absorption model',
+    )
 
 
 def source_extinction_model_from_config(config):
@@ -68,6 +125,61 @@ def source_extinction_toml_lines(value):
         *(f'# {line}' for line in SOURCE_EXTINCTION_REFERENCE_COMMENTS),
         f"source_extinction_model = '{model}'",
     ]
+
+
+def hydrogen_absorption_toml_lines(igm_model='none', host_model='none'):
+    """Return a referenced TOML block selecting the two gas components."""
+    igm = normalize_igm_absorption_model(igm_model)
+    host = normalize_host_hi_absorption_model(host_model)
+    return [
+        *(f'# {line}' for line in HYDROGEN_ABSORPTION_REFERENCE_COMMENTS),
+        f"igm_absorption_model = '{igm}'",
+        f"host_hi_absorption_model = '{host}'",
+    ]
+
+
+def hydrogen_absorption_models_from_config(config):
+    """Resolve both gas-model selections from a configuration mapping."""
+    return (
+        normalize_igm_absorption_model(config.get('igm_absorption_model')),
+        normalize_host_hi_absorption_model(
+            config.get('host_hi_absorption_model')
+        ),
+    )
+
+
+def add_hydrogen_absorption_toml_comments(text):
+    """Add standard gas references before explicit TOML selection keys."""
+    marker = '# Neutral-hydrogen absorption references'
+    if marker in text:
+        return text
+
+    lines = text.splitlines()
+    selection_indices = [
+        index for index, line in enumerate(lines)
+        if line.strip().startswith((
+            'igm_absorption_model', 'host_hi_absorption_model'
+        ))
+    ]
+    if not selection_indices:
+        return text
+
+    configured = {}
+    for index in selection_indices:
+        key, value = lines[index].split('=', 1)
+        configured[key.strip()] = value.strip().strip('"\'')
+    first = selection_indices[0]
+    lines = [
+        line for index, line in enumerate(lines)
+        if index not in set(selection_indices)
+    ]
+    block = hydrogen_absorption_toml_lines(
+        configured.get('igm_absorption_model', 'none'),
+        configured.get('host_hi_absorption_model', 'none'),
+    )
+    lines[first:first] = block
+    suffix = '\n' if text.endswith('\n') else ''
+    return '\n'.join(lines) + suffix
 
 
 def add_source_extinction_toml_comments(text):
@@ -133,17 +245,30 @@ class Parameters:
         categories.
     """
     # Nyaa :3
-    _valid_cats = ('model', 'extinction', 'host', 'offsets', 'slop')
+    _valid_cats = (
+        'model', 'extinction', 'absorption', 'host', 'offsets', 'slop'
+    )
 
     def __init__(
         self, params, model, source_extinction_model=None,
         source_extinction_model_origin='default',
+        igm_absorption_model=None, host_hi_absorption_model=None,
+        igm_absorption_model_origin='legacy_default_off',
+        host_hi_absorption_model_origin='legacy_default_off',
     ):
         self.model = model
         self.source_extinction_model = normalize_source_extinction_model(
             source_extinction_model
         )
         self.source_extinction_model_origin = source_extinction_model_origin
+        self.igm_absorption_model = normalize_igm_absorption_model(
+            igm_absorption_model
+        )
+        self.host_hi_absorption_model = normalize_host_hi_absorption_model(
+            host_hi_absorption_model
+        )
+        self.igm_absorption_model_origin = igm_absorption_model_origin
+        self.host_hi_absorption_model_origin = host_hi_absorption_model_origin
 
         if not isinstance(params, np.ndarray):
             params = np.asarray(params)
@@ -172,6 +297,7 @@ class Parameters:
         self.fixed = params[self.pos['fixed']]
         self.fitting = params[self.pos['fitting']]
         self.validate_source_extinction_model()
+        self.validate_hydrogen_absorption_models()
 
     @classmethod
     def from_toml(cls, d):
@@ -196,6 +322,8 @@ class Parameters:
         d = dict(d)
         model = d.pop('name')
         configured_source_model = d.pop('source_extinction_model', None)
+        configured_igm_model = d.pop('igm_absorption_model', None)
+        configured_host_hi_model = d.pop('host_hi_absorption_model', None)
 
         params = []
         for cat, vals in d.items():
@@ -230,6 +358,16 @@ class Parameters:
             model,
             source_extinction_model=configured_source_model,
             source_extinction_model_origin=source_model_origin,
+            igm_absorption_model=configured_igm_model,
+            host_hi_absorption_model=configured_host_hi_model,
+            igm_absorption_model_origin=(
+                'config' if configured_igm_model is not None
+                else 'legacy_default_off'
+            ),
+            host_hi_absorption_model_origin=(
+                'config' if configured_host_hi_model is not None
+                else 'legacy_default_off'
+            ),
         )
 
     def set_source_extinction_model(self, value, origin='override'):
@@ -288,6 +426,80 @@ class Parameters:
             raise ValueError(
                 "source_extinction_model='trotter2011' requires "
                 f"these parameters when source-frame dust is configured: {found}."
+            )
+
+    def set_hydrogen_absorption_models(
+        self, *, igm_model=None, host_model=None, origin='override'
+    ):
+        """Atomically override either gas model and validate the combination."""
+        old = (
+            self.igm_absorption_model,
+            self.host_hi_absorption_model,
+            self.igm_absorption_model_origin,
+            self.host_hi_absorption_model_origin,
+        )
+        if igm_model is not None:
+            self.igm_absorption_model = normalize_igm_absorption_model(igm_model)
+            self.igm_absorption_model_origin = origin
+        if host_model is not None:
+            self.host_hi_absorption_model = normalize_host_hi_absorption_model(
+                host_model
+            )
+            self.host_hi_absorption_model_origin = origin
+        try:
+            self.validate_hydrogen_absorption_models()
+        except Exception:
+            (
+                self.igm_absorption_model,
+                self.host_hi_absorption_model,
+                self.igm_absorption_model_origin,
+                self.host_hi_absorption_model_origin,
+            ) = old
+            raise
+
+    def validate_hydrogen_absorption_models(self):
+        """Reject gas configurations without a fixed, known source redshift."""
+        absorption = [
+            p for p in self.all if p.category == 'absorption'
+        ]
+        names = {p.name for p in absorption}
+        unknown = names - {'nhi_host'}
+        if unknown:
+            found = ', '.join(sorted(unknown))
+            raise ValueError(f'Unknown absorption parameters: {found}.')
+
+        enabled = (
+            self.igm_absorption_model != 'none'
+            or self.host_hi_absorption_model != 'none'
+        )
+        if enabled:
+            redshift = [
+                p for p in self.all
+                if p.category == 'model' and p.name == 'z'
+            ]
+            if len(redshift) != 1 or not redshift[0].fixed:
+                raise ValueError(
+                    'Hydrogen absorption requires one fixed, known model redshift z.'
+                )
+            if redshift[0].scale != ScaleType.LINEAR:
+                raise ValueError(
+                    'Hydrogen absorption requires fixed redshift z on a linear scale.'
+                )
+            if not np.isfinite(redshift[0].value) or redshift[0].value < 0.0:
+                raise ValueError(
+                    'Hydrogen absorption requires a finite, non-negative redshift.'
+                )
+
+        if self.host_hi_absorption_model == 'trotter2011':
+            if 'nhi_host' not in names:
+                raise ValueError(
+                    "host_hi_absorption_model='trotter2011' requires an "
+                    "[[absorption]] parameter named 'nhi_host'."
+                )
+        elif names:
+            raise ValueError(
+                "Absorption parameters are configured while "
+                "host_hi_absorption_model='none'."
             )
 
     def has(self, name):
@@ -361,7 +573,7 @@ class MCMCParameter:
         The scale of the parameter.
 
     category : str
-        One of: `model`, `extinction`, `host`,
+        One of: `model`, `extinction`, `absorption`, `host`,
         `offsets`, or `slop`
 
     group : str, optional

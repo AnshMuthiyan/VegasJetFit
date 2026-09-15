@@ -33,6 +33,7 @@ REDUCED_CORNER_GROUPS = {
             "n017", "k", "k1", "k2", "sn",
             "nt", "nism", "rt",
             "p", "ebv_source_frame", "rv_milky_way",
+            "nhi_host",
             "theta_c", "theta_v",
         ),
     },
@@ -490,7 +491,7 @@ def plot_corner(chain, params, derived=None, out_dir=None):
                 np_labels.append(_parameter_plot_label(p))
                 np_pos.append(param_pos[name])
 
-        elif '_host' in name:
+        elif p.category == 'host':
             if valid_range:
                 h_ranges.append(param_range)
                 h_labels.append(_parameter_plot_label(p))

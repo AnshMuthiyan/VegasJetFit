@@ -10,6 +10,7 @@ from jetfit.core.bandpass import (
     available_bandpasses,
     get_bandpass,
 )
+from jetfit.core.hydrogen_absorption import inoue2014_igm_transmission
 from jetfit.mcmc.mcmc import MCMCModels
 
 
@@ -231,6 +232,66 @@ class BandpassLikelihoodTests(unittest.TestCase):
         )
         self.assertAlmostEqual(float(modeled[1]), float(expected_r), places=12)
         self.assertTrue(np.isfinite(modeled[0]))
+
+    def test_igm_absorption_is_integrated_inside_uvot_bandpass(self):
+        uvm2 = get_bandpass('uvm2')
+        pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom
+        obs = _Observation([1.0], [pivot_nu], ['uvm2'])
+        redshift = 0.97
+        params = {
+            'model': {'slope': -0.7, 'z': redshift},
+            'extinction': _zero_dust(),
+            'absorption': {},
+        }
+        wrapper = MCMCModels(
+            obs,
+            _PowerLawAfterglow,
+            ext_model=None,
+            bandpass_integration='verified',
+            bandpass_nodes=16,
+            igm_absorption_model='inoue2014',
+        )
+        modeled = wrapper.model(params)[0]
+
+        wavelength, weight = uvm2.photon_quadrature(None)
+        intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
+            np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
+        )
+        expected = np.sum(
+            intrinsic
+            * inoue2014_igm_transmission(wavelength, redshift)
+            * weight
+        )
+        central = (
+            _PowerLawAfterglow(slope=-0.7).spectral_flux(1.0, pivot_nu)
+            * inoue2014_igm_transmission(
+                uvm2.pivot_wavelength_angstrom, redshift
+            )
+        )
+        self.assertAlmostEqual(float(modeled), float(expected), places=12)
+        self.assertGreater(abs(modeled / central - 1.0), 1.0e-3)
+
+    def test_unmapped_filter_uses_central_wavelength_gas_attenuation(self):
+        frequency = C_ANGSTROM_PER_SECOND / 4500.0
+        obs = _Observation([1.0], [frequency], ['generic-g'])
+        params = {
+            'model': {'slope': -0.7, 'z': 3.375},
+            'extinction': _zero_dust(),
+            'absorption': {},
+        }
+        wrapper = MCMCModels(
+            obs,
+            _PowerLawAfterglow,
+            ext_model=None,
+            bandpass_integration='verified',
+            igm_absorption_model='inoue2014',
+        )
+        modeled = wrapper.model(params)[0]
+        expected = (
+            _PowerLawAfterglow(slope=-0.7).spectral_flux(1.0, frequency)
+            * inoue2014_igm_transmission(4500.0, 3.375)
+        )
+        self.assertAlmostEqual(float(modeled), float(expected), places=12)
 
 
 if __name__ == '__main__':

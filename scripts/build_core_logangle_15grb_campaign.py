@@ -13,7 +13,9 @@ from typing import Any
 import toml
 
 from jetfit.mcmc.parameters import (
+    add_hydrogen_absorption_toml_comments,
     add_source_extinction_toml_comments,
+    hydrogen_absorption_models_from_config,
     source_extinction_model_from_config,
 )
 
@@ -347,10 +349,14 @@ def main() -> int:
             raise FileNotFoundError(source_path)
         config = build_config(toml.load(source_path), event)
         config["source_extinction_model"] = source_extinction_model_from_config(config)
+        igm_model, host_model = hydrogen_absorption_models_from_config(config)
+        config["igm_absorption_model"] = igm_model
+        config["host_hi_absorption_model"] = host_model
         row = audit_config(config, event)
         output_path = args.output_dir / f"{event}.toml"
+        rendered = add_source_extinction_toml_comments(toml.dumps(config))
         output_path.write_text(
-            add_source_extinction_toml_comments(toml.dumps(config)),
+            add_hydrogen_absorption_toml_comments(rendered),
             encoding="utf-8",
         )
         row["source_config"] = str(source_path.resolve())
