@@ -4295,3 +4295,21 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
   163 passes and 3 skips, with only three pre-existing legacy failures; full
   collection also retains its three already documented obsolete/optional-import
   blockers.
+
+## Last Touched (2026-09-15): 090424 Extinction Light-Curve Comparison
+
+- `compare_090424_bandpass_models.py` now regenerates a matched CCM-versus-
+  Trotter spread-out light-curve comparison from the retained best point of
+  each completed 5-temperature, 100-burn, 800-production fit. Curves use the
+  verified response integrals and each fit's likelihood calibration offsets;
+  the lower panel plots `log10(F_Trotter/F_CCM)` by observed band.
+- The comparison writes `090424_ccm_vs_trotter_light_curve_comparison.png`,
+  `.pdf`, and `090424_ccm_vs_trotter_light_curves.csv` into the existing
+  `26_09_15__090424_ccm_vs_trotter_extinction_comparison` shared folder.
+  `write_090424_extinction_comparison_report.py` includes the figure and a
+  likelihood-aware caption in the same refreshed meeting book.
+- Regenerated the comparison products and six-page PDF in the Google Drive-
+  backed share folder. The CSV contains 2,160 finite positive values: nine
+  bands, two models, and 120 times per series. Validation included 42 focused
+  tests, script compilation, CSV assertions, and rendered inspection of the
+  standalone figure and report pages.
