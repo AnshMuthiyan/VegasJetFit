@@ -63,13 +63,17 @@ def calculate_igm_transmission(z_f, delta_z_f, delta_igm):
     float
         The adjusted transmission bounded strictly between [0.0, 1.0].
     """
-    # Convert baseline angles to radians
+    # Constants for the empirical broken power-law
     theta1 = np.radians(41.4538)
     theta2 = np.radians(79.1200)
+    b1 = -0.20184
+    b2 = 1.18711
+    z1 = 4.10
+    z2 = 6.15
     
     # Calculate baseline in ln(-ln(T)) space (Trotter Eq 3.41)
-    term1 = np.exp(-0.20184 + np.tan(theta1) * (z_f - 4.10))
-    term2 = np.exp(1.18711 + np.tan(theta2) * (z_f - 6.15))
+    term1 = np.exp(b1 + np.tan(theta1) * (z_f - z1))
+    term2 = np.exp(b2 + np.tan(theta2) * (z_f - z2))
     ln_neg_ln_T_base = np.log(term1 + term2)
     
     # Apply the cosmic scatter sampled by the MCMC
