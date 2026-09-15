@@ -429,7 +429,7 @@ def build_tex(output: Path, payload: dict) -> str:
             "A lower fit statistic is necessary but not sufficient to adopt a model. We should "
             "also require stable common-parameter posteriors, sensible movement of the affected "
             "filter offsets, and a host column that closes away from its broad prior limits. "
-            "If host N_HI remains prior-dominated, the deterministic Inoue-only model is the "
+            r"If host $N_{\rm HI}$ remains prior-dominated, the deterministic Inoue-only model is the "
             "better production choice unless spectroscopy supplies an external host-column prior."
         ),
         r"\section{References}",
