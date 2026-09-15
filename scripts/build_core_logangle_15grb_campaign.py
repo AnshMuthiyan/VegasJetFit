@@ -12,6 +12,11 @@ from typing import Any
 
 import toml
 
+from jetfit.mcmc.parameters import (
+    add_source_extinction_toml_comments,
+    source_extinction_model_from_config,
+)
+
 
 POWERLAW_EVENTS = (
     "050525A",
@@ -341,9 +346,13 @@ def main() -> int:
         if not source_path.is_file():
             raise FileNotFoundError(source_path)
         config = build_config(toml.load(source_path), event)
+        config["source_extinction_model"] = source_extinction_model_from_config(config)
         row = audit_config(config, event)
         output_path = args.output_dir / f"{event}.toml"
-        output_path.write_text(toml.dumps(config), encoding="utf-8")
+        output_path.write_text(
+            add_source_extinction_toml_comments(toml.dumps(config)),
+            encoding="utf-8",
+        )
         row["source_config"] = str(source_path.resolve())
         row["output_config"] = str(output_path.resolve())
         rows.append(row)

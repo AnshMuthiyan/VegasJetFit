@@ -19,6 +19,11 @@ from pathlib import Path
 
 import toml
 
+from jetfit.mcmc.parameters import (
+    add_source_extinction_toml_comments,
+    source_extinction_model_from_config,
+)
+
 
 EVENTS = ("080319B", "080413B")
 
@@ -134,8 +139,12 @@ def main():
         base = toml.load(source)
         for variant, out_dir in variants.items():
             cfg = build_variant(base, variant)
+            cfg["source_extinction_model"] = source_extinction_model_from_config(cfg)
             out_path = out_dir / f"{event}.toml"
-            out_path.write_text(toml.dumps(cfg), encoding="utf-8")
+            out_path.write_text(
+                add_source_extinction_toml_comments(toml.dumps(cfg)),
+                encoding="utf-8",
+            )
             print(f"wrote {out_path}")
 
 

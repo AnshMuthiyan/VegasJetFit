@@ -86,6 +86,7 @@ class Ampy:
     def __init__(
         self, obs, params, model_kw=None,
         bandpass_integration=None, bandpass_nodes=None,
+        source_extinction_model=None,
     ):
 
         if isinstance(obs, (str, Path)):
@@ -93,6 +94,11 @@ class Ampy:
 
         if isinstance(params, (str, Path)):
             params = Parameters.from_toml(params)
+
+        if source_extinction_model is not None:
+            params.set_source_extinction_model(
+                source_extinction_model, origin='command_line_override'
+            )
 
         # Pre-compute Milky Way extinction (temporary implementation)
         ext_mw_pc = None
@@ -111,6 +117,7 @@ class Ampy:
             obs, model, (model_kw or {}), CCM89, ext_mw_pc=ext_mw_pc,
             bandpass_integration=bandpass_integration,
             bandpass_nodes=bandpass_nodes,
+            source_extinction_model=params.source_extinction_model,
         )
 
         self.mcmc = MCMC(wrapper, params)

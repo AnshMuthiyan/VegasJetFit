@@ -4165,3 +4165,21 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
 - Audit, paper prose, meeting notes, email draft, and run state are in
   `reports/2026_09_10_trotter_extinction_review/`. Ethan's gas/Lyman absorption
   implementation was not present in `e100a87` and remains a separate review.
+
+## Last Touched (2026-09-14): Explicit Source-Extinction Selection
+
+- Model TOMLs now accept top-level `source_extinction_model = 'trotter2011'`
+  or `'ccm89'`; Trotter is the new-config default. The CLI accepts the same
+  names through `--source-extinction-model`, plus `trotter` and `ccm` aliases.
+- `Parameters` rejects mixed and incomplete source-dust blocks before MCMC.
+  Existing tracked CCM configurations are explicitly marked `ccm89`; unmarked
+  external CCM files remain compatible through a visible legacy-inference
+  warning. Milky Way foreground extinction remains CCM89 and independent.
+- Every tracked source-dust TOML carries the Trotter (2011 thesis, DOI
+  `10.17615/2gjp-g156`) and Cardelli, Clayton, and Mathis (1989, ApJ 345, 245)
+  references. Active config writers preserve both the selection and comments.
+- Validation: 41 tracked extinction configs parsed with explicit selections
+  (39 CCM89, 2 Trotter); paired real 090424 `Ampy` construction returned 23
+  CCM and 33 Trotter fitted coordinates; 33 focused tests passed. The broader
+  suite retains unrelated legacy/environment failures documented in the task
+  output (missing optional `jetsimpy`/LaTeX and old numerical/data tests).

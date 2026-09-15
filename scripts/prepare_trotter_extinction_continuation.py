@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import toml
 
+from jetfit.mcmc.parameters import add_source_extinction_toml_comments
 from jetfit.mcmc.trotter_extinction import TrotterDustPrior
 
 
@@ -51,6 +52,7 @@ def uniform_parameter(name, lower, upper, initial_guess, initial_sigma):
 
 def build_target_config(source_config, av_guess):
     config = dict(source_config)
+    config["source_extinction_model"] = "trotter2011"
     extinction = [
         entry
         for entry in config.get("extinction", [])
@@ -127,7 +129,10 @@ def main():
     av_guess = float(3.1 * np.nanmedian(chain[-1, :, ebv_index]))
     target_config = build_target_config(source_config, av_guess)
     target_model = output / "model.toml"
-    target_model.write_text(toml.dumps(target_config), encoding="utf-8")
+    target_model.write_text(
+        add_source_extinction_toml_comments(toml.dumps(target_config)),
+        encoding="utf-8",
+    )
     shutil.copy2(source_obs, output / "obs.csv")
     target_names = fitted_names(target_config)
 

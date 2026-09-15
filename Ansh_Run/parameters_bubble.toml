@@ -1,5 +1,10 @@
 # MCMC Parameter Configuriation File
 name = 'BubbleVegasModel'
+# Source-frame dust-law references:
+# Trotter, A. S. 2011, UNC-Chapel Hill PhD thesis, DOI 10.17615/2gjp-g156.
+# Cardelli, Clayton, and Mathis 1989, ApJ, 345, 245 (CCM89).
+# Allowed: "trotter2011" (default for new configs) or "ccm89".
+source_extinction_model = 'ccm89'
 
 #-------------- MODEL --------------
 #---------------- E ----------------

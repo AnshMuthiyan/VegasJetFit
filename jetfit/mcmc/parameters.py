@@ -1,10 +1,89 @@
 from pathlib import Path
+import warnings
 
 import numpy as np
 
 from jetfit.core.structs import ScaleType
 from jetfit.core import utils
 from jetfit.mcmc import priors
+
+
+DEFAULT_SOURCE_EXTINCTION_MODEL = 'trotter2011'
+SOURCE_EXTINCTION_MODELS = ('trotter2011', 'ccm89')
+SOURCE_EXTINCTION_REFERENCE_COMMENTS = (
+    'Source-frame dust-law references:',
+    'Trotter, A. S. 2011, UNC-Chapel Hill PhD thesis, DOI 10.17615/2gjp-g156.',
+    'Cardelli, Clayton, and Mathis 1989, ApJ, 345, 245 (CCM89).',
+    'Allowed: "trotter2011" (default for new configs) or "ccm89".',
+)
+_SOURCE_EXTINCTION_MODEL_ALIASES = {
+    'trotter': 'trotter2011',
+    'trotter2011': 'trotter2011',
+    'ccm': 'ccm89',
+    'ccm89': 'ccm89',
+}
+
+
+def normalize_source_extinction_model(value):
+    """Return the canonical source-frame extinction model name."""
+    if value is None:
+        return DEFAULT_SOURCE_EXTINCTION_MODEL
+
+    key = str(value).strip().lower().replace('-', '').replace('_', '')
+    try:
+        return _SOURCE_EXTINCTION_MODEL_ALIASES[key]
+    except KeyError as exc:
+        choices = ', '.join(SOURCE_EXTINCTION_MODELS)
+        raise ValueError(
+            f"Unknown source extinction model {value!r}; choose one of: {choices}."
+        ) from exc
+
+
+def source_extinction_model_from_config(config):
+    """Resolve explicit selection or infer an unmarked legacy CCM block."""
+    configured = config.get('source_extinction_model')
+    if configured is not None:
+        return normalize_source_extinction_model(configured)
+
+    extinction = config.get('extinction') or []
+    names = {
+        entry.get('name') for entry in extinction if isinstance(entry, dict)
+    }
+    trotter_markers = {
+        name for name in names
+        if isinstance(name, str) and (
+            name in {'av_source_frame', 'c2', 'c4'}
+            or name.startswith('delta_')
+        )
+    }
+    if 'ebv_source_frame' in names and not trotter_markers:
+        return 'ccm89'
+    return DEFAULT_SOURCE_EXTINCTION_MODEL
+
+
+def source_extinction_toml_lines(value):
+    """Return a referenced TOML model-selection block."""
+    model = normalize_source_extinction_model(value)
+    return [
+        *(f'# {line}' for line in SOURCE_EXTINCTION_REFERENCE_COMMENTS),
+        f"source_extinction_model = '{model}'",
+    ]
+
+
+def add_source_extinction_toml_comments(text):
+    """Add the standard references before an existing TOML selection key."""
+    marker = '# Source-frame dust-law references:'
+    if marker in text:
+        return text
+
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip().startswith('source_extinction_model'):
+            value = line.split('=', 1)[1].strip().strip('"\'')
+            lines[index:index + 1] = source_extinction_toml_lines(value)
+            suffix = '\n' if text.endswith('\n') else ''
+            return '\n'.join(lines) + suffix
+    return text
 
 
 def factory(d: dict):
@@ -56,8 +135,15 @@ class Parameters:
     # Nyaa :3
     _valid_cats = ('model', 'extinction', 'host', 'offsets', 'slop')
 
-    def __init__(self, params, model):
+    def __init__(
+        self, params, model, source_extinction_model=None,
+        source_extinction_model_origin='default',
+    ):
         self.model = model
+        self.source_extinction_model = normalize_source_extinction_model(
+            source_extinction_model
+        )
+        self.source_extinction_model_origin = source_extinction_model_origin
 
         if not isinstance(params, np.ndarray):
             params = np.asarray(params)
@@ -85,6 +171,7 @@ class Parameters:
         self.all = params
         self.fixed = params[self.pos['fixed']]
         self.fitting = params[self.pos['fitting']]
+        self.validate_source_extinction_model()
 
     @classmethod
     def from_toml(cls, d):
@@ -105,7 +192,10 @@ class Parameters:
         if isinstance(d, (str, Path)):
             d = utils.TOMLReader(d).read()
 
+        # Do not mutate a caller-owned dictionary while removing TOML metadata.
+        d = dict(d)
         model = d.pop('name')
+        configured_source_model = d.pop('source_extinction_model', None)
 
         params = []
         for cat, vals in d.items():
@@ -114,7 +204,91 @@ class Parameters:
                     factory(val | {'category': cat})
                 )
 
-        return cls(np.asarray(params, dtype=object), model)
+        source_model_origin = 'config'
+        if configured_source_model is None:
+            inferred_config = {'extinction': [
+                {'name': p.name}
+                for p in params if p.category == 'extinction'
+            ]}
+            configured_source_model = source_extinction_model_from_config(
+                inferred_config
+            )
+            if configured_source_model == 'ccm89':
+                source_model_origin = 'legacy_parameter_inference'
+                warnings.warn(
+                    "Model TOML has no 'source_extinction_model'; inferred "
+                    "'ccm89' from legacy 'ebv_source_frame'. Add "
+                    "source_extinction_model = 'ccm89' near the top of the file.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            else:
+                source_model_origin = 'default'
+
+        return cls(
+            np.asarray(params, dtype=object),
+            model,
+            source_extinction_model=configured_source_model,
+            source_extinction_model_origin=source_model_origin,
+        )
+
+    def set_source_extinction_model(self, value, origin='override'):
+        """Apply and validate an explicit source-frame extinction-model override."""
+        old_model = self.source_extinction_model
+        old_origin = self.source_extinction_model_origin
+        self.source_extinction_model = normalize_source_extinction_model(value)
+        self.source_extinction_model_origin = origin
+        try:
+            self.validate_source_extinction_model()
+        except Exception:
+            self.source_extinction_model = old_model
+            self.source_extinction_model_origin = old_origin
+            raise
+
+    def validate_source_extinction_model(self):
+        """Reject mixed or incomplete source-frame extinction configurations."""
+        names = {
+            p.name for p in self.all if p.category == 'extinction'
+        }
+        ccm_names = {'ebv_source_frame', 'rv_source_frame'}
+        trotter_names = {
+            name for name in names
+            if name in {'av_source_frame', 'c2', 'c4'}
+            or name.startswith('delta_')
+        }
+        source_names = (names & ccm_names) | trotter_names
+        if not source_names:
+            return
+
+        if self.source_extinction_model == 'ccm89':
+            if trotter_names:
+                found = ', '.join(sorted(trotter_names))
+                raise ValueError(
+                    "source_extinction_model='ccm89' cannot be used with "
+                    f"Trotter parameters: {found}."
+                )
+            if 'ebv_source_frame' not in names:
+                raise ValueError(
+                    "source_extinction_model='ccm89' requires "
+                    "'ebv_source_frame' when source-frame dust is configured."
+                )
+            return
+
+        forbidden = names & ccm_names
+        if forbidden:
+            found = ', '.join(sorted(forbidden))
+            raise ValueError(
+                "source_extinction_model='trotter2011' cannot be used with "
+                f"CCM parameters: {found}."
+            )
+        required = {'av_source_frame', 'c2', 'c4'}
+        missing = required - names
+        if missing:
+            found = ', '.join(sorted(missing))
+            raise ValueError(
+                "source_extinction_model='trotter2011' requires "
+                f"these parameters when source-frame dust is configured: {found}."
+            )
 
     def has(self, name):
         """

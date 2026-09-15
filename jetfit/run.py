@@ -15,6 +15,11 @@ import emcee
 
 from jetfit.ampy import Ampy
 from jetfit.core import utils
+from jetfit.mcmc.parameters import (
+    DEFAULT_SOURCE_EXTINCTION_MODEL,
+    SOURCE_EXTINCTION_MODELS,
+    normalize_source_extinction_model,
+)
 
 
 def parse_args():
@@ -57,6 +62,17 @@ def parse_args():
         help=(
             'Intrinsic-spectrum samples per supported filter; extinction uses the '
             'full response curve. Use 0 for a brute-force reference (default: 16).'
+        ),
+    )
+    parser.add_argument(
+        '--source-extinction-model',
+        type=normalize_source_extinction_model,
+        choices=SOURCE_EXTINCTION_MODELS,
+        default=None,
+        help=(
+            "Override source_extinction_model from the model TOML. Choices are "
+            "trotter2011 (the default for new configs) and ccm89; the short "
+            "aliases trotter and ccm are accepted."
         ),
     )
     return parser.parse_args()
@@ -139,12 +155,28 @@ def log(ampy, out_dir, *, burn_length, run_length):
     models = getattr(ampy.mcmc, 'models', None)
     bandpass_mode = getattr(models, 'bandpass_mode', 'none')
     bandpass_nodes = getattr(models, 'bandpass_nodes', None)
+    source_extinction_model = getattr(
+        models,
+        'source_extinction_model',
+        getattr(
+            ampy.mcmc.params,
+            'source_extinction_model',
+            DEFAULT_SOURCE_EXTINCTION_MODEL,
+        ),
+    )
+    source_extinction_model_origin = getattr(
+        ampy.mcmc.params,
+        'source_extinction_model_origin',
+        'legacy_unrecorded',
+    )
     out_params['photometry'] = {
         'bandpass_integration': bandpass_mode,
         'bandpass_nodes': (
             'full' if bandpass_nodes is None else int(bandpass_nodes)
         ),
         'observable': 'photon_weighted_ab_equivalent_fnu',
+        'source_extinction_model': source_extinction_model,
+        'source_extinction_model_origin': source_extinction_model_origin,
     }
 
     with open(out_dir / 'best_fit.json', "w") as f:
@@ -215,6 +247,7 @@ def main(
     obs_path, params_path, mcmc_path, results_dir, event,
     resume=False, workers_override=None, skip_plots=False,
     initial_positions_path=None, bandpass_integration='none', bandpass_nodes=16,
+    source_extinction_model=None,
 ):
     """
     Run MCMC using AMPy.
@@ -265,8 +298,14 @@ def main(
         params_path,
         bandpass_integration=bandpass_integration,
         bandpass_nodes=bandpass_nodes,
+        source_extinction_model=source_extinction_model,
     )
     print(f"DEBUG: Ampy object created successfully!")
+    print(
+        "  source_extinction_model: "
+        f"{ampy.mcmc.params.source_extinction_model} "
+        f"({ampy.mcmc.params.source_extinction_model_origin})"
+    )
 
     initial_positions = None
     if initial_positions_path is not None:
@@ -417,6 +456,9 @@ if __name__ == "__main__":
 
             'bandpass_nodes':
                 args.bandpass_nodes,
+
+            'source_extinction_model':
+                args.source_extinction_model,
         }
     )
     print(results_path)

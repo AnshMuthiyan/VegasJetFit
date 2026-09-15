@@ -34,6 +34,13 @@ def validate_matched_configs(configs: dict[str, dict]) -> None:
     for section in ("model", "offsets", "host", "slop"):
         if section_by_name(left, section) != section_by_name(right, section):
             raise ValueError(f"CCM and Trotter differ outside extinction: {section}")
+    expected_models = {"ccm": "ccm89", "trotter": "trotter2011"}
+    for variant, expected in expected_models.items():
+        selected = configs[variant].get("source_extinction_model")
+        if selected != expected:
+            raise ValueError(
+                f"{variant} config selects {selected!r}; expected {expected!r}."
+            )
 
 
 def validate_uniform_bounds(

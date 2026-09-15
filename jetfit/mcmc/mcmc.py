@@ -14,6 +14,7 @@ from jetfit.mcmc.trotter_extinction import (
     trotter_dust_prior,
     trotter_source_attenuation,
 )
+from jetfit.mcmc.parameters import normalize_source_extinction_model
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -1236,6 +1237,7 @@ class MCMCModels:
         self, obs, afg_model,
         afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None,
         bandpass_integration=None, bandpass_nodes=None,
+        source_extinction_model=None,
     ):
         # Afterglow
         self.afg_model = afg_model
@@ -1245,6 +1247,9 @@ class MCMCModels:
         self.ext_model = ext_model
         self.ext_mw_pc = ext_mw_pc
         self.ext_sf_pc = ext_sf_pc
+        self.source_extinction_model = normalize_source_extinction_model(
+            source_extinction_model
+        )
 
         # Observation
         self.obs = obs
@@ -1387,17 +1392,19 @@ class MCMCModels:
         extinction = params.get('extinction') or {}
         z = float(model.get('z') or 0.0)
 
-        av_source = extinction.get('av_source_frame')
-        ebv_source = extinction.get('ebv_source_frame')
-        if av_source is not None:
-            attenuation *= trotter_source_attenuation(
-                (1.0 + z) * wave_numbers, extinction
-            )
-        elif ebv_source is not None:
-            rv = extinction.get('rv_source_frame') or 3.1
-            attenuation *= self.ext_model(Rv=rv).extinguish(
-                (1.0 + z) * wave_numbers, Ebv=ebv_source
-            )
+        if self.source_extinction_model == 'trotter2011':
+            av_source = extinction.get('av_source_frame')
+            if av_source is not None:
+                attenuation *= trotter_source_attenuation(
+                    (1.0 + z) * wave_numbers, extinction
+                )
+        else:
+            ebv_source = extinction.get('ebv_source_frame')
+            if ebv_source is not None:
+                rv = extinction.get('rv_source_frame') or 3.1
+                attenuation *= self.ext_model(Rv=rv).extinguish(
+                    (1.0 + z) * wave_numbers, Ebv=ebv_source
+                )
 
         ebv_mw = extinction.get('ebv_milky_way')
         if ebv_mw is not None:
@@ -1443,16 +1450,18 @@ class MCMCModels:
         # Extinction params TEMP!
         z = params.get('model').get('z')
         ext = params.get('extinction')
-        ebv_sf = ext.get('ebv_source_frame')
         ebv_mw = ext.get('ebv_milky_way')
 
         # Apply source-frame extinction
-        if ext.get('av_source_frame') is not None:
-            modeled[pos] *= trotter_source_attenuation((1 + z) * wn, ext)
-        elif ebv_sf is not None:
-            p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
-            pc = self._subset_precomputed_extinction(self.ext_sf_pc, all_pos, pos)
-            modeled[pos] *= self._model_extinction(p, (1 + z) * wn, pc)
+        if self.source_extinction_model == 'trotter2011':
+            if ext.get('av_source_frame') is not None:
+                modeled[pos] *= trotter_source_attenuation((1 + z) * wn, ext)
+        else:
+            ebv_sf = ext.get('ebv_source_frame')
+            if ebv_sf is not None:
+                p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
+                pc = self._subset_precomputed_extinction(self.ext_sf_pc, all_pos, pos)
+                modeled[pos] *= self._model_extinction(p, (1 + z) * wn, pc)
 
         # Apply host galaxy correction
         if params.get('host') is not None and self.obs.hosts is not None:

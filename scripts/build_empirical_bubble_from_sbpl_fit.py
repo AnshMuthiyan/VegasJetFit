@@ -22,6 +22,10 @@ from typing import Any
 
 import numpy as np
 
+from jetfit.mcmc.parameters import (
+    source_extinction_model_from_config,
+    source_extinction_toml_lines,
+)
 from jetfit.models.vegasafterglow import VegasAfterglowModel
 
 
@@ -42,7 +46,8 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
     lines: list[str] = []
     if "name" in data:
         lines.append(f"name = {_fmt_value(data['name'])}")
-        lines.append("")
+    lines.extend(source_extinction_toml_lines(source_extinction_model_from_config(data)))
+    lines.append("")
 
     for section in SECTION_ORDER:
         entries = data.get(section, [])

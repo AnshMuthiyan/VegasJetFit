@@ -3,7 +3,8 @@ set -euo pipefail
 
 variant="${1:?usage: run_090424_extinction_long_variant.sh ccm|trotter}"
 case "$variant" in
-  ccm|trotter) ;;
+  ccm) source_extinction_model="ccm89" ;;
+  trotter) source_extinction_model="trotter2011" ;;
   *) echo "Unknown extinction variant: $variant" >&2; exit 2 ;;
 esac
 
@@ -42,6 +43,7 @@ echo "Starting $tag at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     --start-method spawn \
     --bandpass-integration verified \
     --bandpass-nodes 16 \
+    --source-extinction-model "$source_extinction_model" \
     ${resume_args[@]+"${resume_args[@]}"} \
     --skip-plots \
     >>"$log" 2>&1

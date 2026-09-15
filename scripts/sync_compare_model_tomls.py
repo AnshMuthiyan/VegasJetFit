@@ -18,6 +18,11 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from jetfit.mcmc.parameters import (
+    source_extinction_model_from_config,
+    source_extinction_toml_lines,
+)
+
 
 SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
 
@@ -35,7 +40,8 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
     lines: list[str] = []
     if "name" in data:
         lines.append(f"name = {_fmt_value(data['name'])}")
-        lines.append("")
+    lines.extend(source_extinction_toml_lines(source_extinction_model_from_config(data)))
+    lines.append("")
 
     for section in SECTION_ORDER:
         entries = data.get(section, [])

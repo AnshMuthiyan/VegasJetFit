@@ -40,6 +40,42 @@ medium. Hopefully, it will come out pretty soon.
 # Usage
 To run JetFit, simply activate your virtual environment and run `python __main__.py`.
 
+## Source-frame dust extinction
+
+Choose the host/source-frame dust law explicitly near the top of each model
+TOML. New configurations default to `trotter2011` when the key is omitted, but
+committed legacy CCM configurations are marked explicitly so their physics does
+not change.
+
+```toml
+# Source-frame dust-law references:
+# Trotter, A. S. 2011, UNC-Chapel Hill PhD thesis, DOI 10.17615/2gjp-g156.
+# Cardelli, Clayton, and Mathis 1989, ApJ, 345, 245 (CCM89).
+# Allowed: "trotter2011" (default for new configs) or "ccm89".
+source_extinction_model = 'trotter2011'
+```
+
+The Trotter model requires source-frame extinction parameters
+`av_source_frame`, `c2`, and `c4`. Its empirical scatter coordinates named
+`delta_*` are optional; when present, their correlated priors are included.
+CCM89 instead requires `ebv_source_frame` and optionally accepts
+`rv_source_frame` (default `R_V=3.1`). Milky Way extinction remains a separate
+CCM89 foreground specified by `ebv_milky_way` and optionally
+`rv_milky_way`.
+
+For a deliberate one-run override, use either canonical name or its short
+alias:
+
+```shell
+python -m jetfit.run ... --source-extinction-model trotter2011
+python -m jetfit.run ... --source-extinction-model ccm89
+# `trotter` and `ccm` are accepted aliases.
+```
+
+Preflight validation rejects mixed or incomplete CCM/Trotter parameter blocks
+before the sampler starts. Because the two prescriptions fit different
+coordinates, their posterior-cloud seed files are not interchangeable.
+
 # Module Description
 JetFit package consists of three classes: Interpolator, FluxGenerator and Fitter. FluxGenerator can be used separately.
 
