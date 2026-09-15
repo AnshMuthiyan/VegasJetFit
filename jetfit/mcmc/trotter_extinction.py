@@ -46,6 +46,13 @@ class TrotterDustPrior:
 
     @staticmethod
     def _asymmetric_logpdf(value, sigma_plus, sigma_minus):
+        """
+        Calculates the log-probability of a value given an asymmetric Gaussian distribution.
+        
+        Math Context:
+        If a parameter has skewed empirical distributions, we evaluate a piecewise Gaussian:
+        P(x) ∝ exp(-0.5 * (x - μ)² / σ²) where σ = σ_plus if x >= μ else σ_minus.
+        """
         value = np.asarray(value)
         sigma = np.where(value >= 0.0, sigma_plus, sigma_minus)
         normalization = 2.0 / (
@@ -54,7 +61,17 @@ class TrotterDustPrior:
         return np.log(normalization) - 0.5 * (value / sigma) ** 2
 
     def log_prior(self, extinction):
-        """Return nuisance log prior plus hard physical constraints."""
+        """Return nuisance log prior plus hard physical constraints.
+        
+        Physics Context:
+        The dust model shape is fundamentally driven by a single master parameter (c2). 
+        All other physical parameters (c1, Rv, Bump Height) are deterministically linked 
+        to c2 via observed empirical relations. 
+        
+        However, nature isn't perfectly deterministic! The 'deltas' (δ) are cosmic 
+        scatter variables sampled by the MCMC to allow real GRBs to deviate slightly 
+        from the strict empirical relations. This function penalizes those deviations.
+        """
         total = 0.0
         for name, (sigma_plus, sigma_minus) in self.delta_sigmas.items():
             total += self._asymmetric_logpdf(
@@ -74,10 +91,21 @@ class TrotterDustPrior:
         return float(total)
 
     def get_physical_dust_params(self, c2, extinction):
-        """Map sampled parameters to (c1, Rv, BH, x0, gamma)."""
+        """Map sampled parameters to (c1, Rv, BH, x0, gamma).
+        
+        Physics & Math Context:
+        While some relationships (like c1 vs c2) are strictly linear, empirical data shows that 
+        Rv and Bump Height (BH) hit physical "floors" or "ceilings" and change slopes. 
+        
+        To model this broken-linear relationship smoothly (without sharp derivatives that 
+        would crash the MCMC's gradient tracking), we use `np.logaddexp(A, B)`.
+        Mathematically, log(e^A + e^B) acts as a soft-maximum function, smoothly transitioning 
+        between the linear asymptote A and the linear asymptote B.
+        """
         hp = self.hyperparams
         c2 = np.asarray(c2)
 
+        # c1 is a strict linear function of c2 plus its cosmic scatter (δ_c1)
         c2_c1 = c2 - extinction.get("delta_c2_c1", 0.0)
         c1 = (
             hp["b_c1"]
@@ -85,6 +113,7 @@ class TrotterDustPrior:
             + extinction.get("delta_c1", 0.0)
         )
 
+        # Rv features a smooth transition between two linear asymptotes
         c2_rv = c2 - extinction.get("delta_c2_rv", 0.0)
         rv_term1 = hp["b_rv1"] + np.tan(np.radians(hp["theta_rv1"])) * (
             c2_rv + 0.0708
@@ -94,6 +123,7 @@ class TrotterDustPrior:
         )
         rv = np.logaddexp(rv_term1, rv_term2) + extinction.get("delta_rv", 0.0)
 
+        # Bump Height (BH) also uses a soft-transition between two asymptotes, but inverted
         c2_bh = c2 - extinction.get("delta_c2_bh", 0.0)
         bh_term1 = -hp["b_bh1"] - np.tan(np.radians(hp["theta_bh1"])) * (
             c2_bh + 0.0143
@@ -103,6 +133,7 @@ class TrotterDustPrior:
         )
         bh = -np.logaddexp(bh_term1, bh_term2) + extinction.get("delta_bh", 0.0)
 
+        # Bump center (x0) and width (γ) only depend on their base values plus tight cosmic scatter.
         x0 = hp["x0_base"] + extinction.get("delta_x0", 0.0)
         gamma = hp["gamma_base"] + extinction.get("delta_gamma", 0.0)
         return c1, rv, bh, x0, gamma
