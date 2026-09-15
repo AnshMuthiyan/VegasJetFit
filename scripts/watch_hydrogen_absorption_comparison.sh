@@ -8,6 +8,7 @@ P03_HOST="${P03_HOST:-pauley404-03}"
 POLL_SECONDS="${POLL_SECONDS:-300}"
 WATCH_ONCE="${WATCH_ONCE:-0}"
 LOCAL_REPORT="$VJF/reports/2026_09_15_hydrogen_absorption_comparison"
+AUDIT_REPORT="$VJF/reports/2026_09_14_hydrogen_absorption_review"
 SHARE_REPORT="${SHARE_REPORT:-/Users/jkeohane/GRBs/Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison}"
 variants=(none igm igm_host)
 local_restarts=0
@@ -155,6 +156,13 @@ while :; do
 
   if event_complete_local 220101A && event_complete_remote 160131A; then
     mkdir -p "$LOCAL_REPORT"
+    for audit_file in \
+      SCIENTIFIC_AUDIT.md PAPER_METHOD_NOTES.md \
+      filter_absorption_inventory.csv; do
+      if [[ -s "$AUDIT_REPORT/$audit_file" ]]; then
+        cp "$AUDIT_REPORT/$audit_file" "$LOCAL_REPORT/$audit_file"
+      fi
+    done
     "$PY" "$VJF/scripts/write_hydrogen_absorption_comparison_report.py" \
       --output-dir "$LOCAL_REPORT" --compile
     incoming="${SHARE_REPORT}.incoming.$$"

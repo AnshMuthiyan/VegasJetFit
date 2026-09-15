@@ -1436,8 +1436,9 @@ class MCMCModels:
             ebv_source = extinction.get('ebv_source_frame')
             if ebv_source is not None:
                 rv = extinction.get('rv_source_frame') or 3.1
-                attenuation *= self.ext_model(Rv=rv).extinguish(
-                    (1.0 + z) * wave_numbers, Ebv=ebv_source
+                attenuation *= self._model_extinction(
+                    {'init': {'Rv': rv}, 'eval': {'Ebv': ebv_source}},
+                    (1.0 + z) * wave_numbers,
                 )
 
         if (
@@ -1462,8 +1463,9 @@ class MCMCModels:
         ebv_mw = extinction.get('ebv_milky_way')
         if ebv_mw is not None:
             rv = extinction.get('rv_milky_way') or 3.1
-            attenuation *= self.ext_model(Rv=rv).extinguish(
-                wave_numbers, Ebv=ebv_mw
+            attenuation *= self._model_extinction(
+                {'init': {'Rv': rv}, 'eval': {'Ebv': ebv_mw}},
+                wave_numbers,
             )
         return attenuation
 
@@ -1564,13 +1566,33 @@ class MCMCModels:
         return values[selected_within_extinguishable]
 
     def _model_extinction(self, p, wn, pc=None):
-        """ Internal use only. """
+        """Evaluate a dust law only over its calibrated wavelength domain.
+
+        Filter responses can have low-throughput tails outside a dust law's
+        published range. Those nodes retain unit dust transmission rather
+        than extrapolating the law or invalidating the entire passband. Gas
+        attenuation is evaluated separately and is not clipped here.
+        """
         # Return the pre-computed extinction
         if pc is not None: return pc
 
-        # Calculate the extinction and return
-        return self.ext_model(
-            **p.get('init')).extinguish(wn, **p.get('eval'))
+        wave_numbers = np.asarray(wn, dtype=float)
+        scalar = wave_numbers.ndim == 0
+        wave_numbers = np.atleast_1d(wave_numbers)
+        attenuation = np.ones_like(wave_numbers)
+        valid = np.isfinite(wave_numbers)
+        x_range = getattr(self.ext_model, 'x_range', None)
+        if x_range is not None:
+            valid &= (
+                (wave_numbers >= float(x_range[0]))
+                & (wave_numbers <= float(x_range[1]))
+            )
+        if np.any(valid):
+            attenuation[valid] = self.ext_model(
+                **p.get('init')).extinguish(
+                    wave_numbers[valid], **p.get('eval')
+                )
+        return float(attenuation[0]) if scalar else attenuation
 
 
 def log_prior_fn(theta, params) -> float:

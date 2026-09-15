@@ -2,6 +2,37 @@
 
 This directory contains active post-fit product scripts.
 
+## Last Touched (2026-09-14): Redshift-Dependent Lyman Absorption
+
+- `jetfit/core/hydrogen_absorption.py` implements deterministic mean IGM
+  transmission from Inoue et al. (2014), including 39 Lyman lines and Lyman
+  continuum opacity, plus an independently selectable host-H-I DLA and source
+  Lyman limit following Trotter (2011). Historical TOMLs remain gas-off;
+  explicit selectors are `igm_absorption_model` and
+  `host_hi_absorption_model`.
+- Verified filter responses integrate intrinsic flux, source dust, IGM/host
+  H I, and Milky Way dust inside the likelihood. Generic historical filters
+  remain central-wavelength approximations until their instrument provenance
+  is known. XRT integrated fluxes are intentionally untouched by this
+  optical/UV neutral-hydrogen model.
+- CCM89 is evaluated only inside its published inverse-wavelength range.
+  Out-of-domain response-tail nodes retain unit dust transmission while gas
+  attenuation remains active; this prevents a UV response tail from
+  invalidating the full filter and does not invent a dust extrapolation.
+- `scripts/audit_hydrogen_absorption_filters.py` audits the authoritative
+  source manifest. The 2026-09-14 inventory found 91 event/filter combinations,
+  30 with verified responses, and 11 with more than one-percent mean IGM
+  suppression under the likelihood-oriented screening approximation.
+- Controlled matched-cloud tests compare gas-off, Inoue14-only, and
+  Inoue14-plus-host-H-I for 160131A and 220101A. The former runs on Pauley-03;
+  the latter runs on Lyra. Each has a 5-temperature, 100-walker 2+3 smoke test
+  followed by a 25+100 diagnostic chain at eight workers. The watcher
+  `watch_hydrogen_absorption_comparison.sh` pulls the remote result, generates
+  the LaTeX/PDF comparison, bundles the science audit, and publishes to
+  `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.
+- Validation: 33 focused tests pass after the CCM response-tail guard; one
+  sampled walker from every 160131A temperature has a finite likelihood.
+
 ## Last Touched (2026-08-11): 090424 Early-X-Ray SSC+KN Completion
 
 - The PCRC-2 SSC+KN seeded refit completed all 5000 burn-in and 5000

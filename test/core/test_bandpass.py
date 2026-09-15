@@ -233,6 +233,44 @@ class BandpassLikelihoodTests(unittest.TestCase):
         self.assertAlmostEqual(float(modeled[1]), float(expected_r), places=12)
         self.assertTrue(np.isfinite(modeled[0]))
 
+    def test_ccm_source_dust_does_not_extrapolate_past_its_uv_limit(self):
+        uvm2 = get_bandpass('uvm2')
+        pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom
+        obs = _Observation([1.0], [pivot_nu], ['uvm2'])
+        redshift = 0.97
+        ebv = 0.1
+        params = {
+            'model': {'slope': -0.7, 'z': redshift},
+            'extinction': {'ebv_source_frame': ebv},
+        }
+        wrapper = MCMCModels(
+            obs,
+            _PowerLawAfterglow,
+            ext_model=CCM89,
+            source_extinction_model='ccm89',
+            bandpass_integration='verified',
+            bandpass_nodes=16,
+        )
+        modeled = wrapper.model(params)[0]
+
+        wavelength, weight = uvm2.photon_quadrature(None)
+        intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
+            np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
+        )
+        source_wave_number = (1.0 + redshift) * 1.0e4 / wavelength
+        valid = (
+            (source_wave_number >= CCM89.x_range[0])
+            & (source_wave_number <= CCM89.x_range[1])
+        )
+        self.assertTrue(np.any(~valid))
+        attenuation = np.ones_like(source_wave_number)
+        attenuation[valid] = CCM89(Rv=3.1).extinguish(
+            source_wave_number[valid], Ebv=ebv
+        )
+        expected = np.sum(intrinsic * attenuation * weight)
+        self.assertTrue(np.isfinite(modeled))
+        self.assertAlmostEqual(float(modeled), float(expected), places=12)
+
     def test_igm_absorption_is_integrated_inside_uvot_bandpass(self):
         uvm2 = get_bandpass('uvm2')
         pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom
