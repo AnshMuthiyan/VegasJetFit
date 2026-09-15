@@ -1409,6 +1409,13 @@ class TrotterDustPrior:
         return parsed
         
     def _penalty(self, val, center, sig_p, sig_m):
+        """
+        Calculates the log-probability of a value given an asymmetric Gaussian distribution.
+        
+        Math Context:
+        If a parameter has skewed empirical distributions, we evaluate a piecewise Gaussian:
+        P(x) ∝ exp(-0.5 * (x - μ)² / σ²) where σ = σ_plus if x >= μ else σ_minus.
+        """
         if not self.use_asymmetric_priors:
             sig = (sig_p + sig_m) / 2.0
             return -0.5 * ((val - center) / sig)**2 - 0.5 * np.log(2 * np.pi * sig**2)
@@ -1417,6 +1424,18 @@ class TrotterDustPrior:
             return -0.5 * ((val - center) / sig)**2 - 0.5 * np.log(2 * np.pi * sig**2)
             
     def log_prior(self, params_dict):
+        """
+        Calculates the joint log-prior for the dust model scatter variables.
+        
+        Physics Context:
+        The dust model shape is fundamentally driven by a single master parameter (c2). 
+        All other physical parameters (c1, Rv, Bump Height) are deterministically linked 
+        to c2 via observed empirical relations. 
+        
+        However, nature isn't perfectly deterministic! The 'deltas' (δ) are cosmic 
+        scatter variables sampled by the MCMC to allow real GRBs to deviate slightly 
+        from the strict empirical relations. This function penalizes those deviations.
+        """
         parsed = self.parse_params(params_dict)
         lp = 0.0
         
@@ -1431,18 +1450,35 @@ class TrotterDustPrior:
         return lp
         
     def get_physical_dust_params(self, c2, params_dict):
+        """
+        Calculates the physical dust variables (c1, Rv, BH, x0, γ) from the master parameter c2.
+        
+        Physics & Math Context:
+        While some relationships (like c1 vs c2) are strictly linear, empirical data shows that 
+        Rv and Bump Height (BH) hit physical "floors" or "ceilings" and change slopes. 
+        
+        To model this broken-linear relationship smoothly (without sharp derivatives that 
+        would crash the MCMC's gradient tracking), we use `np.logaddexp(A, B)`.
+        Mathematically, log(e^A + e^B) acts as a soft-maximum function, smoothly transitioning 
+        between the linear asymptote A and the linear asymptote B.
+        """
         parsed = self.parse_params(params_dict)
         
+        # c1 is a strict linear function of c2 plus its cosmic scatter (δ_c1)
         c1 = parsed['b_c1'] + np.tan(np.radians(parsed['theta_c1'])) * (c2 - 1.2403) + parsed['delta_c1']
         
+        # Rv features a smooth transition between two linear asymptotes
         term1_rv = parsed['b_rv1'] + np.tan(np.radians(parsed['theta_rv1'])) * (c2 - (-0.0708))
         term2_rv = parsed['b_rv2'] + np.tan(np.radians(parsed['theta_rv2'])) * (c2 - 1.4953)
         rv = np.logaddexp(term1_rv, term2_rv) + parsed['delta_rv']
         
+        # Bump Height (BH) also uses a soft-transition between two asymptotes, but inverted
         term1_bh = -parsed['b_bh1'] - np.tan(np.radians(parsed['theta_bh1'])) * (c2 - (-0.0143))
         term2_bh = -parsed['b_bh2'] - np.tan(np.radians(parsed['theta_bh2'])) * (c2 - 1.4087)
         bh = -np.logaddexp(term1_bh, term2_bh) + parsed['delta_bh']
         
+        # Bump center (x0) and width (γ) are practically constants across all sightlines, 
+        # so they only depend on their base values plus tight cosmic scatter.
         x0 = parsed['x0_base'] + parsed['delta_x0']
         gamma = parsed['gamma_base'] + parsed['delta_gamma']
         
@@ -1450,6 +1486,9 @@ class TrotterDustPrior:
 
 # Instantiate globally for the MCMC run
 trotter_dust_prior = TrotterDustPrior(sample_deltas=True, use_asymmetric_priors=True, float_hyperparams=False)
+
+from jetfit.models.trotter_lyman_alpha import TrotterIGMPrior
+trotter_igm_prior = TrotterIGMPrior()
 
 def log_prior_fn(theta, params) -> float:
     """
@@ -1474,7 +1513,7 @@ def log_prior_fn(theta, params) -> float:
     
     for i, p in enumerate(params.fitting):
         # Skip default prior evaluation for the custom parameters handled collectively
-        if p.name in custom_dust_params:
+        if p.name in custom_dust_params or p.name.startswith('delta_igm_'):
             continue
             
         if np.isinf(prior := p.prior.evaluate(theta[i])):
@@ -1483,11 +1522,16 @@ def log_prior_fn(theta, params) -> float:
         if prior != 0:
             lp += np.log(prior)
 
-    # Evaluate custom dust prior if we have the parameters
+    # Evaluate custom priors
     p_dict = params.samples_to_dict(theta)
+    
     ext = p_dict.get('extinction')
     if ext is not None and 'c2' in ext:
         lp += trotter_dust_prior.log_prior(ext)
+        
+    igm = p_dict.get('igm')
+    if igm is not None:
+        lp += trotter_igm_prior.log_prior(igm)
 
     return lp
 

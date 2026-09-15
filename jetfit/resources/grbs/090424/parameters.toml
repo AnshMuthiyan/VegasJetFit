@@ -339,3 +339,28 @@ scale = "linear"
     type  = "uniform"
     lower = 0.00
     upper = 0.2
+
+# ==========================================
+# EXAMPLE IGM IMPLEMENTATION
+# ==========================================
+[[igm]]
+name = "delta_igm_uvw1"
+scale = "linear"
+
+[igm.prior]
+    type = "uniform"
+    lower = -3.0
+    upper = 3.0
+    initial_guess = 0.0
+    initial_sigma = 0.1
+
+[[igm]]
+name = "z_f_uvw1"
+fixed = true
+value = 2.3
+
+[[igm]]
+name = "delta_z_f_uvw1"
+fixed = true
+value = 0.15
+
