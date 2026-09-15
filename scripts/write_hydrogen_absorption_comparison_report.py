@@ -604,7 +604,7 @@ def build_tex(output: Path, payload: dict) -> str:
         r"\begin{itemize}",
         r"\item Inoue, Shimizu, Iwata, and Tanaka (2014), MNRAS 442, 1805, \href{https://doi.org/10.1093/mnras/stu936}{doi:10.1093/mnras/stu936}.",
         r"\item Trotter (2011), UNC-Chapel Hill PhD thesis, Sections 3.4--3.5, \href{https://doi.org/10.17615/2gjp-g156}{doi:10.17615/2gjp-g156}.",
-        r"\item Totani et al. (2006), PASJ 58, 485, \href{https://doi.org/10.1093/pasj/58.2.485}{doi:10.1093/pasj/58.2.485}.",
+        r"\item Totani et al. (2006), PASJ 58(3), 485, \href{https://doi.org/10.1093/pasj/58.3.485}{doi:10.1093/pasj/58.3.485}.",
         r"\end{itemize}", r"\end{document}",
     ))
     return "\n\n".join(lines) + "\n"

@@ -29,7 +29,7 @@ HYDROGEN_ABSORPTION_REFERENCE_COMMENTS = (
     'Neutral-hydrogen absorption references (separate from dust extinction):',
     'Inoue et al. 2014, MNRAS, 442, 1805: mean intergalactic Lyman absorption.',
     'Trotter 2011 thesis, Section 3.4.1: host DLA and source Lyman limit.',
-    'Totani et al. 2006, PASJ, 58, 485: host damped-Lyman-alpha profile.',
+    'Totani et al. 2006, PASJ, 58(3), 485: host damped-Lyman-alpha profile.',
     'Allowed IGM models: "none" or "inoue2014".',
     'Allowed host H I models: "none" or "trotter2011" (requires nhi_host).',
 )

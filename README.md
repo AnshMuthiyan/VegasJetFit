@@ -83,7 +83,7 @@ intergalactic component uses the mean Lyman-series plus Lyman-continuum model
 of [Inoue et al. (2014)](https://doi.org/10.1093/mnras/stu936). The optional
 host component uses the damped-Lyman-alpha profile and source-frame Lyman
 limit in [Trotter (2011), Section 3.4.1](https://doi.org/10.17615/2gjp-g156),
-following [Totani et al. (2006)](https://doi.org/10.1093/pasj/58.2.485).
+following [Totani et al. (2006)](https://doi.org/10.1093/pasj/58.3.485).
 
 Existing TOMLs that do not contain these keys remain gas-off to preserve the
 provenance of historical fits. New absorption experiments must state both
@@ -93,7 +93,7 @@ choices explicitly:
 # Neutral-hydrogen absorption references (separate from dust extinction):
 # Inoue et al. 2014, MNRAS, 442, 1805: mean intergalactic Lyman absorption.
 # Trotter 2011 thesis, Section 3.4.1: host DLA and source Lyman limit.
-# Totani et al. 2006, PASJ, 58, 485: host damped-Lyman-alpha profile.
+# Totani et al. 2006, PASJ, 58(3), 485: host damped-Lyman-alpha profile.
 igm_absorption_model = 'inoue2014'
 host_hi_absorption_model = 'none'
 ```

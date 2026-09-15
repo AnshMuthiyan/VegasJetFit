@@ -13,7 +13,7 @@ References
 ----------
 Inoue, A. K., Shimizu, I., Iwata, I., & Tanaka, M. 2014, MNRAS, 442, 1805.
 Trotter, A. S. 2011, PhD thesis, UNC-Chapel Hill, Section 3.4.
-Totani, T. et al. 2006, PASJ, 58, 485.
+Totani, T. et al. 2006, PASJ, 58(3), 485.
 """
 
 from __future__ import annotations
