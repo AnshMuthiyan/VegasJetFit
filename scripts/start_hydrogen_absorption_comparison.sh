@@ -59,13 +59,11 @@ if ssh_cmd "$P03_HOST" "tmux has-session -t '$remote_session' 2>/dev/null"; then
   exit 1
 fi
 
-remote_command="cd '$REMOTE_VJF' && for stage in smoke diagnostic; do for variant in none igm igm_host; do WORKERS=8 bash scripts/run_hydrogen_absorption_variant.sh 160131A \"\$variant\" \"\$stage\" || exit; done; done"
 ssh_cmd "$P03_HOST" \
-  "tmux new-session -d -s '$remote_session' \"exec caffeinate -is bash -lc '$remote_command'\" && tmux has-session -t '$remote_session'"
+  "tmux new-session -d -s '$remote_session' \"cd '$REMOTE_VJF' && exec caffeinate -is env WORKERS=8 bash scripts/run_hydrogen_absorption_sequence.sh 160131A\" && tmux has-session -t '$remote_session'"
 
-local_command="cd '$VJF' && for stage in smoke diagnostic; do for variant in none igm igm_host; do WORKERS=8 bash scripts/run_hydrogen_absorption_variant.sh 220101A \"\$variant\" \"\$stage\" || exit; done; done"
 tmux new-session -d -s "$local_session" \
-  "exec caffeinate -is bash -lc '$local_command'"
+  "cd '$VJF' && exec caffeinate -is env WORKERS=8 bash scripts/run_hydrogen_absorption_sequence.sh 220101A"
 tmux has-session -t "$local_session"
 
 watch_session="watch_hydrogen_absorption_comparison"

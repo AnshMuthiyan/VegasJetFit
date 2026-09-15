@@ -57,15 +57,13 @@ event_complete_remote() {
 }
 
 start_local_sequence() {
-  local command="cd '$VJF' && for stage in smoke diagnostic; do for variant in none igm igm_host; do WORKERS=8 bash scripts/run_hydrogen_absorption_variant.sh 220101A \"\$variant\" \"\$stage\" || exit; done; done"
   tmux new-session -d -s hydrogen_absorption_220101A \
-    "exec caffeinate -is bash -lc '$command'"
+    "cd '$VJF' && exec caffeinate -is env WORKERS=8 bash scripts/run_hydrogen_absorption_sequence.sh 220101A"
 }
 
 start_remote_sequence() {
-  local command="cd '$REMOTE_VJF' && for stage in smoke diagnostic; do for variant in none igm igm_host; do WORKERS=8 bash scripts/run_hydrogen_absorption_variant.sh 160131A \"\$variant\" \"\$stage\" || exit; done; done"
   ssh_cmd "$P03_HOST" \
-    "tmux new-session -d -s hydrogen_absorption_160131A \"exec caffeinate -is bash -lc '$command'\""
+    "tmux new-session -d -s hydrogen_absorption_160131A \"cd '$REMOTE_VJF' && exec caffeinate -is env WORKERS=8 bash scripts/run_hydrogen_absorption_sequence.sh 160131A\""
 }
 
 pull_remote_result() {
