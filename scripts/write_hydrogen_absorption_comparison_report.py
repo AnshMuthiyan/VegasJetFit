@@ -385,19 +385,29 @@ def build_tex(output: Path, payload: dict) -> str:
     for event in EVENTS:
         for variant in VARIANTS:
             item = payload["events"][event]["summaries"][variant]
+            provenance = payload["events"][event]["provenance"]
             summary_rows.append((
-                event, tex(LABELS[variant]), str(item["fitted_parameters"]),
+                event, tex(provenance.get("execution_host", "not recorded")),
+                tex(LABELS[variant]), str(item["fitted_parameters"]),
                 number(item["minus2_log_likelihood"], 2), number(item["aic"], 2),
                 number(item["wall_clock_hours"], 2),
             ))
     lines.append(table(
-        ("GRB", "Gas model", "Free", r"$-2\ln\mathcal{L}$", "AIC", "Wall [h]"),
-        summary_rows, r">{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}Xrrrr",
+        ("GRB", "Host", "Gas model", "Free", r"$-2\ln\mathcal{L}$", "AIC", "Wall [h]"),
+        summary_rows,
+        r"ll>{\raggedright\arraybackslash}Xrrrr",
     ))
+    scientific_commits = sorted({
+        event_payload["provenance"].get("scientific_model_commit", "not recorded")
+        for event_payload in payload["events"].values()
+    })
     lines.append(
         "All runs use five temperatures, 100 walkers, 25 burn-in steps, 100 retained "
         "production steps, eight workers, and 10-step checkpoints. These are controlled "
-        "diagnostic continuations, not replacements for the authoritative long chains."
+        "diagnostic continuations, not replacements for the authoritative long chains. "
+        "Scientific model revision: "
+        + ", ".join(r"\texttt{" + tex(commit) + "}" for commit in scientific_commits)
+        + "."
     )
     for event in EVENTS:
         lines.extend((

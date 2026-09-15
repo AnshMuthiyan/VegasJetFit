@@ -9,6 +9,7 @@ import csv
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -44,6 +45,16 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def git_head() -> str:
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
 
 
 def fitted_names(model_path: Path) -> list[str]:
@@ -228,6 +239,7 @@ def main() -> None:
     )
     provenance = {
         "event": args.event,
+        "preparation_git_commit": git_head(),
         "source_redshift": redshift,
         "purpose": (
             "Controlled posterior-cloud comparison separating mean IGM "

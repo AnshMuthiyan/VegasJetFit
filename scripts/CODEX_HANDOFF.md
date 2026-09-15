@@ -32,6 +32,9 @@ This directory contains active post-fit product scripts.
   `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.
   It treats temporary SSH failure as a wait state and defers restart while an
   unrelated fit is active, preventing both outage exits and duplicate loads.
+- Test provenance records the execution host and anchors the scientific model
+  to commit `be94f36c381d20bff5470fe4f9141fb36142da26`; the report prints both
+  host and revision alongside measured wall time.
 - Validation: 34 focused tests pass after the CCM response-tail guard and
   all verified filters remain finite at the test redshifts; one
   sampled walker from every 160131A temperature has a finite likelihood.
