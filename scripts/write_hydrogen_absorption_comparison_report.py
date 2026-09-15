@@ -591,14 +591,56 @@ def build_tex(output: Path, payload: dict) -> str:
             rf"\includegraphics[width=0.96\textwidth,height=0.82\textheight,keepaspectratio]{{{event}_hydrogen_absorption_parameter_shifts.pdf}}",
             r"\caption{Changes in common fitted coordinates relative to the gas-off posterior, expressed in pooled 68-percent half-widths. Offsets are retained deliberately: movement of the historically affected offsets toward zero is a direct diagnostic that physical absorption is replacing calibration compensation.}", r"\end{figure}",
         ))
+    outcome_rows = []
+    for event in EVENTS:
+        summaries = payload["events"][event]["summaries"]
+        delta_igm = (
+            summaries["igm"]["minus2_log_likelihood"]
+            - summaries["none"]["minus2_log_likelihood"]
+        )
+        delta_host = (
+            summaries["igm_host"]["minus2_log_likelihood"]
+            - summaries["igm"]["minus2_log_likelihood"]
+        )
+        host_posterior = summaries["igm_host"].get("host_log10_nhi_posterior")
+        if event == "160131A":
+            reading = "IGM effect is negligible; fitted host H I worsens the fit."
+        else:
+            reading = (
+                "Mean IGM strongly worsens the fit; verify r/R instrument and "
+                "pre-correction provenance before production use."
+            )
+        outcome_rows.append((
+            event,
+            number(delta_igm, 2),
+            number(delta_host, 2),
+            number(host_posterior["median"], 3) if host_posterior else "not available",
+            reading,
+        ))
     lines.extend((
         r"\clearpage", r"\section{Interpretation and Next Decision}",
+        (
+            r"Negative changes in $-2\ln\mathcal{L}$ improve the fit; positive "
+            "changes worsen it."
+        ),
+        table(
+            (
+                "GRB", r"$\Delta_{\rm IGM-off}$", r"$\Delta_{\rm host-IGM}$",
+                r"Host $\log_{10}N_{\rm HI}$", "Diagnostic reading",
+            ),
+            outcome_rows,
+            r"lrrr>{\raggedright\arraybackslash}X",
+        ),
         (
             "A lower fit statistic is necessary but not sufficient to adopt a model. We should "
             "also require stable common-parameter posteriors, sensible movement of the affected "
             "filter offsets, and a host column that closes away from its broad prior limits. "
             r"If host $N_{\rm HI}$ remains prior-dominated, the deterministic Inoue-only model is the "
-            "better production choice unless spectroscopy supplies an external host-column prior."
+            "better production choice unless spectroscopy supplies an external host-column prior. "
+            "For GRB 220101A, the large likelihood penalty is concentrated in the historical generic "
+            "r/R bands, whose instrument-specific responses and possible prior Lyman corrections are "
+            "not yet established. The short host-column posteriors must not be interpreted as physical "
+            "measurements when their parent absorption models fit worse than gas-off."
         ),
         r"\section{References}",
         r"\begin{itemize}",

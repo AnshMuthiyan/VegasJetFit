@@ -53,6 +53,23 @@ This directory contains active post-fit product scripts.
   all verified filters remain finite at the test redshifts; one
   sampled walker from every 160131A temperature has a finite likelihood.
 
+## Last Touched (2026-09-15): Hydrogen Absorption Comparison Completion
+
+- All six 12+40 diagnostics completed with finite chains, log probabilities,
+  and best-fit JSON. Pauley-03 wall times for 160131A were 1.340, 1.345, and
+  1.348 hours; Lyra wall times for 220101A were 1.141, 1.257, and 1.244 hours
+  for gas-off, Inoue-only, and Inoue-plus-host-H-I, respectively.
+- The diagnostic result does not support immediate production adoption. For
+  160131A, Inoue changed `-2 ln L` by only -0.20 and adding host H I then
+  worsened it by +6.15. For 220101A, Inoue worsened `-2 ln L` by +518.21 and
+  host H I worsened it by another +39.52. The latter penalty is concentrated
+  in generic historical `r/R` data; resolve the instruments, response curves,
+  and any prior Lyman correction before interpreting the gas model.
+- The final 10-page US-letter report and companion CSV/PNG/PDF products are in
+  `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.
+  All pages were rendered and visually inspected; headings, tables, figures,
+  captions, links, and page numbering are legible with no clipping or overlap.
+
 ## Last Touched (2026-08-11): 090424 Early-X-Ray SSC+KN Completion
 
 - The PCRC-2 SSC+KN seeded refit completed all 5000 burn-in and 5000
