@@ -16,6 +16,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -31,6 +32,15 @@ from jetfit.mcmc.mcmc import (
     slop,
 )
 from scripts.minimize import initial_from_best_fit
+from scripts.plot.base import OPTION_MAP
+from scripts.plot.visualize import LightCurvePlot
+from scripts.plot_spread_light_curves import (
+    DEFAULT_SPACING,
+    SEC_PER_DAY,
+    attach_axis,
+    fast_model_fluxes,
+    load_spacing,
+)
 
 
 VARIANTS = {
@@ -138,7 +148,7 @@ def evaluate(
     )
     if not np.isclose(total, -2.0 * loglike, rtol=0.0, atol=1.0e-8):
         raise RuntimeError("Per-result likelihood decomposition is inconsistent.")
-    return summary, rows, posterior
+    return summary, rows, posterior, {"ampy": ampy, "params": params}
 
 
 def _residual_row(label, band, mask, statistic, fractional):
@@ -189,6 +199,156 @@ def save_figure(fig, output_dir: Path, stem: str) -> None:
     for suffix in ("png", "pdf"):
         fig.savefig(output_dir / f"{stem}.{suffix}", dpi=220, bbox_inches="tight")
     plt.close(fig)
+
+
+def calibration_factors_by_band(ampy: Ampy, params: dict) -> dict[str, float]:
+    """Return the multiplicative per-band corrections used by the likelihood."""
+    bands = np.asarray(ampy.obs.as_arrays.bands, dtype=str)
+    offsets = params.get("offsets") or {}
+    factors: dict[str, float] = {}
+    for name, mask in ampy.obs.offsets.items():
+        value = offsets.get(name)
+        if value is None:
+            continue
+        for band in set(bands[np.asarray(mask, dtype=bool)]):
+            factor = 10.0 ** (-0.4 * float(value))
+            if band in factors and not np.isclose(factors[band], factor):
+                raise ValueError(f"Band {band!r} has multiple calibration offsets.")
+            factors[band] = factor
+    return factors
+
+
+def plot_light_curve_comparison(states: dict[str, dict], output_dir: Path) -> None:
+    """Plot the fitted CCM and Trotter light curves on the shared data set."""
+    baseline = states["CCM"]
+    ampy = baseline["ampy"]
+    obs_times = np.asarray(ampy.obs.as_arrays.times, dtype=float)
+    flux_rows = np.asarray(ampy.obs.flux_loc, dtype=bool)
+    valid_times = obs_times[flux_rows & np.isfinite(obs_times) & (obs_times > 0.0)]
+    times = np.geomspace(valid_times.min() / 2.0, valid_times.max() * 2.0, 120)
+    spacing = load_spacing(DEFAULT_SPACING, "090424")
+    styles = {
+        "CCM": {"ls": "--", "lw": 2.1, "alpha": 1.0},
+        "Trotter": {"ls": "-", "lw": 1.55, "alpha": 0.9},
+    }
+    helpers: dict[str, LightCurvePlot] = {}
+    curves: dict[str, dict[str, np.ndarray]] = {}
+    csv_rows: list[dict] = []
+    for label, state in states.items():
+        variant_ampy = state["ampy"]
+        params = state["params"]
+        helper = LightCurvePlot(
+            variant_ampy.mcmc.models.afg_model,
+            params,
+            variant_ampy.obs,
+            meta=variant_ampy.mcmc.models.afg_kw,
+        )
+        helpers[label] = helper
+        factors = calibration_factors_by_band(variant_ampy, params)
+        raw_curves = fast_model_fluxes(
+            helper, params, times, variant_ampy.extinction_model
+        )
+        curves[label] = {
+            band: np.asarray(values, dtype=float) * factors.get(band, 1.0)
+            for band, values in raw_curves.items()
+        }
+        for band, values in curves[label].items():
+            spread = spacing.get(band, 1.0)
+            csv_rows.extend(
+                {
+                    "event": "090424",
+                    "model": label,
+                    "band": band,
+                    "time_days": float(time),
+                    "model_flux_density_mjy": float(flux),
+                    "plot_spacing_factor": float(spread),
+                    "plotted_flux_density_mjy": float(flux * spread),
+                }
+                for time, flux in zip(times, values)
+            )
+
+    csv_path = output_dir / "090424_ccm_vs_trotter_light_curves.csv"
+    with csv_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=list(csv_rows[0]), lineterminator="\n"
+        )
+        writer.writeheader()
+        writer.writerows(csv_rows)
+
+    fig, (ax, ratio_ax) = plt.subplots(
+        2, 1, figsize=(8.2, 10.0), height_ratios=(2.1, 1.0), sharex=True
+    )
+    helper = attach_axis(helpers["CCM"], ax)
+    for label in ("CCM", "Trotter"):
+        for band, values in curves[label].items():
+            if band not in OPTION_MAP:
+                continue
+            ax.loglog(
+                times,
+                values * spacing.get(band, 1.0),
+                color=OPTION_MAP[band]["color"],
+                zorder=3 if label == "CCM" else 4,
+                **styles[label],
+            )
+    helper.plot_observation(
+        baseline["params"], spreads=spacing, offset=False, excluded=True
+    )
+    ax.set_ylabel("Scaled Flux Density [mJy]")
+    ax.set_title("GRB 090424: fitted source-frame extinction comparison")
+    ax.grid(alpha=0.25, which="both")
+    band_handles, band_labels = ax.get_legend_handles_labels()
+    if band_handles:
+        band_legend = ax.legend(
+            band_handles,
+            band_labels,
+            loc="upper right",
+            ncols=2,
+            fontsize=6.5,
+            frameon=True,
+            fancybox=False,
+            framealpha=0.92,
+        )
+        ax.add_artist(band_legend)
+    ax.legend(
+        handles=[
+            Line2D([0], [0], color="0.2", label=label, **styles[label])
+            for label in ("CCM", "Trotter")
+        ],
+        loc="lower left",
+        fontsize=8,
+        frameon=True,
+        fancybox=False,
+    )
+
+    for band, ccm_values in curves["CCM"].items():
+        if band not in curves["Trotter"] or band not in OPTION_MAP:
+            continue
+        ratio = np.divide(
+            curves["Trotter"][band],
+            ccm_values,
+            out=np.full_like(ccm_values, np.nan),
+            where=(curves["Trotter"][band] > 0.0) & (ccm_values > 0.0),
+        )
+        ratio_ax.plot(
+            times,
+            np.log10(ratio),
+            color=OPTION_MAP[band]["color"],
+            linewidth=1.5,
+            alpha=0.9,
+        )
+    ratio_ax.axhline(0.0, color="0.25", linewidth=0.9)
+    ratio_ax.set_xscale("log")
+    ratio_ax.set_xlabel("Time Since Trigger [days]")
+    ratio_ax.set_ylabel(r"$\log_{10}(F_{\rm Trotter}/F_{\rm CCM})$")
+    ratio_ax.grid(alpha=0.25, which="both")
+    seconds = ax.secondary_xaxis(
+        "top",
+        functions=(lambda day: day * SEC_PER_DAY, lambda sec: sec / SEC_PER_DAY),
+    )
+    seconds.set_xlabel("Time Since Trigger [seconds]")
+    plt.close(helpers["Trotter"].ax.figure)
+    fig.tight_layout()
+    save_figure(fig, output_dir, "090424_ccm_vs_trotter_light_curve_comparison")
 
 
 def plot_band_differences(rows: list[dict], output_dir: Path) -> None:
@@ -274,15 +434,17 @@ def main():
     }
     summaries = {}
     posteriors = {}
+    states = {}
     rows = []
     runtime_logs = {"CCM": args.ccm_log, "Trotter": args.trotter_log}
     for label, variant in VARIANTS.items():
         config = root / "run_configs" / "bandpass_integration" / f"090424_{variant}"
-        summary, model_rows, posterior = evaluate(
+        summary, model_rows, posterior, state = evaluate(
             results[label], config, label, runtime_logs[label]
         )
         summaries[label] = summary
         posteriors[label] = posterior
+        states[label] = state
         rows.extend(model_rows)
 
     differences = {
@@ -315,6 +477,7 @@ def main():
     posterior_rows = write_posterior_comparison(posterior_path, posteriors)
     plot_band_differences(rows, args.output_dir)
     plot_parameter_shifts(posterior_rows, args.output_dir)
+    plot_light_curve_comparison(states, args.output_dir)
     print(json.dumps(payload, indent=2))
     print(f"Wrote {json_path}")
     print(f"Wrote {csv_path}")
