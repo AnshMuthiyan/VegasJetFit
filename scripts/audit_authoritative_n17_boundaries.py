@@ -12,7 +12,9 @@ from pathlib import Path
 import numpy as np
 
 
-SECTIONS = ("model", "extinction", "offsets", "host", "slop")
+SECTIONS = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 
 def source_results(event_dir: Path) -> Path:

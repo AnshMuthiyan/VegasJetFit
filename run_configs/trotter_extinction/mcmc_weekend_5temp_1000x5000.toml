@@ -1,0 +1,10 @@
+# Weekend scientific continuation from the completed 090424 Trotter cloud.
+
+[sampler]
+name = 'parallel_tempered'
+num_walkers = 100
+burn_length = 1000
+run_length = 5000
+ntemps = 5
+workers = 8
+checkpoint_interval = 100

@@ -9,6 +9,17 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
+from jetfit.core.bandpass import C_ANGSTROM_PER_SECOND, get_bandpass
+from jetfit.core.hydrogen_absorption import hydrogen_transmission
+from jetfit.mcmc.trotter_extinction import (
+    trotter_dust_prior,
+    trotter_source_attenuation,
+)
+from jetfit.mcmc.parameters import (
+    normalize_host_hi_absorption_model,
+    normalize_igm_absorption_model,
+    normalize_source_extinction_model,
+)
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -1229,7 +1240,10 @@ class MCMCModels:
     """
     def __init__(
         self, obs, afg_model,
-        afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None
+        afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None,
+        bandpass_integration=None, bandpass_nodes=None,
+        source_extinction_model=None,
+        igm_absorption_model=None, host_hi_absorption_model=None,
     ):
         # Afterglow
         self.afg_model = afg_model
@@ -1239,9 +1253,33 @@ class MCMCModels:
         self.ext_model = ext_model
         self.ext_mw_pc = ext_mw_pc
         self.ext_sf_pc = ext_sf_pc
+        self.source_extinction_model = normalize_source_extinction_model(
+            source_extinction_model
+        )
+        self.igm_absorption_model = normalize_igm_absorption_model(
+            igm_absorption_model
+        )
+        self.host_hi_absorption_model = normalize_host_hi_absorption_model(
+            host_hi_absorption_model
+        )
 
         # Observation
         self.obs = obs
+        setting = (
+            os.environ.get('JETFIT_BANDPASS_INTEGRATION', '')
+            if bandpass_integration is None else str(bandpass_integration)
+        ).strip().lower()
+        self.bandpass_enabled = setting in (
+            '1', 'true', 'yes', 'on', 'verified', 'swift_uvot'
+        )
+        self.bandpass_mode = 'verified' if self.bandpass_enabled else 'none'
+        configured_nodes = int(
+            os.environ.get('JETFIT_BANDPASS_NODES', '16')
+            if bandpass_nodes is None else bandpass_nodes
+        )
+        if self.bandpass_enabled and configured_nodes == 1:
+            raise ValueError('Bandpass nodes must be 0 (full curve) or at least 2.')
+        self.bandpass_nodes = None if configured_nodes <= 0 else configured_nodes
 
     def model(self, params):
         """
@@ -1257,9 +1295,15 @@ class MCMCModels:
         np.ndarray of float
             The modeled observed GRB afterglow flux.
         """
-        # Model the GRB afterglow data
+        # Instantiate once so the same dynamics can also evaluate passband nodes.
         try:
-            modeled = self.model_afterglow(params)
+            afterglow = self.afg_model(**params.get('model'), **self.afg_kw)
+            modeled = afterglow.model(self.obs)
+            bandpass_mask = np.zeros(self.obs.length, dtype=bool)
+            if self.bandpass_enabled:
+                modeled, bandpass_mask = self.model_bandpasses(
+                    afterglow, modeled, params
+                )
         except Exception as e:
             if os.environ.get('JETFIT_DEBUG_MODEL_EXCEPTIONS', '0') == '1':
                 print(e)
@@ -1269,7 +1313,7 @@ class MCMCModels:
             return np.array([np.nan])
 
         # Correct for dust and host then return
-        return self.model_extinction(modeled, params)
+        return self.model_extinction(modeled, params, skip_mask=bandpass_mask)
 
     def model_afterglow(self, params):
         """
@@ -1288,15 +1332,153 @@ class MCMCModels:
         return self.afg_model(
             **params.get('model'), **self.afg_kw).model(self.obs)
 
-    def model_extinction(self, modeled, params):
+    def model_bandpasses(self, afterglow, modeled, params):
+        """Replace supported monochromatic rows with photon-weighted fluxes.
+
+        Both dust screens are evaluated at every response wavelength. The
+        smooth intrinsic spectrum is sampled at response quantiles plus both
+        tails, then interpolated in log wavelength/log flux. Unsupported or
+        instrument-ambiguous labels retain the historical monochromatic model.
         """
-        Corrects the afterglow flux, ``modeled``, for
-        dust extinction and host galaxy contributions.
+        modeled = np.asarray(modeled, dtype=float).copy()
+        integrated = np.zeros(self.obs.length, dtype=bool)
+        spectral = self.obs.as_arrays.sflux_loc
+        bands = self.obs.as_arrays.bands
+        times = self.obs.as_arrays.times
+
+        for band in np.unique(bands[spectral]):
+            response = get_bandpass(str(band))
+            if response is None:
+                continue
+            rows = spectral & (bands == band)
+            indices = np.flatnonzero(rows)
+            modeled[indices] = self.integrate_spectral_bandpass(
+                afterglow, str(band), times[indices], params
+            )
+            integrated[indices] = True
+        return modeled, integrated
+
+    def integrate_spectral_bandpass(self, afterglow, band, times, params):
+        """Evaluate one spectral band at arbitrary observer times.
+
+        The intrinsic spectrum may use compressed response nodes, but the
+        attenuation and final quadrature always use the complete archived
+        response curve. This is the shared implementation for the likelihood
+        and post-fit light-curve products.
+        """
+        response = get_bandpass(str(band))
+        if response is None:
+            raise ValueError(f'No verified response curve for {band!r}.')
+
+        times = np.atleast_1d(np.asarray(times, dtype=float))
+        wavelength, weights = response.photon_quadrature(None)
+        if self.bandpass_nodes is None:
+            sample_wavelength = wavelength
+        else:
+            compressed_wavelength, _ = response.photon_quadrature(
+                self.bandpass_nodes
+            )
+            # Keep both response tails. They matter when sharp absorption or
+            # strong UV extinction makes a weak optical red leak dominate.
+            sample_wavelength = np.unique(np.concatenate((
+                wavelength[:1], compressed_wavelength, wavelength[-1:]
+            )))
+        frequencies = C_ANGSTROM_PER_SECOND / sample_wavelength
+
+        eval_times = np.repeat(times, sample_wavelength.size)
+        eval_frequencies = np.tile(frequencies, times.size)
+        sampled_intrinsic = np.asarray(
+            afterglow.spectral_flux(eval_times, eval_frequencies), dtype=float
+        ).reshape(times.size, sample_wavelength.size)
+        if self.bandpass_nodes is None:
+            intrinsic = sampled_intrinsic
+        else:
+            if np.any(sampled_intrinsic <= 0.0):
+                raise ValueError('Bandpass model flux must be positive.')
+            intrinsic = np.exp(np.asarray([
+                np.interp(
+                    np.log(wavelength),
+                    np.log(sample_wavelength),
+                    np.log(row),
+                )
+                for row in sampled_intrinsic
+            ]))
+
+        attenuation = self._node_extinction(1.0e4 / wavelength, params)
+        return np.sum(
+            intrinsic * attenuation[np.newaxis, :] * weights[np.newaxis, :],
+            axis=1,
+        )
+
+    def _node_extinction(self, wave_numbers, params):
+        """Return dust and neutral-hydrogen attenuation at filter nodes."""
+        return (
+            self._node_source_attenuation(wave_numbers, params)
+            * self._node_milky_way_attenuation(wave_numbers, params)
+        )
+
+    def _node_source_attenuation(self, wave_numbers, params):
+        """Return source-dust plus IGM/host-H-I attenuation."""
+        wave_numbers = np.asarray(wave_numbers, dtype=float)
+        attenuation = np.ones_like(wave_numbers)
+        model = params.get('model') or {}
+        extinction = params.get('extinction') or {}
+        absorption = params.get('absorption') or {}
+        z = float(model.get('z') or 0.0)
+
+        if self.source_extinction_model == 'trotter2011':
+            av_source = extinction.get('av_source_frame')
+            if av_source is not None:
+                attenuation *= trotter_source_attenuation(
+                    (1.0 + z) * wave_numbers, extinction
+                )
+        else:
+            ebv_source = extinction.get('ebv_source_frame')
+            if ebv_source is not None:
+                rv = extinction.get('rv_source_frame') or 3.1
+                attenuation *= self._model_extinction(
+                    {'init': {'Rv': rv}, 'eval': {'Ebv': ebv_source}},
+                    (1.0 + z) * wave_numbers,
+                )
+
+        if (
+            self.igm_absorption_model != 'none'
+            or self.host_hi_absorption_model != 'none'
+        ):
+            attenuation *= hydrogen_transmission(
+                1.0e4 / wave_numbers,
+                z,
+                igm_model=self.igm_absorption_model,
+                host_model=self.host_hi_absorption_model,
+                nhi_host_cm2=absorption.get('nhi_host'),
+            )
+
+        return attenuation
+
+    def _node_milky_way_attenuation(self, wave_numbers, params):
+        """Return Milky-Way foreground attenuation at observer wavelengths."""
+        wave_numbers = np.asarray(wave_numbers, dtype=float)
+        attenuation = np.ones_like(wave_numbers)
+        extinction = params.get('extinction') or {}
+        ebv_mw = extinction.get('ebv_milky_way')
+        if ebv_mw is not None:
+            rv = extinction.get('rv_milky_way') or 3.1
+            attenuation *= self._model_extinction(
+                {'init': {'Rv': rv}, 'eval': {'Ebv': ebv_mw}},
+                wave_numbers,
+            )
+        return attenuation
+
+    def model_extinction(self, modeled, params, skip_mask=None):
+        """
+        Corrects the afterglow flux, ``modeled``, for dust extinction,
+        neutral-hydrogen absorption, and host galaxy contributions.
 
         Applies the corrections in the order:
             1. Source-frame dust extinction.
-            2. Host galaxy contribution.
-            3. Milky Way dust extinction.
+            2. Intergalactic and host H I absorption.
+            3. Host galaxy contribution.
+            4. Milky Way dust extinction.
 
         Parameters
         ----------
@@ -1311,19 +1493,53 @@ class MCMCModels:
         np.ndarray of float
             The extinguished and host galaxy corrected flux.
         """
-        pos = self.obs.extinguishable
+        all_pos = np.asarray(self.obs.extinguishable, dtype=bool)
+        skip_mask = (
+            np.zeros(np.asarray(all_pos).shape, dtype=bool)
+            if skip_mask is None else np.asarray(skip_mask, dtype=bool)
+        )
+        if skip_mask.shape != all_pos.shape:
+            raise ValueError('skip_mask must match the included observation rows.')
+        pos = all_pos & ~skip_mask
         wn = self.obs.as_arrays.wave_numbers[pos]
 
         # Extinction params TEMP!
         z = params.get('model').get('z')
-        ext = params.get('extinction')
-        ebv_sf = ext.get('ebv_source_frame')
+        ext = params.get('extinction') or {}
+        absorption = params.get('absorption') or {}
         ebv_mw = ext.get('ebv_milky_way')
 
         # Apply source-frame extinction
-        if ebv_sf is not None:
-            p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
-            modeled[pos] *= self._model_extinction(p, (1 + z) * wn, self.ext_sf_pc)
+        if self.source_extinction_model == 'trotter2011':
+            if ext.get('av_source_frame') is not None:
+                modeled[pos] *= trotter_source_attenuation((1 + z) * wn, ext)
+        else:
+            ebv_sf = ext.get('ebv_source_frame')
+            if ebv_sf is not None:
+                p = {'init': {'Rv': ext.get('rv_source_frame') or 3.1}, 'eval': {'Ebv': ebv_sf}}
+                pc = self._subset_precomputed_extinction(self.ext_sf_pc, all_pos, pos)
+                modeled[pos] *= self._model_extinction(p, (1 + z) * wn, pc)
+
+        # Gas attenuation applies to spectral flux even outside the dust law's
+        # historical wavelength mask. Rows already integrated through a
+        # verified response are skipped because the same transmission was
+        # evaluated inside their bandpass integral.
+        if (
+            self.igm_absorption_model != 'none'
+            or self.host_hi_absorption_model != 'none'
+        ):
+            spectral = np.asarray(
+                getattr(self.obs.as_arrays, 'sflux_loc', all_pos), dtype=bool
+            )
+            gas_pos = spectral & ~skip_mask
+            gas_wn = self.obs.as_arrays.wave_numbers[gas_pos]
+            modeled[gas_pos] *= hydrogen_transmission(
+                1.0e4 / gas_wn,
+                z,
+                igm_model=self.igm_absorption_model,
+                host_model=self.host_hi_absorption_model,
+                nhi_host_cm2=absorption.get('nhi_host'),
+            )
 
         # Apply host galaxy correction
         if params.get('host') is not None and self.obs.hosts is not None:
@@ -1333,159 +1549,51 @@ class MCMCModels:
         # Apply Milky Way extinction
         if ebv_mw is not None:
             p = {'init': {'Rv': ext.get('rv_milky_way') or 3.1}, 'eval': {'Ebv': ebv_mw}}
-            modeled[pos] *= self._model_extinction(p, wn, self.ext_mw_pc)
+            pc = self._subset_precomputed_extinction(self.ext_mw_pc, all_pos, pos)
+            modeled[pos] *= self._model_extinction(p, wn, pc)
 
         # return corrected flux.
         return modeled
 
+    @staticmethod
+    def _subset_precomputed_extinction(values, all_pos, selected_pos):
+        if values is None:
+            return None
+        values = np.asarray(values)
+        selected_within_extinguishable = selected_pos[np.asarray(all_pos, dtype=bool)]
+        if values.shape[0] != selected_within_extinguishable.size:
+            raise ValueError('Precomputed extinction does not match observation mask.')
+        return values[selected_within_extinguishable]
+
     def _model_extinction(self, p, wn, pc=None):
-        """ Internal use only. """
+        """Evaluate a dust law only over its calibrated wavelength domain.
+
+        Filter responses can have low-throughput tails outside a dust law's
+        published range. Those nodes retain unit dust transmission rather
+        than extrapolating the law or invalidating the entire passband. Gas
+        attenuation is evaluated separately and is not clipped here.
+        """
         # Return the pre-computed extinction
         if pc is not None: return pc
 
-        # Calculate the extinction and return
-        return self.ext_model(
-            **p.get('init')).extinguish(wn, **p.get('eval'))
+        wave_numbers = np.asarray(wn, dtype=float)
+        scalar = wave_numbers.ndim == 0
+        wave_numbers = np.atleast_1d(wave_numbers)
+        attenuation = np.ones_like(wave_numbers)
+        valid = np.isfinite(wave_numbers)
+        x_range = getattr(self.ext_model, 'x_range', None)
+        if x_range is not None:
+            valid &= (
+                (wave_numbers >= float(x_range[0]))
+                & (wave_numbers <= float(x_range[1]))
+            )
+        if np.any(valid):
+            attenuation[valid] = self.ext_model(
+                **p.get('init')).extinguish(
+                    wave_numbers[valid], **p.get('eval')
+                )
+        return float(attenuation[0]) if scalar else attenuation
 
-
-class TrotterDustPrior:
-    def __init__(self, sample_deltas=True, use_asymmetric_priors=True, float_hyperparams=False):
-        self.sample_deltas = sample_deltas
-        self.use_asymmetric_priors = use_asymmetric_priors
-        self.float_hyperparams = float_hyperparams
-        
-        # Hyperparameters (peak, plus, minus) - all sigmas are absolute values
-        self.hyperparams = {
-            'b_c1':      {'peak': -1.5038, 'plus': 0.0245, 'minus': 0.0246},
-            'theta_c1':  {'peak': 106.953, 'plus': 0.145, 'minus': 0.141},
-            'b_rv1':     {'peak': 4.8118,  'plus': 0.0990, 'minus': 0.1004},
-            'theta_rv1': {'peak': 95.995,  'plus': 0.548, 'minus': 0.522},
-            'b_rv2':     {'peak': 2.8987,  'plus': 0.0138, 'minus': 0.0139},
-            'theta_rv2': {'peak': -6.945,  'plus': 1.165, 'minus': 1.104},
-            'b_bh1':     {'peak': 2.4845,  'plus': 0.0925, 'minus': 0.0750},
-            'theta_bh1': {'peak': 262.749, 'plus': 0.677, 'minus': 0.607},
-            'b_bh2':     {'peak': 2.2511,  'plus': 0.0259, 'minus': 0.0262},
-            'theta_bh2': {'peak': -64.803, 'plus': 0.402, 'minus': 0.379},
-            'x0_base':   {'peak': 4.60604, 'plus': 0.00305, 'minus': 0.00286},
-            'gamma_base':{'peak': 0.84195, 'plus': 0.00897, 'minus': 0.00895}
-        }
-        
-        # Deltas
-        self.deltas = {
-            'delta_c1': {'peak': 0.0, 'plus': 0.29313, 'minus': 0.29313},
-            'delta_rv': {'peak': 0.0, 'plus': 0.36246, 'minus': 0.36246},
-            'delta_bh': {'peak': 0.0, 'plus': 0.48315, 'minus': 0.48315},
-            'delta_x0': {'peak': 0.0, 'plus': 0.01212, 'minus': 0.03839},
-            'delta_gamma': {'peak': 0.0, 'plus': 0.16949, 'minus': 0.10605}
-        }
-
-    def get_custom_param_names(self):
-        """Returns set of all custom parameters that shouldn't use default prior evaluation."""
-        custom_params = set()
-        if self.sample_deltas:
-            custom_params.update(self.deltas.keys())
-        if self.float_hyperparams:
-            custom_params.update(self.hyperparams.keys())
-        return custom_params
-        
-    def parse_params(self, params_dict):
-        """Extracts required parameters depending on the active configuration switches."""
-        parsed = {}
-        
-        # Extract or hardcode deltas
-        for delta in self.deltas.keys():
-            if self.sample_deltas:
-                parsed[delta] = params_dict.get(delta, 0.0)
-            else:
-                parsed[delta] = 0.0
-                
-        # Extract or hardcode hyperparams
-        for hp, props in self.hyperparams.items():
-            if self.float_hyperparams:
-                parsed[hp] = params_dict.get(hp, props['peak'])
-            else:
-                parsed[hp] = props['peak']
-                
-        return parsed
-        
-    def _penalty(self, val, center, sig_p, sig_m):
-        """
-        Calculates the log-probability of a value given an asymmetric Gaussian distribution.
-        
-        Math Context:
-        If a parameter has skewed empirical distributions, we evaluate a piecewise Gaussian:
-        P(x) ∝ exp(-0.5 * (x - μ)² / σ²) where σ = σ_plus if x >= μ else σ_minus.
-        """
-        if not self.use_asymmetric_priors:
-            sig = (sig_p + sig_m) / 2.0
-            return -0.5 * ((val - center) / sig)**2 - 0.5 * np.log(2 * np.pi * sig**2)
-        else:
-            sig = np.where(val >= center, sig_p, sig_m)
-            return -0.5 * ((val - center) / sig)**2 - 0.5 * np.log(2 * np.pi * sig**2)
-            
-    def log_prior(self, params_dict):
-        """
-        Calculates the joint log-prior for the dust model scatter variables.
-        
-        Physics Context:
-        The dust model shape is fundamentally driven by a single master parameter (c2). 
-        All other physical parameters (c1, Rv, Bump Height) are deterministically linked 
-        to c2 via observed empirical relations. 
-        
-        However, nature isn't perfectly deterministic! The 'deltas' (δ) are cosmic 
-        scatter variables sampled by the MCMC to allow real GRBs to deviate slightly 
-        from the strict empirical relations. This function penalizes those deviations.
-        """
-        parsed = self.parse_params(params_dict)
-        lp = 0.0
-        
-        if self.sample_deltas:
-            for delta, props in self.deltas.items():
-                lp += self._penalty(parsed[delta], props['peak'], props['plus'], props['minus'])
-                
-        if self.float_hyperparams:
-            for hp, props in self.hyperparams.items():
-                lp += self._penalty(parsed[hp], props['peak'], props['plus'], props['minus'])
-                
-        return lp
-        
-    def get_physical_dust_params(self, c2, params_dict):
-        """
-        Calculates the physical dust variables (c1, Rv, BH, x0, γ) from the master parameter c2.
-        
-        Physics & Math Context:
-        While some relationships (like c1 vs c2) are strictly linear, empirical data shows that 
-        Rv and Bump Height (BH) hit physical "floors" or "ceilings" and change slopes. 
-        
-        To model this broken-linear relationship smoothly (without sharp derivatives that 
-        would crash the MCMC's gradient tracking), we use `np.logaddexp(A, B)`.
-        Mathematically, log(e^A + e^B) acts as a soft-maximum function, smoothly transitioning 
-        between the linear asymptote A and the linear asymptote B.
-        """
-        parsed = self.parse_params(params_dict)
-        
-        # c1 is a strict linear function of c2 plus its cosmic scatter (δ_c1)
-        c1 = parsed['b_c1'] + np.tan(np.radians(parsed['theta_c1'])) * (c2 - 1.2403) + parsed['delta_c1']
-        
-        # Rv features a smooth transition between two linear asymptotes
-        term1_rv = parsed['b_rv1'] + np.tan(np.radians(parsed['theta_rv1'])) * (c2 - (-0.0708))
-        term2_rv = parsed['b_rv2'] + np.tan(np.radians(parsed['theta_rv2'])) * (c2 - 1.4953)
-        rv = np.logaddexp(term1_rv, term2_rv) + parsed['delta_rv']
-        
-        # Bump Height (BH) also uses a soft-transition between two asymptotes, but inverted
-        term1_bh = -parsed['b_bh1'] - np.tan(np.radians(parsed['theta_bh1'])) * (c2 - (-0.0143))
-        term2_bh = -parsed['b_bh2'] - np.tan(np.radians(parsed['theta_bh2'])) * (c2 - 1.4087)
-        bh = -np.logaddexp(term1_bh, term2_bh) + parsed['delta_bh']
-        
-        # Bump center (x0) and width (γ) are practically constants across all sightlines, 
-        # so they only depend on their base values plus tight cosmic scatter.
-        x0 = parsed['x0_base'] + parsed['delta_x0']
-        gamma = parsed['gamma_base'] + parsed['delta_gamma']
-        
-        return c1, rv, bh, x0, gamma
-
-# Instantiate globally for the MCMC run
-trotter_dust_prior = TrotterDustPrior(sample_deltas=True, use_asymmetric_priors=True, float_hyperparams=False)
 
 from jetfit.models.trotter_lyman_alpha import TrotterIGMPrior
 trotter_igm_prior = TrotterIGMPrior()
@@ -1522,12 +1630,14 @@ def log_prior_fn(theta, params) -> float:
         if prior != 0:
             lp += np.log(prior)
 
-    # Evaluate custom priors
     p_dict = params.samples_to_dict(theta)
     
     ext = p_dict.get('extinction')
     if ext is not None and 'c2' in ext:
-        lp += trotter_dust_prior.log_prior(ext)
+        dust_prior = trotter_dust_prior.log_prior(ext)
+        if not np.isfinite(dust_prior):
+            return -np.inf
+        lp += dust_prior
         
     igm = p_dict.get('igm')
     if igm is not None:

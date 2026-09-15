@@ -1,5 +1,10 @@
 # MCMC Parameter Configuriation File
 name = 'powerlawVegasModel'
+# Source-frame dust-law references:
+# Trotter, A. S. 2011, UNC-Chapel Hill PhD thesis, DOI 10.17615/2gjp-g156.
+# Cardelli, Clayton, and Mathis 1989, ApJ, 345, 245 (CCM89).
+# Allowed: "trotter2011" (default for new configs) or "ccm89".
+source_extinction_model = 'ccm89'
 
 #-------------- MODEL --------------
 #---------------- E ----------------
@@ -80,27 +85,6 @@ scale = "log"
     upper = 0.0
     initial_guess = -3.64
     initial_sigma = 1.50
-
-#-----------MOdel------------------
-#------------k_e-------------------
-[[model]]
-name = "k_e"
-scale = "linear"
-value =2.0
-
-#-------------MODEL --------------
-#-----------------k_g-------------
-[[model]]
-name = "k_g"
-scale = "linear"
-value = 2.0
-
-#---------------MODEL ------------
-#----------------s-----------------
-[[model]]
-name = "s"
-scale = "linear"
-value = 4.0
 
 #-------------- MODEL --------------
 #---------------- p ----------------
@@ -191,13 +175,7 @@ value = 1.5
 [[model]]
 name="theta_v"
 scale="linear"
-
-[model.prior]
-	type = "uniform"
-	lower = 0.0
-	upper = 1.0
-	initial_guess= 0.01
-	initial_sigma = 0.1
+value = 0.0
 
 
 #----------- EXTINCTION ------------

@@ -26,12 +26,20 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from jetfit.core.input import Observation
+from jetfit.mcmc.parameters import (
+    hydrogen_absorption_models_from_config,
+    hydrogen_absorption_toml_lines,
+    source_extinction_model_from_config,
+    source_extinction_toml_lines,
+)
 from jetfit.models.powerlawVegas import powerlawVegasModel
 from jetfit.models.powerlawJetVegasDylanSpectrum import PowerlawJetVegasDylanSpectrumModel
 from jetfit.models.powerlawVegasDylanSpectrum import powerlawVegasDylanSpectrumModel
 
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 MODEL_NAME_MAP = {
     "powerlawVegasModel": powerlawVegasModel,
     "powerlawVegasDylanSpectrumModel": powerlawVegasDylanSpectrumModel,
@@ -52,7 +60,11 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
     lines: list[str] = []
     if "name" in data:
         lines.append(f"name = {_fmt_value(data['name'])}")
-        lines.append("")
+    lines.extend(source_extinction_toml_lines(source_extinction_model_from_config(data)))
+    lines.extend(hydrogen_absorption_toml_lines(
+        *hydrogen_absorption_models_from_config(data)
+    ))
+    lines.append("")
 
     for section in SECTION_ORDER:
         entries = data.get(section, [])
@@ -304,7 +316,7 @@ def build_bubble_config(
 
     synced["model"] = merged_model
 
-    for section in ("extinction", "offsets", "host", "slop"):
+    for section in ("extinction", "absorption", "offsets", "host", "slop"):
         if section in powerlaw_copy:
             synced[section] = copy.deepcopy(powerlaw_copy[section])
         elif section in bubble_template:

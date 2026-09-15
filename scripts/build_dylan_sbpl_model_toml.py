@@ -153,7 +153,7 @@ def _interval_center_and_sigma(event: str, thesis_key: str, *, fallback_name: st
 def _load_best_fit(path: Path) -> dict[str, dict[str, float]]:
     payload = json.loads(path.read_text())
     out: dict[str, dict[str, float]] = {}
-    for section in ("model", "extinction", "slop"):
+    for section in ("model", "extinction", "absorption", "slop"):
         raw_section = payload.get(section, {})
         if not isinstance(raw_section, dict):
             out[section] = {}

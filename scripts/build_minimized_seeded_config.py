@@ -18,7 +18,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.build_thesis_reproduction_model_toml import _load_toml, _write_toml
 
-SECTION_ORDER = ("model", "extinction", "offsets", "host", "slop")
+SECTION_ORDER = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 RESULT_KEY_ALIASES = {
     "model": {
         "dL28": "dl28",
@@ -27,6 +29,7 @@ RESULT_KEY_ALIASES = {
         "eps_B": "eps_b",
     },
     "extinction": {},
+    "absorption": {},
     "offsets": {},
     "host": {},
     "slop": {},

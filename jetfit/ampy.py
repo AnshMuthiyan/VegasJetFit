@@ -83,13 +83,32 @@ class Ampy:
     model_kw : dict, optional, default=None
         Any kwargs passed to the model constructor.
     """
-    def __init__(self, obs, params, model_kw=None):
+    def __init__(
+        self, obs, params, model_kw=None,
+        bandpass_integration=None, bandpass_nodes=None,
+        source_extinction_model=None,
+        igm_absorption_model=None, host_hi_absorption_model=None,
+    ):
 
         if isinstance(obs, (str, Path)):
             obs = Observation.from_csv(obs)
 
         if isinstance(params, (str, Path)):
             params = Parameters.from_toml(params)
+
+        if source_extinction_model is not None:
+            params.set_source_extinction_model(
+                source_extinction_model, origin='command_line_override'
+            )
+        if (
+            igm_absorption_model is not None
+            or host_hi_absorption_model is not None
+        ):
+            params.set_hydrogen_absorption_models(
+                igm_model=igm_absorption_model,
+                host_model=host_hi_absorption_model,
+                origin='command_line_override',
+            )
 
         # Pre-compute Milky Way extinction (temporary implementation)
         ext_mw_pc = None
@@ -105,8 +124,17 @@ class Ampy:
         model = model_factory(params.model)
 
         wrapper = MCMCModels(
-            obs, model, (model_kw or {}), CCM89, ext_mw_pc=ext_mw_pc
+            obs, model, (model_kw or {}), CCM89, ext_mw_pc=ext_mw_pc,
+            bandpass_integration=bandpass_integration,
+            bandpass_nodes=bandpass_nodes,
+            source_extinction_model=params.source_extinction_model,
+            igm_absorption_model=params.igm_absorption_model,
+            host_hi_absorption_model=params.host_hi_absorption_model,
         )
+        # Plotting and post-processing helpers receive the Observation object;
+        # retain the configured wrapper there so they can use the exact same
+        # dust/gas selections as the likelihood.
+        obs._jetfit_models = wrapper
 
         self.mcmc = MCMC(wrapper, params)
 

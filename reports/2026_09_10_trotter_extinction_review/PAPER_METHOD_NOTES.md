@@ -1,0 +1,59 @@
+# Paper Method Notes: Source-Frame Dust Test
+
+We tested a source-frame extinction prescription based on Trotter (2011), which
+combines the Cardelli, Clayton, and Mathis optical law with the Fitzpatrick-Massa
+ultraviolet form.  The ultraviolet extinction contains a linear term controlled
+by `c1` and `c2`, a Drude representation of the 2175 Angstrom bump with height
+`B_H`, and a far-ultraviolet curvature term controlled by `c4`.  Between 1.82 and
+3.3 inverse microns, the CCM curve is scaled continuously to meet the FM curve.
+The extinction in magnitudes is applied to the intrinsic afterglow flux before
+host contamination and Milky Way extinction.
+
+For this diagnostic, `A_V`, `c2`, and `c4` are free.  The values of `c1`, `R_V`,
+and `B_H` are connected to `c2` through Trotter's empirically fitted correlations,
+including separate horizontal and vertical cosmic-scatter nuisance coordinates;
+`x0` and `gamma` use their fitted asymmetric scatter distributions.  We fixed the
+hyperparameters defining those fitted correlations at the posterior peaks reported
+in Trotter's Tables 3.2--3.5.  Thus this is a conditional empirical-prior model,
+not a new fit of the extinction-law population hierarchy.
+
+For GRB 090424, the dust test preserves the authoritative structured-jet model,
+all reviewed UV data, exclusion of the early X-ray flare, the Milky Way foreground,
+calibration offsets, host terms, and the production numerical grid.  The sampler
+is initialized from the existing correlated posterior walker cloud; only the new
+dust dimensions are initialized from their conditional priors.  The comparison
+should report changes in UV residuals and fit statistic together with any movement
+in the physical afterglow posterior.  Improvement in fit quality alone is not
+sufficient: the inferred extinction curve must remain physical and the extra
+degrees of freedom must be constrained by the wavelength coverage.
+
+Do not claim that the new gas-absorption model was tested in this experiment.
+That implementation was not present in the reviewed student commit.
+
+## Controlled CCM-versus-Trotter Production Comparison
+
+For GRB 090424, the source-frame extinction prescriptions were compared with
+the afterglow data selection, emission model, numerical resolution, foreground
+Milky Way extinction, calibration offsets, host terms, and error-inflation
+terms held fixed.  The common data set contains 607 observations, includes all
+reviewed UV/optical/IR measurements, and excludes the early X-ray interval
+classified as a flare.  Supported UVOT and HST measurements were evaluated by
+photon-counting integration through verified response curves using 16 nodes for
+the smooth intrinsic spectrum and the full response grid for extinction.
+
+The two fits used five temperatures, 100 walkers, 100 burn-in steps, 800
+retained production steps, eight workers, and 50-step checkpoints.  Each was
+initialized from all five temperatures and all 100 terminal walkers of its
+completed short verified-bandpass diagnostic.  Trotter necessarily introduces
+additional fitted dust coordinates relative to one-parameter CCM; therefore,
+the comparison reports the pure likelihood and residual contribution by band,
+alongside approximate AIC/BIC and shifts in parameters common to both fits.
+Raw posterior or fit-statistic improvement alone is not treated as evidence for
+the more flexible extinction law.
+
+The two production fits were run simultaneously on identical M1 Max Pauley
+hosts so their wall-clock ratio is interpretable.  Runtime is read from the
+completed process timing record, not inferred from file timestamps.  The final
+comparison report gives both host times in hours and seconds, their absolute
+difference, and the slower-to-faster ratio; this separates any cost of the ten
+additional Trotter dust coordinates from ordinary host differences.

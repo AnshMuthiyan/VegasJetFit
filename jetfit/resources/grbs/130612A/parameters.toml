@@ -1,5 +1,10 @@
 # MCMC Parameter Configuriation File
-name = 'powerlawVegasModel'
+name = 'FireballModel'
+# Source-frame dust-law references:
+# Trotter, A. S. 2011, UNC-Chapel Hill PhD thesis, DOI 10.17615/2gjp-g156.
+# Cardelli, Clayton, and Mathis 1989, ApJ, 345, 245 (CCM89).
+# Allowed: "trotter2011" (default for new configs) or "ccm89".
+source_extinction_model = 'ccm89'
 
 #-------------- MODEL --------------
 #---------------- E ----------------
@@ -70,27 +75,6 @@ scale = "linear"
     initial_sigma = 0.05
 
 #-------------- MODEL --------------
-#-------------- k_e ----------------
-[[model]]
-name = "k_e"
-scale = "linear"
-value = 2
-
-#----------- MODEL ----------------
-# ------------ k_g ----------------
-[[model]]
-name = "k_g"
-scale= "linear"
-value = 2
-
-#--------- MODEL ------------------
-# ----------- s ------------------
-[[model]] 
-name = "s"
-scale = "linear"
-value = 4
-
-#-------------- MODEL --------------
 #---------------- k ----------------
 [[model]]
 name  = "k"
@@ -121,33 +105,6 @@ value = 2.006
 name  = "dL28"
 scale = "linear"
 value = 4.94
-
-#------------ MODEL --------------
-#-------------theta_c -----------
-[[model]]
-name = "theta_c"
-scale = "linear"
-
-[model.prior]
-	type = "uniform"
-	lower = 0.001
-	upper = 1
-	initial_guess = 0.1
-	initial_sigma = 0.05
-
-#---------- MODEL ----------------
-#-------------theta_v-------------
-[[model]]
-name = "theta_v"
-scale = "linear"
-#value = 0.0
-
-[model.prior]
-	type = "uniform"
-	lower = 0.0001
-	upper = 1
-	initial_guess = 0.1
-	initial_sigma = 0.05
 
 #----------- EXTINCTION ------------
 #---------- source_frame -----------

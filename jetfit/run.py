@@ -15,6 +15,15 @@ import emcee
 
 from jetfit.ampy import Ampy
 from jetfit.core import utils
+from jetfit.mcmc.parameters import (
+    DEFAULT_SOURCE_EXTINCTION_MODEL,
+    HOST_HI_ABSORPTION_MODELS,
+    IGM_ABSORPTION_MODELS,
+    SOURCE_EXTINCTION_MODELS,
+    normalize_host_hi_absorption_model,
+    normalize_igm_absorption_model,
+    normalize_source_extinction_model,
+)
 
 
 def parse_args():
@@ -43,6 +52,52 @@ def parse_args():
         default=os.environ.get('JETFIT_MP_START_METHOD', 'auto'),
         choices=('auto', 'fork', 'spawn', 'forkserver'),
         help='Multiprocessing start method. Default comes from JETFIT_MP_START_METHOD or auto.',
+    )
+    parser.add_argument(
+        '--bandpass-integration',
+        default='none',
+        choices=('none', 'verified', 'swift_uvot'),
+        help='Integrate supported photometry through verified response curves.',
+    )
+    parser.add_argument(
+        '--bandpass-nodes',
+        type=int,
+        default=16,
+        help=(
+            'Intrinsic-spectrum samples per supported filter; extinction uses the '
+            'full response curve. Use 0 for a brute-force reference (default: 16).'
+        ),
+    )
+    parser.add_argument(
+        '--source-extinction-model',
+        type=normalize_source_extinction_model,
+        choices=SOURCE_EXTINCTION_MODELS,
+        default=None,
+        help=(
+            "Override source_extinction_model from the model TOML. Choices are "
+            "trotter2011 (the default for new configs) and ccm89; the short "
+            "aliases trotter and ccm are accepted."
+        ),
+    )
+    parser.add_argument(
+        '--igm-absorption-model',
+        type=normalize_igm_absorption_model,
+        choices=IGM_ABSORPTION_MODELS,
+        default=None,
+        help=(
+            "Override igm_absorption_model from the model TOML. Choices are "
+            "none and inoue2014; aliases off, inoue, and inoue14 are accepted."
+        ),
+    )
+    parser.add_argument(
+        '--host-hi-absorption-model',
+        type=normalize_host_hi_absorption_model,
+        choices=HOST_HI_ABSORPTION_MODELS,
+        default=None,
+        help=(
+            "Override host_hi_absorption_model from the model TOML. Choices "
+            "are none and trotter2011; trotter2011 requires nhi_host."
+        ),
     )
     return parser.parse_args()
 
@@ -86,7 +141,7 @@ def configure_multiprocessing(start_method):
     return current
 
 
-def log(ampy, out_dir):
+def log(ampy, out_dir, *, burn_length, run_length):
     """
     Write the best parameters and sampler metadata
     to a JSON file.
@@ -102,25 +157,66 @@ def log(ampy, out_dir):
     nmap = -2 * ampy.mcmc.sampler.get_log_prob(flat=True).max()
 
     out_params = ampy.get_best_params()
-    
-    # Compute physical dust parameters if Trotter model is active
     if 'extinction' in out_params and 'c2' in out_params['extinction']:
-        from jetfit.mcmc.mcmc import trotter_dust_prior
+        from jetfit.mcmc.trotter_extinction import trotter_dust_prior
         ext = out_params['extinction']
-        c1, rv, bh, x0, gamma = trotter_dust_prior.get_physical_dust_params(ext['c2'], ext)
+        c1, rv, bh, x0, gamma = trotter_dust_prior.get_physical_dust_params(
+            ext['c2'], ext
+        )
         ext['c1_physical'] = float(c1)
         ext['rv_physical'] = float(rv)
         ext['bh_physical'] = float(bh)
         ext['x0_physical'] = float(x0)
         ext['gamma_physical'] = float(gamma)
-
     out_params['nmap'] = nmap
     out_params['mcmc'] = {
         'sampler': ampy.mcmc.sampler.name,
-        'prod_len': int(ampy.mcmc.sampler.iteration),
-        'burn_len': int(ampy.mcmc.sampler.iteration),
+        'prod_len': int(run_length),
+        'burn_len': int(burn_length),
         'nwalkers': ampy.mcmc.sampler.nwalkers,
         'model': ampy.mcmc.params.model,
+    }
+    models = getattr(ampy.mcmc, 'models', None)
+    bandpass_mode = getattr(models, 'bandpass_mode', 'none')
+    bandpass_nodes = getattr(models, 'bandpass_nodes', None)
+    source_extinction_model = getattr(
+        models,
+        'source_extinction_model',
+        getattr(
+            ampy.mcmc.params,
+            'source_extinction_model',
+            DEFAULT_SOURCE_EXTINCTION_MODEL,
+        ),
+    )
+    source_extinction_model_origin = getattr(
+        ampy.mcmc.params,
+        'source_extinction_model_origin',
+        'legacy_unrecorded',
+    )
+    out_params['photometry'] = {
+        'bandpass_integration': bandpass_mode,
+        'bandpass_nodes': (
+            'full' if bandpass_nodes is None else int(bandpass_nodes)
+        ),
+        'observable': 'photon_weighted_ab_equivalent_fnu',
+        'source_extinction_model': source_extinction_model,
+        'source_extinction_model_origin': source_extinction_model_origin,
+        'igm_absorption_model': getattr(
+            ampy.mcmc.params, 'igm_absorption_model', 'none'
+        ),
+        'igm_absorption_model_origin': getattr(
+            ampy.mcmc.params,
+            'igm_absorption_model_origin',
+            'legacy_unrecorded',
+        ),
+        'host_hi_absorption_model': getattr(
+            ampy.mcmc.params, 'host_hi_absorption_model', 'none'
+        ),
+        'host_hi_absorption_model_origin': getattr(
+            ampy.mcmc.params,
+            'host_hi_absorption_model_origin',
+            'legacy_unrecorded',
+        ),
     }
 
     with open(out_dir / 'best_fit.json', "w") as f:
@@ -190,7 +286,9 @@ def plot_results(ampy, results_dir, event):
 def main(
     obs_path, params_path, mcmc_path, results_dir, event,
     resume=False, workers_override=None, skip_plots=False,
-    initial_positions_path=None
+    initial_positions_path=None, bandpass_integration='none', bandpass_nodes=16,
+    source_extinction_model=None,
+    igm_absorption_model=None, host_hi_absorption_model=None,
 ):
     """
     Run MCMC using AMPy.
@@ -236,8 +334,28 @@ def main(
     print(f"DEBUG: Creating Ampy object...")
     print(f"  obs_path: {obs_path}")
     print(f"  params_path: {params_path}")
-    ampy = Ampy(obs_path, params_path)
+    ampy = Ampy(
+        obs_path,
+        params_path,
+        bandpass_integration=bandpass_integration,
+        bandpass_nodes=bandpass_nodes,
+        source_extinction_model=source_extinction_model,
+        igm_absorption_model=igm_absorption_model,
+        host_hi_absorption_model=host_hi_absorption_model,
+    )
     print(f"DEBUG: Ampy object created successfully!")
+    print(
+        "  source_extinction_model: "
+        f"{ampy.mcmc.params.source_extinction_model} "
+        f"({ampy.mcmc.params.source_extinction_model_origin})"
+    )
+    print(
+        "  hydrogen_absorption: "
+        f"IGM={ampy.mcmc.params.igm_absorption_model} "
+        f"({ampy.mcmc.params.igm_absorption_model_origin}), "
+        f"host_HI={ampy.mcmc.params.host_hi_absorption_model} "
+        f"({ampy.mcmc.params.host_hi_absorption_model_origin})"
+    )
 
     initial_positions = None
     if initial_positions_path is not None:
@@ -315,7 +433,12 @@ def main(
         ampy.mcmc.sampler.save(results_dir / 'chain.npz')
 
     # Log the best fit results and some metadata
-    log(ampy, results_dir)
+    log(
+        ampy,
+        results_dir,
+        burn_length=mcmc_params.burn_length,
+        run_length=mcmc_params.run_length,
+    )
 
     # Plot some things
     if not skip_plots:
@@ -332,7 +455,7 @@ if __name__ == "__main__":
 
     # Specify the event to run
     if args.event is None:
-        event_name = '221009A'  # Default event
+        event_name = '080413B'
     else:
         event_name = args.event
 
@@ -343,7 +466,6 @@ if __name__ == "__main__":
     )
 
     # Run AMPy
-    print( utils.get_event_path(sub_dir, event_name) / 'parameters.toml')
     main(
         **{
             'event':
@@ -358,7 +480,6 @@ if __name__ == "__main__":
                 Path(args.model)
                 if args.model is not None
                 else utils.get_event_path(sub_dir, event_name) / 'parameters.toml',
-                
 
             'obs_path':
                 Path(args.obs)
@@ -379,5 +500,21 @@ if __name__ == "__main__":
 
             'initial_positions_path':
                 Path(args.initial_positions) if args.initial_positions is not None else None,
+
+            'bandpass_integration':
+                args.bandpass_integration,
+
+            'bandpass_nodes':
+                args.bandpass_nodes,
+
+            'source_extinction_model':
+                args.source_extinction_model,
+
+            'igm_absorption_model':
+                args.igm_absorption_model,
+
+            'host_hi_absorption_model':
+                args.host_hi_absorption_model,
         }
     )
+    print(results_path)

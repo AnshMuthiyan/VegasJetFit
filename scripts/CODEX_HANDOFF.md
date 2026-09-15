@@ -2,6 +2,88 @@
 
 This directory contains active post-fit product scripts.
 
+## Last Touched (2026-09-15): Dust and Gas Terminology in Comparison Reports
+
+- The CCM-versus-Trotter report now defines CCM as Cardelli, Clayton, and
+  Mathis (1989) and distinguishes source-frame host dust from independently
+  applied Milky Way foreground dust.
+- The hydrogen-absorption report now includes a line-of-sight explanation of
+  host dust, host neutral hydrogen, intergalactic neutral hydrogen, and Milky
+  Way dust. It explicitly distinguishes dust extinction from Lyman absorption
+  and from the X-ray photoelectric-absorption correction.
+- Both report generators were recompiled and their September 15 reports were
+  regenerated. The changed pages were rendered for visual inspection; the
+  dust generator also uses breakable path text so absolute provenance paths do
+  not run beyond the page margin.
+
+## Last Touched (2026-09-14): Redshift-Dependent Lyman Absorption
+
+- `jetfit/core/hydrogen_absorption.py` implements deterministic mean IGM
+  transmission from Inoue et al. (2014), including 39 Lyman lines and Lyman
+  continuum opacity, plus an independently selectable host-H-I DLA and source
+  Lyman limit following Trotter (2011). Historical TOMLs remain gas-off;
+  explicit selectors are `igm_absorption_model` and
+  `host_hi_absorption_model`.
+- Verified filter responses integrate intrinsic flux, source dust, IGM/host
+  H I, and Milky Way dust inside the likelihood. Generic historical filters
+  remain central-wavelength approximations until their instrument provenance
+  is known. XRT integrated fluxes are intentionally untouched by this
+  optical/UV neutral-hydrogen model.
+- CCM89 is evaluated only inside its published inverse-wavelength range.
+  Out-of-domain response-tail nodes retain unit dust transmission while gas
+  attenuation remains active; this prevents a UV response tail from
+  invalidating the full filter and does not invent a dust extrapolation.
+- `scripts/audit_hydrogen_absorption_filters.py` audits the authoritative
+  source manifest. The 2026-09-14 inventory found 91 event/filter combinations,
+  30 with verified responses, and 11 with more than one-percent mean IGM
+  suppression under the likelihood-oriented screening approximation.
+- Controlled matched-cloud tests compare gas-off, Inoue14-only, and
+  Inoue14-plus-host-H-I for 160131A and 220101A. The former runs on Pauley-03;
+  the latter runs on Lyra. Each has a 5-temperature, 100-walker 2+3 smoke test
+  followed by a 12+40 diagnostic chain at eight workers. The diagnostic was
+  shortened only after measured smoke times of 21.7 minutes on Pauley-03 and
+  19.4 minutes on Lyra showed that 25+100 would miss the September 15 meeting;
+  each variant still retains 4,000 cold-chain samples and is explicitly labeled
+  diagnostic rather than authoritative. The watcher
+  `watch_hydrogen_absorption_comparison.sh` pulls the remote result, generates
+  the LaTeX/PDF comparison, bundles the science audit, and publishes to
+  `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.
+  It treats temporary SSH failure as a wait state and defers restart while an
+  unrelated fit is active, preventing both outage exits and duplicate loads.
+- Test provenance records the execution host and anchors the scientific model
+  to commit `be94f36c381d20bff5470fe4f9141fb36142da26`; the report prints both
+  host and revision alongside measured wall time.
+- The variant launcher validates a saved chain's expected shape, parses its
+  best-fit JSON, and requires a completed timing record before recovering a
+  missing `Completed` marker. This covers a narrow interruption after the
+  Python process has safely written all products without accepting a partial
+  checkpoint as complete.
+- The comparison report includes a per-event spread-out light-curve overlay
+  and ratio panel for gas-off, IGM-only, and IGM-plus-host fits. Curves include
+  each fit's calibration offsets while observations remain on their original
+  scale; companion CSVs preserve every plotted curve. The 10-page LaTeX
+  template compiled successfully in a full placeholder-product smoke test.
+- Validation: 34 focused tests pass after the CCM response-tail guard and
+  all verified filters remain finite at the test redshifts; one
+  sampled walker from every 160131A temperature has a finite likelihood.
+
+## Last Touched (2026-09-15): Hydrogen Absorption Comparison Completion
+
+- All six 12+40 diagnostics completed with finite chains, log probabilities,
+  and best-fit JSON. Pauley-03 wall times for 160131A were 1.340, 1.345, and
+  1.348 hours; Lyra wall times for 220101A were 1.141, 1.257, and 1.244 hours
+  for gas-off, Inoue-only, and Inoue-plus-host-H-I, respectively.
+- The diagnostic result does not support immediate production adoption. For
+  160131A, Inoue changed `-2 ln L` by only -0.20 and adding host H I then
+  worsened it by +6.15. For 220101A, Inoue worsened `-2 ln L` by +518.21 and
+  host H I worsened it by another +39.52. The latter penalty is concentrated
+  in generic historical `r/R` data; resolve the instruments, response curves,
+  and any prior Lyman correction before interpreting the gas model.
+- The final 10-page US-letter report and companion CSV/PNG/PDF products are in
+  `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.
+  All pages were rendered and visually inspected; headings, tables, figures,
+  captions, links, and page numbering are legible with no clipping or overlap.
+
 ## Last Touched (2026-08-11): 090424 Early-X-Ray SSC+KN Completion
 
 - The PCRC-2 SSC+KN seeded refit completed all 5000 burn-in and 5000
@@ -4125,3 +4207,91 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
 - Updated live tracking cells AB5 (080413B profile launch) and AB6 (future
   090424 extinction-code review). Remaining uncertainty is whether the
   log-Gamma 8 dynamics admit any finite solution at the retained grid.
+
+## Last Touched (2026-09-10): Trotter Extinction Audit and Smoke Test
+
+- Reviewed `origin/jonathan-mac-version` commit `e100a87` against Adam
+  Trotter's 2011 thesis. The submitted code contained useful fitted-prior
+  constants, but the new parameters did not enter modeled flux, omitted
+  `A_V`, `c4`, and the three horizontal-scatter coordinates, used the wrong
+  asymmetric-Gaussian normalization, included a noncompiling corner-plot
+  edit, and arrived through a merge that regressed the current model API.
+- Ported the corrected implementation onto production commit `317b0a0` on
+  branch `codex/trotter-extinction-production`. The likelihood and plotting
+  paths now share `jetfit/mcmc/trotter_extinction.py`; legacy CCM
+  `ebv_source_frame` fits are unchanged. The first test conditions the Trotter
+  fitted-prior hierarchy on the peak hyperparameters in Tables 3.2--3.5 while
+  sampling all quoted cosmic-scatter coordinates.
+- Added `prepare_trotter_extinction_continuation.py`, which preserves the five
+  latest 100-walker source clouds, maps the old color excess to initial
+  `A_V=3.1 E(B-V)`, initializes only the new dust dimensions, and records
+  SHA-256 provenance. The 090424 source is
+  `090424_core_logangle_powerlawcsm_kminus10to3_finalfinal_sthawed_highres_5temp_1000x5000_alluv_v2`.
+- Focused tests pass for thesis normalization, CCM/FM continuity, far-UV-only
+  `c4` response, all horizontal-scatter relations, hard physical constraints,
+  likelihood sensitivity, and plot/likelihood agreement. The real 090424
+  forward model is finite. Pauley404-03 completed the 5-temperature,
+  100-walker, 2-burn plus 3-production smoke with 100/100 valid walkers at
+  every temperature and complete checkpoint/chain/best-fit artifacts.
+- Pauley404-01 is running the 25-burn plus 100-production diagnostic from the
+  same cloud with 8 workers. Pauley404-03 remains occupied by the 080413B
+  fixed-Gamma minimization; its test snapshot is installed but its active tree
+  should not be replaced mid-job. Pauley404-02 remains on the all-UVOIR
+  080319B `n017`-upper-25 fit and must not be updated until that source chain
+  completes. The 080319B Trotter continuation must seed from that exact new
+  cloud.
+- Academic-year policy: Pauley is the default MCMC pool at 8 workers; PCRC is
+  student infrastructure and may be used only when availability and permission
+  are explicitly confirmed. Lyra remains the post-processing and measured
+  high-memory-exception host; Carina is not a production-MCMC host.
+- Audit, paper prose, meeting notes, email draft, and run state are in
+  `reports/2026_09_10_trotter_extinction_review/`. Ethan's gas/Lyman absorption
+  implementation was not present in `e100a87` and remains a separate review.
+
+## Last Touched (2026-09-14): Explicit Source-Extinction Selection
+
+- Model TOMLs now accept top-level `source_extinction_model = 'trotter2011'`
+  or `'ccm89'`; Trotter is the new-config default. The CLI accepts the same
+  names through `--source-extinction-model`, plus `trotter` and `ccm` aliases.
+- `Parameters` rejects mixed and incomplete source-dust blocks before MCMC.
+  Existing tracked CCM configurations are explicitly marked `ccm89`; unmarked
+  external CCM files remain compatible through a visible legacy-inference
+  warning. Milky Way foreground extinction remains CCM89 and independent.
+- Every tracked source-dust TOML carries the Trotter (2011 thesis, DOI
+  `10.17615/2gjp-g156`) and Cardelli, Clayton, and Mathis (1989, ApJ 345, 245)
+  references. Active config writers preserve both the selection and comments.
+- Validation: 41 tracked extinction configs parsed with explicit selections
+  (39 CCM89, 2 Trotter); paired real 090424 `Ampy` construction returned 23
+  CCM and 33 Trotter fitted coordinates; 33 focused tests passed. The broader
+  suite retains unrelated legacy/environment failures documented in the task
+  output (missing optional `jetsimpy`/LaTeX and old numerical/data tests).
+
+## Last Touched (2026-09-14): Redshift-Dependent Lyman Absorption
+
+- Added explicit, independent gas switches `igm_absorption_model` and
+  `host_hi_absorption_model`; omitted historical keys remain off for provenance.
+  The IGM option implements the mean Inoue et al. (2014) 39-line plus continuum
+  attenuation. The optional host option implements Trotter (2011) Eq. 3.39 and
+  source Lyman limit with fitted `absorption.nhi_host`.
+- Dylan's dissertation explicitly says the 160131A `uvm2/uvw1`, 220101A `r/R`,
+  and 210905A `i/I/z` offsets absorbed Lyman suppression because his model did
+  not include it. Treat this as newly added propagation physics, not a recovered
+  hidden AMPy feature. Dust and optical/UV H I remain separate; do not apply the
+  host H I column to absorption-corrected XRT integrated-flux products.
+- Verified UVOT and HST filters evaluate source dust, IGM, host H I, and Milky
+  Way dust inside the full photon-counting response integral. Generic filter
+  labels remain central-wavelength approximations until instrument provenance
+  and response curves are known. Likelihood and post-fit plotting share
+  `MCMCModels.integrate_spectral_bandpass()`.
+- Added matched gas-off, Inoue-only, and Inoue-plus-host-H-I comparison tooling
+  for authoritative 160131A and 220101A posterior clouds. The meeting diagnostic
+  uses 5 temperatures, 100 walkers, 12 burn-in, 40 production, 8 workers, and
+  a broad uniform `log10(N_HI/cm^-2)` prior of 18.0--23.5 in the host variant.
+  This deadline-bounded cadence supersedes the preflight plan of 25+100 after
+  measured smoke timings showed that the longer plan would miss the meeting.
+- Validation: the Inoue transmission matches independent EAZY reference values
+  at z=0.97, 2.198, 4.61, and 6.318 to floating-point precision; 48 focused
+  absorption/extinction/bandpass tests pass. The collectable broader suite has
+  163 passes and 3 skips, with only three pre-existing legacy failures; full
+  collection also retains its three already documented obsolete/optional-import
+  blockers.

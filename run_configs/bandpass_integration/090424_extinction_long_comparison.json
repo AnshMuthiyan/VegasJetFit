@@ -1,0 +1,51 @@
+{
+  "event": "090424",
+  "purpose": "Long controlled comparison of CCM and Trotter host extinction",
+  "controlled_inputs": {
+    "observations_sha256": "cfa49b3a54e40cb96b7f614b4630880f9a7fe086b99b50781a96c965433d1ab5",
+    "data": "all reviewed UV/optical/IR data; early X-ray flare excluded",
+    "emission_model": "PowerlawJetVegasDylanSpectrumModel",
+    "bandpass_integration": "verified photon-counting",
+    "bandpass_nodes": 16,
+    "vegas_grid": {
+      "phi": 0.15,
+      "theta": 0.5,
+      "time": 15.0
+    },
+    "sampler": {
+      "temperatures": 5,
+      "walkers": 100,
+      "burn": 100,
+      "production": 800,
+      "workers": 8,
+      "checkpoint_interval": 50
+    }
+  },
+  "intentional_difference": "Host extinction prescription and its required fitted coordinates: CCM uses E(B-V); Trotter uses A_V, c2, c4, and correlated dust-prior coordinates.",
+  "variants": {
+    "ccm": {
+      "source_result": "jetfit/results/090424_ccm_bandpass_verified_5temp_25x100_v1",
+      "source_checkpoint_sha256": "7f9c78d4b935e3e85d3b67e1070b08fae1422c2dac9eb315f28c378b114d2ab5",
+      "seed_path": "run_configs/bandpass_integration/090424_ccm/initial_positions_long.npz",
+      "seed_sha256": "be693feae2e53daccbc341c76cfb632f734fe3e57cc60ce18843f7f178e26691",
+      "seed_shape": [
+        5,
+        100,
+        23
+      ],
+      "parameter_count": 23
+    },
+    "trotter": {
+      "source_result": "jetfit/results/090424_trotter_bandpass_verified_5temp_25x100_v1",
+      "source_checkpoint_sha256": "d67c83a61183fd307d0491c6d749549a51cb01d00490528acce0fac099a5a07b",
+      "seed_path": "run_configs/bandpass_integration/090424_trotter/initial_positions_long.npz",
+      "seed_sha256": "ef4dbe536c81e0ddb6e9ad1c4b34fb0ce6552b069a13ee8ce77424fd13438729",
+      "seed_shape": [
+        5,
+        100,
+        33
+      ],
+      "parameter_count": 33
+    }
+  }
+}

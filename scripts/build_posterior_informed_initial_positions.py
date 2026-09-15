@@ -8,7 +8,9 @@ from pathlib import Path
 
 import numpy as np
 
-SECTIONS = ("model", "extinction", "offsets", "host", "slop")
+SECTIONS = (
+    "model", "extinction", "absorption", "offsets", "host", "slop"
+)
 
 
 def fitted_names(path: Path) -> list[str]:

@@ -649,24 +649,39 @@ def plot_density_profile(chain, log_prob, params, obs, model, model_kw=None, bes
 
 
 # <editor-fold desc="Light Curve">
-def model_extinction(flux, model, sdata, params):
-    """ Model contamination. """
-    wn = [1.0 / d.wavelength.to_value('um') for d in sdata]
+def model_extinction(
+    flux, model, sdata, params, attenuation_wrapper=None
+):
+    """Apply propagation and host terms to monochromatic plot fluxes."""
+    wn = np.asarray([1.0 / d.wavelength.to_value('um') for d in sdata])
+    extinction = params.get('extinction') or {}
+    wrapper = attenuation_wrapper
+    if wrapper is not None:
+        flux *= wrapper._node_source_attenuation(wn, params)
+    else:
+        # Multiplicative source-frame dust extinction
+        if extinction.get('av_source_frame') is not None:
+            from jetfit.mcmc.trotter_extinction import trotter_source_attenuation
 
-    # Multiplicative source-frame extinction
-    if ebv_sf := params.get('extinction').get('ebv_source_frame'):
-        z = params.get('model').get('z')
-        flux *= model_source_extinction((1.0 + z) * np.array(wn), model, ebv_sf)
+            z = params.get('model').get('z')
+            flux *= trotter_source_attenuation(
+                (1.0 + z) * wn, extinction
+            )
+        elif ebv_sf := extinction.get('ebv_source_frame'):
+            z = params.get('model').get('z')
+            flux *= model_source_extinction((1.0 + z) * wn, model, ebv_sf)
 
     # Additive host galaxy contamination
     if params.get('host') is not None:
         bands = [d.band for d in sdata]
         flux += model_host_contamination(np.array(bands), params.get('host'))
 
-    # Multiplicative source-frame extinction
-    if ebv_mw := params.get('extinction').get('ebv_milky_way'):
-        rv = params.get('extinction').get('rv_milky_way')
-        flux *= model_galactic_extinction(np.array(wn), model, ebv_mw, rv)
+    # Multiplicative Milky-Way foreground extinction
+    if wrapper is not None:
+        flux *= wrapper._node_milky_way_attenuation(wn, params)
+    elif ebv_mw := extinction.get('ebv_milky_way'):
+        rv = extinction.get('rv_milky_way')
+        flux *= model_galactic_extinction(wn, model, ebv_mw, rv)
 
     return flux
 
@@ -731,6 +746,7 @@ class LightCurvePlot:
         self.model = model
         self.params = params
         self.observation = observation
+        self.attenuation_wrapper = getattr(observation, '_jetfit_models', None)
         self.meta = meta if meta is not None else {}
 
         self.ax = None
@@ -813,14 +829,35 @@ class LightCurvePlot:
 
     def model_spectral_flux(self, sdata, params, t, ext_model=None):
         """ Model the spectral fluxes. """
+        if (
+            self.attenuation_wrapper is not None
+            and self.attenuation_wrapper.bandpass_enabled
+            and len(sdata) == 1
+        ):
+            from jetfit.core.bandpass import get_bandpass
+
+            band = str(sdata[0].band)
+            if get_bandpass(band) is not None:
+                ag_model = self.model(**params.get('model'), **self.meta)
+                flux = self.attenuation_wrapper.integrate_spectral_bandpass(
+                    ag_model, band, t, params
+                )
+                host = params.get('host') or {}
+                return flux + (host.get(f'{band}_host') or 0.0)
+
         nu = np.array([d.frequency.to_value('Hz') for d in sdata])
 
         # Unextinguished spectral flux
         sflux = self.model_flux(params.get('model'), t, dict(nu=nu))
 
-        return (
-            sflux if ext_model is None else
-            model_extinction(sflux, ext_model, sdata, params)
+        if ext_model is None and self.attenuation_wrapper is None:
+            return sflux
+        return model_extinction(
+            sflux,
+            ext_model,
+            sdata,
+            params,
+            attenuation_wrapper=self.attenuation_wrapper,
         )
 
     def model_integrated_flux(self, idata, params, t):
@@ -1221,10 +1258,7 @@ class FrequencyPlotter(Profiler):
             )
 
         if best is None:
-            if self.chain is not None and self.log_prob is not None:
-                best = self.best(cat='model')
-            else:
-                raise ValueError("best must be provided when chain is None")
+            best = self.best(cat='model')
 
         # Plot best for all times
         model = self.model(**best.get('model'), **(self.model_kw or {}))
@@ -1244,14 +1278,14 @@ class FrequencyPlotter(Profiler):
                 p = self.params.samples_to_dict(s)
                 model = self.model(**p.get('model'), **(self.model_kw or {}))
 
-                    # Is there a fast-to-slow transition?
+                # Is there a fast-to-slow transition?
                 fts = False
 
                 if hasattr(model, 'smooth_fast_to_slow_transition'):
                     fts = bool(model.smooth_fast_to_slow_transition)
                 elif not isinstance(model, JetSimpy):
-                        full_spectrum = model.spectrum(obs.times())
-                        fts = has_fts_transition(full_spectrum['nu_m'], full_spectrum['nu_c'])
+                    full_spectrum = model.spectrum(obs.times())
+                    fts = has_fts_transition(full_spectrum['nu_m'], full_spectrum['nu_c'])
 
                 try:
                     modeled = model.spectral_index(times, lower, upper, fts=fts)
@@ -1419,12 +1453,10 @@ class FrequencyPlotter(Profiler):
         times : np.ndarray
             The observer-frame times [d].
         """
-        # Skip sample plotting if chain is not available
-        if self.chain is not None:
-            if nsamps is not None:
-                samples = self.draw(nsamps)
-            else:
-                samples = getattr(self, 'samples', None) or self.draw()
+        if nsamps is not None:
+            samples = self.draw(nsamps)
+        else:
+            samples = self.samples
 
         cached = self._read_frequency_data(out_dir, times)
         if cached is not None:
@@ -1475,10 +1507,7 @@ class FrequencyPlotter(Profiler):
             The observer-frame times [d].
         """
         if best is None:
-            if self.chain is not None and self.log_prob is not None:
-                best = self.best(cat='model')
-            else:
-                raise ValueError("best must be provided when chain is None")
+            best = self.best(cat='model')
 
         # Model the most likely frequencies
         best_nu_ms, best_nu_cs, best_nu_as = model_freqs(
@@ -1747,21 +1776,18 @@ class DensityProfiler(Profiler):
             self._profile_single_powerlaw(start, stop, samples, best_params)
             return
 
-            for s in samples:
-                params = self.params.samples_to_dict(s).get('model')
+        for s in samples:
+            params = self.params.samples_to_dict(s).get('model')
 
-                # If jet-break, use as end time
-                times = np.geomspace(start, params.get('tj') or stop, 500)
+            # If jet-break, use as end time
+            times = np.geomspace(start, params.get('tj') or stop, 500)
 
-                # Model and store using random distribution of params
-                self.model(times, params, 'dist')
+            # Model and store using random distribution of params
+            self.model(times, params, 'dist')
 
         # Model and store using the best fitting params
         if best_params is None:
-            if self.chain is not None and self.log_prob is not None:
-                best_params = self.best().get('model')
-            else:
-                raise ValueError("best_params must be provided when chain is None")
+            best_params = self.best().get('model')
 
         times = np.geomspace(start, best_params.get('tj') or stop, 500)
 
@@ -2178,59 +2204,3 @@ class DensityProfiler(Profiler):
         self.save_profile_plot('k_profile', out_dir, dpi=1200)
         plt.close()
 # </editor-fold>
-
-def plot(self, x_dist, y_dist, x_best, y_best, log_scale=True):
-    """
-    Generic plotting method for profiles.
-
-    Parameters
-    ----------
-    x_dist : list
-        X-axis data for distribution.
-
-    y_dist : list
-        Y-axis data for distribution.
-
-    x_best : np.ndarray
-        X-axis data for best fit.
-
-    y_best : np.ndarray
-        Y-axis data for best fit.
-
-    log_scale : bool, optional, default=True
-        Whether to use log scale.
-
-    Returns
-    -------
-    matplotlib.axes.Axes
-        The plot axes.
-    """
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    # Skip plotting distribution samples - only plot best fit
-    # for i in range(len(y_dist)):
-    #     ax.loglog(x_dist[i], y_dist[i], alpha=0.1, color='tab:blue') if log_scale else ax.plot(x_dist[i], y_dist[i], alpha=0.1, color='tab:blue')
-
-    ax.loglog(x_best, y_best, color='black', linewidth=2) if log_scale else ax.plot(x_best, y_best, color='black', linewidth=2)
-
-    ax.grid(alpha=0.3)
-    return ax
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

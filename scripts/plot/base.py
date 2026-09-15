@@ -75,6 +75,9 @@ def latex(key: str) -> str:
     str
         The LaTeX formatted ``key`` or just ``key``
     """
+    if key == 'nhi_host':
+        return r'$\log_{10}(N_{\mathrm{H\,I,host}}/\mathrm{cm}^{-2})$'
+
     if '_host' in key:
         return r'$log_{10}$(' + f'{key.split('_')[0]}' + r'$_{host}$)'
 
@@ -131,6 +134,7 @@ def latex(key: str) -> str:
             'ebv_source_frame': r'$E(B-V)_{sf}$',
             'ebv_milky_way': r'$E(B-V)_{MW}$',
             'n017': r'$log_{10}n_{0, 17}$',
+            'nhi_host': r'$\log_{10}N_{\mathrm{H\,I,host}}$',
         }[key]
     except KeyError:
         return key
