@@ -30,6 +30,8 @@ This directory contains active post-fit product scripts.
   `watch_hydrogen_absorption_comparison.sh` pulls the remote result, generates
   the LaTeX/PDF comparison, bundles the science audit, and publishes to
   `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.
+  It treats temporary SSH failure as a wait state and defers restart while an
+  unrelated fit is active, preventing both outage exits and duplicate loads.
 - Validation: 34 focused tests pass after the CCM response-tail guard and
   all verified filters remain finite at the test redshifts; one
   sampled walker from every 160131A temperature has a finite likelihood.

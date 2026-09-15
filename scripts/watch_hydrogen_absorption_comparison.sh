@@ -123,7 +123,9 @@ while :; do
   if ! event_complete_local 220101A; then
     if ! tmux has-session -t hydrogen_absorption_220101A 2>/dev/null && \
        ! pgrep -f '[j]etfit.run.*220101A_hydrogen_' >/dev/null; then
-      if (( local_restarts < 3 )); then
+      if pgrep -f '[j]etfit.run|[m]inimize.py' >/dev/null; then
+        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) deferred Lyra restart: another fit is active"
+      elif (( local_restarts < 3 )); then
         start_local_sequence
         local_restarts=$((local_restarts + 1))
         echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) restarted Lyra sequence attempt=$local_restarts"
@@ -134,15 +136,21 @@ while :; do
   fi
 
   if ! event_complete_remote 160131A; then
-    if ! ssh_cmd "$P03_HOST" \
-      "tmux has-session -t hydrogen_absorption_160131A 2>/dev/null || pgrep -f '[j]etfit.run.*160131A_hydrogen_' >/dev/null"; then
-      if (( remote_restarts < 3 )); then
-        start_remote_sequence
-        remote_restarts=$((remote_restarts + 1))
-        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) restarted Pauley-03 sequence attempt=$remote_restarts"
-      else
-        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) Pauley-03 sequence needs manual review"
+    if ssh_cmd "$P03_HOST" true; then
+      if ! ssh_cmd "$P03_HOST" \
+        "tmux has-session -t hydrogen_absorption_160131A 2>/dev/null || pgrep -f '[j]etfit.run.*160131A_hydrogen_' >/dev/null"; then
+        if ssh_cmd "$P03_HOST" "pgrep -f '[j]etfit.run|[m]inimize.py' >/dev/null"; then
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) deferred Pauley-03 restart: another fit is active"
+        elif (( remote_restarts < 3 )); then
+          start_remote_sequence
+          remote_restarts=$((remote_restarts + 1))
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) restarted Pauley-03 sequence attempt=$remote_restarts"
+        else
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) Pauley-03 sequence needs manual review"
+        fi
       fi
+    else
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) Pauley-03 unreachable; retaining remote state"
     fi
   fi
 
