@@ -271,6 +271,35 @@ class BandpassLikelihoodTests(unittest.TestCase):
         self.assertTrue(np.isfinite(modeled))
         self.assertAlmostEqual(float(modeled), float(expected), places=12)
 
+    def test_all_verified_filters_remain_finite_with_ccm_and_igm(self):
+        names = list(available_bandpasses())
+        frequencies = [
+            C_ANGSTROM_PER_SECOND / get_bandpass(name).pivot_wavelength_angstrom
+            for name in names
+        ]
+        for redshift in (0.544, 0.97, 4.61, 6.318):
+            obs = _Observation(
+                np.ones(len(names)), frequencies, names
+            )
+            params = {
+                'model': {'slope': -0.7, 'z': redshift},
+                'extinction': {'ebv_source_frame': 0.1},
+                'absorption': {},
+            }
+            wrapper = MCMCModels(
+                obs,
+                _PowerLawAfterglow,
+                ext_model=CCM89,
+                source_extinction_model='ccm89',
+                bandpass_integration='verified',
+                bandpass_nodes=16,
+                igm_absorption_model='inoue2014',
+            )
+            modeled = wrapper.model(params)
+            self.assertEqual(modeled.shape, (len(names),))
+            self.assertTrue(np.all(np.isfinite(modeled)))
+            self.assertTrue(np.all(modeled >= 0.0))
+
     def test_igm_absorption_is_integrated_inside_uvot_bandpass(self):
         uvm2 = get_bandpass('uvm2')
         pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom

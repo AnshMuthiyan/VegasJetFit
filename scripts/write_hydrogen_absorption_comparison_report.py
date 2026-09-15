@@ -354,8 +354,33 @@ def build_tex(output: Path, payload: dict) -> str:
             "The fitted host column is a separate gas parameter and is not the metal-sensitive "
             "equivalent X-ray column."
         ),
-        r"\section{Run Summary}",
     ]
+    material_filters = payload.get("material_filter_audit", [])
+    if material_filters:
+        lines.extend((
+            r"\subsection{Filters Requiring the Correction}",
+            (
+                "This screening table lists event/filter combinations in the "
+                "authoritative 15-burst manifest with more than one-percent mean "
+                "IGM suppression. A verified response uses response-weighted mean "
+                "transmission; an instrument-ambiguous historical label uses its "
+                "central wavelength and is explicitly marked as an approximation."
+            ),
+            table(
+                ("GRB", "Filter", "$z$", r"$\langle T_{\rm IGM}\rangle$", "Likelihood treatment"),
+                [
+                    (
+                        tex(row["event"]), tex(row["filter"]),
+                        number(row["redshift"], 3),
+                        number(row["igm_transmission_used_for_likelihood_audit"], 3),
+                        tex(str(row["treatment"]).replace("_", " ")),
+                    )
+                    for row in material_filters
+                ],
+                r"llrr>{\raggedright\arraybackslash}X",
+            ),
+        ))
+    lines.append(r"\section{Run Summary}")
     summary_rows = []
     for event in EVENTS:
         for variant in VARIANTS:
@@ -415,6 +440,14 @@ def main() -> None:
     output = args.output_dir.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
     payload = {"generated_utc": datetime.now(UTC).isoformat(), "events": {}}
+    filter_audit = output / "filter_absorption_inventory.csv"
+    if filter_audit.is_file():
+        with filter_audit.open(newline="") as handle:
+            payload["material_filter_audit"] = [
+                row for row in csv.DictReader(handle)
+                if row.get("igm_material_in_likelihood_audit", "").lower()
+                == "true"
+            ]
 
     for event in EVENTS:
         summaries, residuals, posteriors = {}, [], {}
