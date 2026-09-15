@@ -9,8 +9,8 @@ case "$variant" in
   *) echo "Unknown absorption variant: $variant" >&2; exit 2 ;;
 esac
 case "$stage" in
-  smoke) dimensions="2x3" ;;
-  diagnostic) dimensions="12x40" ;;
+  smoke) dimensions="2x3"; expected_steps=3 ;;
+  diagnostic) dimensions="12x40"; expected_steps=40 ;;
   *) echo "Unknown run stage: $stage" >&2; exit 2 ;;
 esac
 
@@ -24,9 +24,32 @@ results="$VJF/jetfit/results/$tag"
 log="$VJF/logs/${tag}.log"
 resume_args=()
 
+valid_completed_result() {
+  [[ -s "$results/chain.npz" && -s "$results/best_fit.json" ]] || return 1
+  grep -q '^real ' "$log" 2>/dev/null || return 1
+  "$PY" - "$results" "$expected_steps" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+path = Path(sys.argv[1])
+expected_steps = int(sys.argv[2])
+with np.load(path / "chain.npz", allow_pickle=False) as archive:
+    chain = np.asarray(archive["chain"])
+if chain.shape[0:2] != (expected_steps, 100):
+    raise SystemExit(1)
+json.loads((path / "best_fit.json").read_text())
+PY
+}
+
 mkdir -p "$VJF/logs"
-if [[ -s "$results/chain.npz" && -s "$results/best_fit.json" ]] && \
-   grep -q '^Completed ' "$log" 2>/dev/null; then
+if valid_completed_result; then
+  if ! grep -q '^Completed ' "$log" 2>/dev/null; then
+    echo "Completed $tag at $(date -u +%Y-%m-%dT%H:%M:%SZ) (validated marker recovery)" \
+      | tee -a "$log"
+  fi
   echo "Already complete: $tag"
   exit 0
 fi

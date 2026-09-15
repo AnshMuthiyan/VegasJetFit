@@ -39,6 +39,11 @@ This directory contains active post-fit product scripts.
 - Test provenance records the execution host and anchors the scientific model
   to commit `be94f36c381d20bff5470fe4f9141fb36142da26`; the report prints both
   host and revision alongside measured wall time.
+- The variant launcher validates a saved chain's expected shape, parses its
+  best-fit JSON, and requires a completed timing record before recovering a
+  missing `Completed` marker. This covers a narrow interruption after the
+  Python process has safely written all products without accepting a partial
+  checkpoint as complete.
 - The comparison report includes a per-event spread-out light-curve overlay
   and ratio panel for gas-off, IGM-only, and IGM-plus-host fits. Curves include
   each fit's calibration offsets while observations remain on their original
