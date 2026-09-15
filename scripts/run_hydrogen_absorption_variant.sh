@@ -10,7 +10,7 @@ case "$variant" in
 esac
 case "$stage" in
   smoke) dimensions="2x3" ;;
-  diagnostic) dimensions="25x100" ;;
+  diagnostic) dimensions="12x40" ;;
   *) echo "Unknown run stage: $stage" >&2; exit 2 ;;
 esac
 

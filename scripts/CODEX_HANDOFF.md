@@ -26,7 +26,11 @@ This directory contains active post-fit product scripts.
 - Controlled matched-cloud tests compare gas-off, Inoue14-only, and
   Inoue14-plus-host-H-I for 160131A and 220101A. The former runs on Pauley-03;
   the latter runs on Lyra. Each has a 5-temperature, 100-walker 2+3 smoke test
-  followed by a 25+100 diagnostic chain at eight workers. The watcher
+  followed by a 12+40 diagnostic chain at eight workers. The diagnostic was
+  shortened only after measured smoke times of 21.7 minutes on Pauley-03 and
+  19.4 minutes on Lyra showed that 25+100 would miss the September 15 meeting;
+  each variant still retains 4,000 cold-chain samples and is explicitly labeled
+  diagnostic rather than authoritative. The watcher
   `watch_hydrogen_absorption_comparison.sh` pulls the remote result, generates
   the LaTeX/PDF comparison, bundles the science audit, and publishes to
   `Share_Folder/Reports/Meeting_Books/26_09_15__hydrogen_absorption_comparison`.

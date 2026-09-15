@@ -58,7 +58,7 @@ COLORS = {"none": "#555555", "igm": "#2878B5", "igm_host": "#B05A32"}
 
 
 def tag(event: str, variant: str) -> str:
-    return f"{event}_hydrogen_{variant}_bandpass_verified_5temp_25x100_v1"
+    return f"{event}_hydrogen_{variant}_bandpass_verified_5temp_12x40_v1"
 
 
 def tex(value: object) -> str:
@@ -546,8 +546,10 @@ def build_tex(output: Path, payload: dict) -> str:
         for event_payload in payload["events"].values()
     })
     lines.append(
-        "All runs use five temperatures, 100 walkers, 25 burn-in steps, 100 retained "
-        "production steps, eight workers, and 10-step checkpoints. These are controlled "
+        "All runs use five temperatures, 100 walkers, 12 burn-in steps, 40 retained "
+        "production steps, eight workers, and five-step checkpoints. The cadence was "
+        "set after measured five-step smokes on both execution hosts so all three "
+        "matched variants would finish before the meeting. These are controlled "
         "diagnostic continuations, not replacements for the authoritative long chains. "
         "Scientific model revision: "
         + ", ".join(r"\texttt{" + tex(commit) + "}" for commit in scientific_commits)

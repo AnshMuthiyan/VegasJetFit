@@ -36,7 +36,7 @@ VARIANTS = {
     "igm_host": ("inoue2014", "trotter2011"),
 }
 MCMC_SMOKE = """# Finite-model and sampler smoke test.\n\n[sampler]\nname = 'parallel_tempered'\nnum_walkers = 100\nburn_length = 2\nrun_length = 3\nntemps = 5\nworkers = 8\ncheckpoint_interval = 1\n"""
-MCMC_DIAGNOSTIC = """# Short controlled absorption comparison for the meeting.\n\n[sampler]\nname = 'parallel_tempered'\nnum_walkers = 100\nburn_length = 25\nrun_length = 100\nntemps = 5\nworkers = 8\ncheckpoint_interval = 10\n"""
+MCMC_DIAGNOSTIC = """# Deadline-bounded controlled absorption comparison for the meeting.\n\n[sampler]\nname = 'parallel_tempered'\nnum_walkers = 100\nburn_length = 12\nrun_length = 40\nntemps = 5\nworkers = 8\ncheckpoint_interval = 5\n"""
 
 
 def sha256(path: Path) -> str:
@@ -234,7 +234,7 @@ def main() -> None:
         }
 
     (output_root / "mcmc_smoke_5temp_2x3.toml").write_text(MCMC_SMOKE)
-    (output_root / "mcmc_diagnostic_5temp_25x100.toml").write_text(
+    (output_root / "mcmc_diagnostic_5temp_12x40.toml").write_text(
         MCMC_DIAGNOSTIC
     )
     provenance = {

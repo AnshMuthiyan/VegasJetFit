@@ -24,7 +24,7 @@ ssh_stream() {
 
 complete_local() {
   local event="$1" variant="$2" stage="$3" dimensions
-  [[ "$stage" == smoke ]] && dimensions=2x3 || dimensions=25x100
+  [[ "$stage" == smoke ]] && dimensions=2x3 || dimensions=12x40
   local tag="${event}_hydrogen_${variant}_bandpass_verified_5temp_${dimensions}_v1"
   [[ -s "$VJF/jetfit/results/$tag/chain.npz" && \
      -s "$VJF/jetfit/results/$tag/best_fit.json" ]] && \
@@ -33,7 +33,7 @@ complete_local() {
 
 complete_remote() {
   local event="$1" variant="$2" stage="$3" dimensions
-  [[ "$stage" == smoke ]] && dimensions=2x3 || dimensions=25x100
+  [[ "$stage" == smoke ]] && dimensions=2x3 || dimensions=12x40
   local tag="${event}_hydrogen_${variant}_bandpass_verified_5temp_${dimensions}_v1"
   ssh_cmd "$P03_HOST" \
     "test -s '$REMOTE_VJF/jetfit/results/$tag/chain.npz' -a -s '$REMOTE_VJF/jetfit/results/$tag/best_fit.json' && grep -q '^Completed ' '$REMOTE_VJF/logs/$tag.log'"
@@ -69,7 +69,7 @@ start_remote_sequence() {
 
 pull_remote_result() {
   local variant="$1" stage="$2" dimensions tag destination incoming
-  [[ "$stage" == smoke ]] && dimensions=2x3 || dimensions=25x100
+  [[ "$stage" == smoke ]] && dimensions=2x3 || dimensions=12x40
   tag="160131A_hydrogen_${variant}_bandpass_verified_5temp_${dimensions}_v1"
   destination="$VJF/jetfit/results/$tag"
   incoming="$VJF/jetfit/results/.incoming_${tag}_$$"
@@ -87,7 +87,7 @@ from pathlib import Path
 import numpy as np
 
 path = Path(sys.argv[1])
-expected_steps = 3 if sys.argv[2] == "smoke" else 100
+expected_steps = 3 if sys.argv[2] == "smoke" else 40
 with np.load(path / "chain.npz", allow_pickle=False) as archive:
     chain = np.asarray(archive["chain"])
 if chain.shape[0:2] != (expected_steps, 100):
