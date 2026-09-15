@@ -19,6 +19,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -35,6 +36,15 @@ from jetfit.mcmc.mcmc import (
     slop,
 )
 from scripts.minimize import initial_from_best_fit
+from scripts.plot.base import OPTION_MAP
+from scripts.plot.visualize import LightCurvePlot
+from scripts.plot_spread_light_curves import (
+    DEFAULT_SPACING,
+    SEC_PER_DAY,
+    attach_axis,
+    fast_model_fluxes,
+    load_spacing,
+)
 
 
 EVENTS = ("160131A", "220101A")
@@ -179,7 +189,7 @@ def evaluate(event: str, variant: str) -> tuple[dict, list[dict], dict]:
             "host_hi": ampy.mcmc.params.host_hi_absorption_model,
         },
     }
-    return summary, rows, posterior
+    return summary, rows, posterior, {"ampy": ampy, "params": params}
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -309,6 +319,139 @@ def plot_transmission(
     save_figure(fig, output, f"{event}_hydrogen_absorption_transmission")
 
 
+def calibration_factors_by_band(ampy: Ampy, params: dict) -> dict[str, float]:
+    """Return the likelihood's multiplicative model correction per band."""
+    bands = np.asarray(ampy.obs.as_arrays.bands, dtype=str)
+    offsets = params.get("offsets") or {}
+    factors: dict[str, float] = {}
+    for name, mask in ampy.obs.offsets.items():
+        value = offsets.get(name)
+        if value is None:
+            continue
+        for band in set(bands[np.asarray(mask, dtype=bool)]):
+            factor = 10.0 ** (-0.4 * float(value))
+            if band in factors and not np.isclose(factors[band], factor):
+                raise ValueError(f"Band {band!r} has multiple calibration offsets.")
+            factors[band] = factor
+    return factors
+
+
+def plot_light_curve_comparison(
+    event: str, states: dict[str, dict], output: Path
+) -> None:
+    """Plot raw observations against each variant's likelihood prediction."""
+    baseline = states["none"]
+    ampy = baseline["ampy"]
+    obs_times = np.asarray(ampy.obs.as_arrays.times, dtype=float)
+    flux_rows = np.asarray(ampy.obs.flux_loc, dtype=bool)
+    valid_times = obs_times[flux_rows & np.isfinite(obs_times) & (obs_times > 0.0)]
+    times = np.geomspace(valid_times.min() / 2.0, valid_times.max() * 2.0, 120)
+    spacing = load_spacing(DEFAULT_SPACING, event)
+    styles = {
+        "none": {"ls": "--", "lw": 2.1, "alpha": 1.0},
+        "igm": {"ls": "-", "lw": 1.45, "alpha": 0.88},
+        "igm_host": {"ls": ":", "lw": 1.75, "alpha": 0.92},
+    }
+    helpers = {}
+    curves = {}
+    rows = []
+    for variant, state in states.items():
+        variant_ampy = state["ampy"]
+        params = state["params"]
+        helper = LightCurvePlot(
+            variant_ampy.mcmc.models.afg_model,
+            params,
+            variant_ampy.obs,
+            meta=variant_ampy.mcmc.models.afg_kw,
+        )
+        helpers[variant] = helper
+        factors = calibration_factors_by_band(variant_ampy, params)
+        variant_curves = fast_model_fluxes(
+            helper, params, times, variant_ampy.extinction_model
+        )
+        curves[variant] = {
+            band: np.asarray(values, dtype=float) * factors.get(band, 1.0)
+            for band, values in variant_curves.items()
+        }
+        for band, values in curves[variant].items():
+            spread = spacing.get(band, 1.0)
+            rows.extend({
+                "event": event,
+                "variant": variant,
+                "band": band,
+                "time_days": float(time),
+                "model_flux_density_mjy": float(flux),
+                "plot_spacing_factor": float(spread),
+                "plotted_flux_density_mjy": float(flux * spread),
+            } for time, flux in zip(times, values))
+    write_csv(output / f"{event}_hydrogen_absorption_light_curves.csv", rows)
+
+    fig, axes = plt.subplots(
+        2, 1, figsize=(8.2, 10.0), height_ratios=(2.1, 1.0), sharex=True
+    )
+    ax, ratio_ax = axes
+    helper = attach_axis(helpers["none"], ax)
+    for variant in VARIANTS:
+        for band, values in curves[variant].items():
+            if band not in OPTION_MAP:
+                continue
+            ax.loglog(
+                times,
+                values * spacing.get(band, 1.0),
+                color=OPTION_MAP[band]["color"],
+                zorder=3 if variant == "none" else 4,
+                **styles[variant],
+            )
+    helper.plot_observation(
+        baseline["params"], spreads=spacing, offset=False, excluded=True
+    )
+    ax.set_ylabel("Scaled Flux Density [mJy]")
+    ax.set_title(f"GRB {event}: fitted neutral-hydrogen absorption comparison")
+    ax.grid(alpha=0.25, which="both")
+    band_handles, band_labels = ax.get_legend_handles_labels()
+    if band_handles:
+        band_legend = ax.legend(
+            band_handles, band_labels, loc="upper right", ncols=2,
+            fontsize=6.5, frameon=True, fancybox=False, framealpha=0.92,
+        )
+        ax.add_artist(band_legend)
+    ax.legend(
+        handles=[
+            Line2D([0], [0], color="0.2", label=LABELS[variant], **styles[variant])
+            for variant in VARIANTS
+        ],
+        loc="lower left", fontsize=8, frameon=True, fancybox=False,
+    )
+
+    for variant in ("igm", "igm_host"):
+        for band, baseline_values in curves["none"].items():
+            if band not in curves[variant] or band not in OPTION_MAP:
+                continue
+            ratio = np.divide(
+                curves[variant][band], baseline_values,
+                out=np.full_like(baseline_values, np.nan),
+                where=(curves[variant][band] > 0.0) & (baseline_values > 0.0),
+            )
+            ratio_ax.plot(
+                times, np.log10(ratio), color=OPTION_MAP[band]["color"],
+                **styles[variant],
+            )
+    ratio_ax.axhline(0.0, color="0.25", linewidth=0.9)
+    ratio_ax.set_xscale("log")
+    ratio_ax.set_xlabel("Time Since Trigger [days]")
+    ratio_ax.set_ylabel(r"$\log_{10}(F_{\rm variant}/F_{\rm gas\ off})$")
+    ratio_ax.grid(alpha=0.25, which="both")
+    seconds = ax.secondary_xaxis(
+        "top", functions=(lambda day: day * SEC_PER_DAY, lambda sec: sec / SEC_PER_DAY)
+    )
+    seconds.set_xlabel("Time Since Trigger [seconds]")
+    for variant, variant_helper in helpers.items():
+        if variant != "none":
+            plt.close(variant_helper.ax.figure)
+    fig.tight_layout()
+    save_figure(fig, output, f"{event}_hydrogen_absorption_light_curve_comparison")
+
+
 def table(headers: tuple[str, ...], rows: list[tuple[str, ...]], columns: str) -> str:
     lines = [
         r"\begingroup\small\setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.03}",
@@ -432,6 +575,10 @@ def build_tex(output: Path, payload: dict) -> str:
                 r">{\raggedright\arraybackslash}Xr",
             ),
             r"\begin{figure}[H]\centering",
+            rf"\includegraphics[width=0.96\textwidth,height=0.78\textheight,keepaspectratio]{{{event}_hydrogen_absorption_light_curve_comparison.pdf}}",
+            r"\caption{Observed multiwavelength light curves and the best retained fit from each controlled variant. The data are shown on their original calibration scale; each curve includes that variant's fitted calibration offset, so every line is the prediction used by the likelihood. The lower panel shows the total fitted-curve change, including posterior movement, relative to the gas-off fit. Open gray points were excluded from all three fits.}", r"\end{figure}",
+            r"\clearpage",
+            r"\begin{figure}[H]\centering",
             rf"\includegraphics[width=0.96\textwidth,height=0.37\textheight,keepaspectratio]{{{event}_hydrogen_absorption_transmission.pdf}}",
             r"\caption{Observer-frame transmission in the three controlled variants. The mean IGM curve includes 39 Lyman-series transitions and Lyman-continuum opacity. The host curve uses the retained best-fit neutral-hydrogen column. Dashed and dotted lines locate the host-redshifted Ly-alpha line and Lyman limit.}", r"\end{figure}",
             r"\begin{figure}[H]\centering",
@@ -479,17 +626,19 @@ def main() -> None:
             ]
 
     for event in EVENTS:
-        summaries, residuals, posteriors = {}, [], {}
+        summaries, residuals, posteriors, states = {}, [], {}, {}
         for variant in VARIANTS:
-            summary, variant_rows, posterior = evaluate(event, variant)
+            summary, variant_rows, posterior, state = evaluate(event, variant)
             summaries[variant] = summary
             residuals.extend(variant_rows)
             posteriors[variant] = posterior
+            states[variant] = state
         shifts = posterior_shift_rows(posteriors)
         write_csv(output / f"{event}_band_residuals.csv", residuals)
         write_csv(output / f"{event}_posterior_shifts.csv", shifts)
         plot_fit_differences(event, residuals, output)
         plot_parameter_shifts(event, shifts, output)
+        plot_light_curve_comparison(event, states, output)
         provenance = json.loads((
             ROOT / "run_configs" / "hydrogen_absorption" / event / "provenance.json"
         ).read_text())

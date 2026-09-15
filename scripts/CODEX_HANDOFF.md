@@ -35,6 +35,11 @@ This directory contains active post-fit product scripts.
 - Test provenance records the execution host and anchors the scientific model
   to commit `be94f36c381d20bff5470fe4f9141fb36142da26`; the report prints both
   host and revision alongside measured wall time.
+- The comparison report includes a per-event spread-out light-curve overlay
+  and ratio panel for gas-off, IGM-only, and IGM-plus-host fits. Curves include
+  each fit's calibration offsets while observations remain on their original
+  scale; companion CSVs preserve every plotted curve. The 10-page LaTeX
+  template compiled successfully in a full placeholder-product smoke test.
 - Validation: 34 focused tests pass after the CCM response-tail guard and
   all verified filters remain finite at the test redshifts; one
   sampled walker from every 160131A temperature has a finite likelihood.
