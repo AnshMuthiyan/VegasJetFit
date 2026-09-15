@@ -23,14 +23,16 @@ _SOURCE_EXTINCTION_MODEL_ALIASES = {
     'ccm89': 'ccm89',
 }
 
-IGM_ABSORPTION_MODELS = ('none', 'inoue2014')
+IGM_ABSORPTION_MODELS = ('none', 'inoue2014', 'trotter2011')
 HOST_HI_ABSORPTION_MODELS = ('none', 'trotter2011')
 HYDROGEN_ABSORPTION_REFERENCE_COMMENTS = (
     'Neutral-hydrogen absorption references (separate from dust extinction):',
     'Inoue et al. 2014, MNRAS, 442, 1805: mean intergalactic Lyman absorption.',
+    'Trotter 2011 thesis, Section 3.4.2: filter-level empirical IGM absorption.',
     'Trotter 2011 thesis, Section 3.4.1: host DLA and source Lyman limit.',
     'Totani et al. 2006, PASJ, 58(3), 485: host damped-Lyman-alpha profile.',
-    'Allowed IGM models: "none" or "inoue2014".',
+    'Allowed IGM models: "none", "inoue2014", or "trotter2011".',
+    'Trotter IGM requires z_f_*, delta_z_f_*, and delta_igm_* per filter.',
     'Allowed host H I models: "none" or "trotter2011" (requires nhi_host).',
 )
 _IGM_ABSORPTION_MODEL_ALIASES = {
@@ -39,6 +41,9 @@ _IGM_ABSORPTION_MODEL_ALIASES = {
     'inoue': 'inoue2014',
     'inoue14': 'inoue2014',
     'inoue2014': 'inoue2014',
+    'trotter': 'trotter2011',
+    'trotter11': 'trotter2011',
+    'trotter2011': 'trotter2011',
 }
 _HOST_HI_ABSORPTION_MODEL_ALIASES = {
     'none': 'none',
@@ -463,7 +468,12 @@ class Parameters:
             p for p in self.all if p.category == 'absorption'
         ]
         names = {p.name for p in absorption}
-        unknown = names - {'nhi_host'}
+        igm_names = {
+            name for name in names
+            if name.startswith(('delta_igm_', 'z_f_', 'delta_z_f_'))
+        }
+        host_names = names & {'nhi_host'}
+        unknown = names - igm_names - host_names
         if unknown:
             found = ', '.join(sorted(unknown))
             raise ValueError(f'Unknown absorption parameters: {found}.')
@@ -490,13 +500,69 @@ class Parameters:
                     'Hydrogen absorption requires a finite, non-negative redshift.'
                 )
 
+        if self.igm_absorption_model == 'trotter2011':
+            by_name = {p.name: p for p in absorption}
+            delta_names = {
+                name for name in igm_names if name.startswith('delta_igm_')
+            }
+            coordinate_names = igm_names - delta_names
+            suffixes = {
+                name.removeprefix('delta_igm_') for name in delta_names
+            }
+            orphaned = coordinate_names - {
+                coordinate
+                for suffix in suffixes
+                for coordinate in (f'z_f_{suffix}', f'delta_z_f_{suffix}')
+            }
+            if orphaned:
+                found = ', '.join(sorted(orphaned))
+                raise ValueError(
+                    'Trotter IGM coordinates have no matching delta_igm '
+                    f'parameter: {found}.'
+                )
+            redshift = next(
+                p.value for p in self.all
+                if p.category == 'model' and p.name == 'z'
+            ) if enabled else None
+            for suffix in sorted(suffixes):
+                z_name = f'z_f_{suffix}'
+                width_name = f'delta_z_f_{suffix}'
+                missing = {z_name, width_name} - names
+                if missing:
+                    found = ', '.join(sorted(missing))
+                    raise ValueError(
+                        f"delta_igm_{suffix!s} requires fixed coordinates: "
+                        f'{found}.'
+                    )
+                z_parameter = by_name[z_name]
+                width_parameter = by_name[width_name]
+                if not z_parameter.fixed or not width_parameter.fixed:
+                    raise ValueError(
+                        f'{z_name} and {width_name} must be fixed.'
+                    )
+                if not 0.0 <= z_parameter.value <= redshift:
+                    raise ValueError(
+                        f'{z_name} must lie between zero and source redshift '
+                        f'z={redshift:g}.'
+                    )
+                if (
+                    not np.isfinite(width_parameter.value)
+                    or width_parameter.value <= 0.0
+                ):
+                    raise ValueError(f'{width_name} must be finite and positive.')
+        elif igm_names:
+            raise ValueError(
+                'Trotter filter-level IGM parameters require '
+                "igm_absorption_model='trotter2011'."
+            )
+
         if self.host_hi_absorption_model == 'trotter2011':
-            if 'nhi_host' not in names:
+            if 'nhi_host' not in host_names:
                 raise ValueError(
                     "host_hi_absorption_model='trotter2011' requires an "
                     "[[absorption]] parameter named 'nhi_host'."
                 )
-        elif names:
+        elif host_names:
             raise ValueError(
                 "Absorption parameters are configured while "
                 "host_hi_absorption_model='none'."

@@ -19,6 +19,14 @@ def fixed_parameter(name, value):
     return {'name': name, 'scale': 'linear', 'value': value}
 
 
+def fitting_parameter(name, lower, upper):
+    return {
+        'name': name,
+        'scale': 'linear',
+        'prior': {'type': 'uniform', 'lower': lower, 'upper': upper},
+    }
+
+
 def model_config(extinction, source_model=None):
     config = {
         'name': 'FireballModel',
@@ -142,6 +150,33 @@ class HydrogenAbsorptionConfigurationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'fixed, known model redshift'):
             Parameters.from_toml(without_z)
 
+    def test_trotter_igm_is_an_explicit_user_facing_choice(self):
+        config = model_config({}) | {
+            'igm_absorption_model': 'trotter',
+            'model': [fixed_parameter('z', 3.375)],
+            'absorption': [
+                fitting_parameter('delta_igm_generic_g', -3.0, 3.0),
+                fixed_parameter('z_f_generic_g', 2.7),
+                fixed_parameter('delta_z_f_generic_g', 0.4),
+            ],
+        }
+        params = Parameters.from_toml(config)
+        self.assertEqual(params.igm_absorption_model, 'trotter2011')
+        self.assertEqual(normalize_igm_absorption_model('trotter11'), 'trotter2011')
+
+    def test_trotter_igm_rejects_absorbers_behind_the_source(self):
+        config = model_config({}) | {
+            'igm_absorption_model': 'trotter2011',
+            'model': [fixed_parameter('z', 0.544)],
+            'absorption': [
+                fitting_parameter('delta_igm_uvw1', -3.0, 3.0),
+                fixed_parameter('z_f_uvw1', 2.3),
+                fixed_parameter('delta_z_f_uvw1', 0.15),
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, 'between zero and source redshift'):
+            Parameters.from_toml(config)
+
     def test_host_model_requires_nhi_host(self):
         config = model_config({}) | {
             'host_hi_absorption_model': 'trotter2011',
@@ -171,12 +206,12 @@ class HydrogenAbsorptionConfigurationTests(unittest.TestCase):
         self.assertEqual(params.host_hi_absorption_model, 'none')
 
     def test_toml_comments_distinguish_gas_from_dust(self):
-        lines = hydrogen_absorption_toml_lines('inoue2014', 'none')
+        lines = hydrogen_absorption_toml_lines('trotter2011', 'none')
         text = '\n'.join(lines)
         self.assertIn('separate from dust extinction', text)
         self.assertIn('Inoue et al. 2014', text)
         self.assertIn('Trotter 2011', text)
-        self.assertIn("igm_absorption_model = 'inoue2014'", text)
+        self.assertIn("igm_absorption_model = 'trotter2011'", text)
         self.assertEqual(normalize_host_hi_absorption_model('off'), 'none')
         self.assertEqual(normalize_igm_absorption_model('inoue14'), 'inoue2014')
 

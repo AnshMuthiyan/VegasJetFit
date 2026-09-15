@@ -10,7 +10,10 @@ from jetfit.core.bandpass import (
     available_bandpasses,
     get_bandpass,
 )
-from jetfit.core.hydrogen_absorption import inoue2014_igm_transmission
+from jetfit.core.hydrogen_absorption import (
+    inoue2014_igm_transmission,
+    trotter2011_igm_filter_transmission,
+)
 from jetfit.mcmc.mcmc import MCMCModels
 
 
@@ -337,6 +340,40 @@ class BandpassLikelihoodTests(unittest.TestCase):
         )
         self.assertAlmostEqual(float(modeled), float(expected), places=12)
         self.assertGreater(abs(modeled / central - 1.0), 1.0e-3)
+
+    def test_trotter_igm_selector_changes_the_bandpass_likelihood_flux(self):
+        uvm2 = get_bandpass('uvm2')
+        pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom
+        obs = _Observation([1.0], [pivot_nu], ['uvm2'])
+        redshift = 0.97
+        params = {
+            'model': {'slope': -0.7, 'z': redshift},
+            'extinction': _zero_dust(),
+            'absorption': {
+                'z_f_uvm2': 0.7,
+                'delta_z_f_uvm2': 0.25,
+                'delta_igm_uvm2': 0.1,
+            },
+        }
+        wrapper = MCMCModels(
+            obs,
+            _PowerLawAfterglow,
+            ext_model=None,
+            bandpass_integration='verified',
+            bandpass_nodes=16,
+            igm_absorption_model='trotter2011',
+        )
+        modeled = wrapper.model(params)[0]
+
+        wavelength, weight = uvm2.photon_quadrature(None)
+        intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
+            np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
+        )
+        transmission = trotter2011_igm_filter_transmission(
+            wavelength, redshift, 0.7, 0.25, 0.1
+        )
+        expected = np.sum(intrinsic * transmission * weight)
+        self.assertAlmostEqual(float(modeled), float(expected), places=12)
 
     def test_unmapped_filter_uses_central_wavelength_gas_attenuation(self):
         frequency = C_ANGSTROM_PER_SECOND / 4500.0

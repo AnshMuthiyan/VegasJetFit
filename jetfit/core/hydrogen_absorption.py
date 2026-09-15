@@ -20,9 +20,12 @@ from __future__ import annotations
 
 import numpy as np
 
+from jetfit.models.trotter_lyman_alpha import calculate_igm_transmission
+
 
 C_ANGSTROM_PER_SECOND = 2.99792458e18
 LYMAN_LIMIT_ANGSTROM = 911.8
+LYMAN_ALPHA_ANGSTROM = 1215.67
 LYMAN_ALPHA_FREQUENCY_HZ = 2.46605e15
 
 # Inoue et al. (2014), Table 2.  Columns are wavelength, the three LAF
@@ -202,6 +205,36 @@ def inoue2014_igm_transmission(wavelength_angstrom, source_redshift):
     return np.exp(-tau)
 
 
+def trotter2011_igm_filter_transmission(
+    wavelength_angstrom,
+    source_redshift,
+    z_f,
+    delta_z_f,
+    delta_igm=0.0,
+):
+    """Return Trotter's empirical filter-level IGM transmission.
+
+    Trotter (2011, Eqs. 3.41--3.46) assigns one transmission to the
+    filter portion that overlaps the source Ly-alpha forest. The source
+    Lyman limit remains a wavelength-resolved hard cutoff.
+    """
+    wavelength, z, scalar = _validated_inputs(
+        wavelength_angstrom, source_redshift
+    )
+    transmission = np.ones_like(wavelength)
+    source_limit = LYMAN_LIMIT_ANGSTROM * (1.0 + z)
+    source_lyman_alpha = LYMAN_ALPHA_ANGSTROM * (1.0 + z)
+    transmission[wavelength < source_limit] = 0.0
+    overlaps_forest = np.any(
+        (wavelength >= source_limit) & (wavelength < source_lyman_alpha)
+    )
+    if overlaps_forest:
+        transmission *= calculate_igm_transmission(
+            z_f, delta_z_f, delta_igm
+        )
+    return float(transmission[0]) if scalar else transmission
+
+
 def trotter2011_host_dla_delta_log10_flux(
     wavelength_angstrom, source_redshift, nhi_cm2
 ):
@@ -248,6 +281,9 @@ def hydrogen_transmission(
     igm_model="none",
     host_model="none",
     nhi_host_cm2=None,
+    igm_z_f=None,
+    igm_delta_z_f=None,
+    igm_delta=0.0,
 ):
     """Return the product of independently selected IGM and host H I models."""
     wavelength, z, scalar = _validated_inputs(
@@ -257,6 +293,25 @@ def hydrogen_transmission(
 
     if igm_model == "inoue2014":
         transmission *= inoue2014_igm_transmission(wavelength, z)
+    elif igm_model == "trotter2011":
+        source_limit = LYMAN_LIMIT_ANGSTROM * (1.0 + z)
+        source_lyman_alpha = LYMAN_ALPHA_ANGSTROM * (1.0 + z)
+        overlaps_forest = np.any(
+            (wavelength >= source_limit) & (wavelength < source_lyman_alpha)
+        )
+        if overlaps_forest and (igm_z_f is None or igm_delta_z_f is None):
+            raise ValueError(
+                "igm_model='trotter2011' requires igm_z_f and "
+                "igm_delta_z_f for a filter overlapping the Ly-alpha forest."
+            )
+        if overlaps_forest or np.any(wavelength < source_limit):
+            transmission *= trotter2011_igm_filter_transmission(
+                wavelength,
+                z,
+                0.0 if igm_z_f is None else igm_z_f,
+                1.0 if igm_delta_z_f is None else igm_delta_z_f,
+                igm_delta,
+            )
     elif igm_model != "none":
         raise ValueError(f"Unknown IGM absorption model: {igm_model!r}.")
 

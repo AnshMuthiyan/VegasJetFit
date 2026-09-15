@@ -6,6 +6,13 @@ name = 'FireballModel'
 # Allowed: "trotter2011" (default for new configs) or "ccm89".
 source_extinction_model = 'ccm89'
 
+# Neutral-hydrogen absorption is selected separately from dust extinction.
+# IGM choices: "none", "inoue2014" (wavelength-resolved mean opacity), or
+# "trotter2011" (filter-level transmission with configured filter coordinates).
+# Host H I choices: "none" or "trotter2011" (requires nhi_host).
+igm_absorption_model = 'none'
+host_hi_absorption_model = 'none'
+
 #-------------- MODEL --------------
 #---------------- E ----------------
 [[model]]
@@ -273,28 +280,3 @@ scale = "linear"
     type  = "uniform"
     lower = 0.00
     upper = 0.2
-
-# ==========================================
-# EXAMPLE IGM IMPLEMENTATION
-# ==========================================
-[[igm]]
-name = "delta_igm_uvw1"
-scale = "linear"
-
-[igm.prior]
-    type = "uniform"
-    lower = -3.0
-    upper = 3.0
-    initial_guess = 0.0
-    initial_sigma = 0.1
-
-[[igm]]
-name = "z_f_uvw1"
-fixed = true
-value = 2.3
-
-[[igm]]
-name = "delta_z_f_uvw1"
-fixed = true
-value = 0.15
-

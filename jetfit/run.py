@@ -86,7 +86,8 @@ def parse_args():
         default=None,
         help=(
             "Override igm_absorption_model from the model TOML. Choices are "
-            "none and inoue2014; aliases off, inoue, and inoue14 are accepted."
+            "none, inoue2014, and trotter2011; short aliases inoue and "
+            "trotter are accepted."
         ),
     )
     parser.add_argument(

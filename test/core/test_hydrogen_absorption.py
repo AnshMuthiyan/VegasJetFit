@@ -8,9 +8,11 @@ from jetfit.core.hydrogen_absorption import (
     hydrogen_transmission,
     inoue2014_igm_optical_depth,
     inoue2014_igm_transmission,
+    trotter2011_igm_filter_transmission,
     trotter2011_host_dla_delta_log10_flux,
     trotter2011_host_hi_transmission,
 )
+from jetfit.models.trotter_lyman_alpha import calculate_igm_transmission
 
 
 class Inoue2014Tests(unittest.TestCase):
@@ -59,6 +61,41 @@ class Inoue2014Tests(unittest.TestCase):
             inoue2014_igm_transmission(wavelength, 0.0),
             np.ones_like(wavelength),
         )
+
+
+class Trotter2011IGMTests(unittest.TestCase):
+    def test_filter_transmission_matches_equation_3_46_and_lyman_limit(self):
+        redshift = 3.375
+        wavelength = np.array([3500.0, 4500.0, 6000.0])
+        actual = trotter2011_igm_filter_transmission(
+            wavelength, redshift, z_f=2.7, delta_z_f=0.4, delta_igm=0.1
+        )
+        expected_filter = calculate_igm_transmission(2.7, 0.4, 0.1)
+        np.testing.assert_allclose(
+            actual,
+            np.array([0.0, expected_filter, expected_filter]),
+        )
+
+    def test_user_facing_selector_dispatches_trotter(self):
+        wavelength = np.array([4500.0, 5000.0])
+        actual = hydrogen_transmission(
+            wavelength,
+            3.375,
+            igm_model='trotter2011',
+            igm_z_f=2.7,
+            igm_delta_z_f=0.4,
+            igm_delta=0.0,
+        )
+        expected = trotter2011_igm_filter_transmission(
+            wavelength, 3.375, 2.7, 0.4, 0.0
+        )
+        np.testing.assert_allclose(actual, expected)
+
+    def test_forest_overlap_requires_filter_coordinates(self):
+        with self.assertRaisesRegex(ValueError, 'requires igm_z_f'):
+            hydrogen_transmission(
+                4500.0, 3.375, igm_model='trotter2011'
+            )
 
 
 class TrotterHostHITests(unittest.TestCase):

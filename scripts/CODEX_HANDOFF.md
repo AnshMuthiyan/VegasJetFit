@@ -2,6 +2,37 @@
 
 This directory contains active post-fit product scripts.
 
+## Last Touched (2026-09-15): Selectable Inoue/Trotter IGM Models
+
+- Merged `origin/jonathan-mac-version` through `e9b6429`, including Ansh's
+  Trotter Ly-alpha-forest implementation and restored hyperparameter toggle.
+- `igm_absorption_model` is now the single user-facing IGM selector:
+  `none`, `inoue2014`, or `trotter2011` (aliases `inoue` and `trotter` work
+  in the CLI). `host_hi_absorption_model` remains an independent selector;
+  do not conflate host neutral hydrogen with the intergalactic medium.
+- Inoue remains a wavelength-resolved mean-opacity model. Trotter follows
+  thesis Section 3.4.2 as a filter-level transmission with cosmic scatter and
+  now enters the actual bandpass-integrated likelihood. Each affected filter
+  uses an `[[absorption]]` triplet named `z_f_<filter>`,
+  `delta_z_f_<filter>`, and `delta_igm_<filter>`; the first two must be fixed,
+  while the last may float with both finite TOML support and the Trotter
+  scatter prior.
+- Preflight validation rejects unknown/mixed gas parameters, nonphysical
+  filter coordinates, coordinates behind the source, and Trotter coordinates
+  selected with another IGM model. The invalid provisional 090424 `z_f=2.3`
+  block was removed; that burst has `z=0.544` and its resource TOML remains
+  explicitly gas-off for historical provenance.
+- Documentation in `README.md`, generated TOML comments, and CLI help now
+  explains the model choices and the filter-level Trotter parameters. Ansh's
+  next improvement should calculate or curate `z_f` and `delta_z_f` from each
+  verified response curve; do not copy the illustrative coordinates between
+  filters or bursts.
+- Validation: five edited modules passed `py_compile`; 47 focused
+  absorption, bandpass, dispatch, and prior tests passed; both merged Trotter
+  scripts passed; `python -m jetfit.run --help` lists all selectors; the
+  090424 resource TOML parses as CCM89 dust with IGM and host H I both off.
+  No MCMC comparison was launched in this integration task.
+
 ## Last Touched (2026-09-15): Dust and Gas Terminology in Comparison Reports
 
 - The CCM-versus-Trotter report now defines CCM as Cardelli, Clayton, and

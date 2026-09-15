@@ -10,7 +10,11 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 from jetfit.core import utils
 from jetfit.core.bandpass import C_ANGSTROM_PER_SECOND, get_bandpass
-from jetfit.core.hydrogen_absorption import hydrogen_transmission
+from jetfit.core.hydrogen_absorption import (
+    LYMAN_ALPHA_ANGSTROM,
+    LYMAN_LIMIT_ANGSTROM,
+    hydrogen_transmission,
+)
 from jetfit.mcmc.trotter_extinction import (
     trotter_dust_prior,
     trotter_source_attenuation,
@@ -20,6 +24,13 @@ from jetfit.mcmc.parameters import (
     normalize_igm_absorption_model,
     normalize_source_extinction_model,
 )
+from jetfit.models.trotter_lyman_alpha import (
+    TrotterIGMPrior,
+    filter_igm_parameters,
+)
+
+
+trotter_igm_prior = TrotterIGMPrior()
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
 if not hasattr(np, 'float'):
@@ -1404,20 +1415,22 @@ class MCMCModels:
                 for row in sampled_intrinsic
             ]))
 
-        attenuation = self._node_extinction(1.0e4 / wavelength, params)
+        attenuation = self._node_extinction(
+            1.0e4 / wavelength, params, band=band
+        )
         return np.sum(
             intrinsic * attenuation[np.newaxis, :] * weights[np.newaxis, :],
             axis=1,
         )
 
-    def _node_extinction(self, wave_numbers, params):
+    def _node_extinction(self, wave_numbers, params, band=None):
         """Return dust and neutral-hydrogen attenuation at filter nodes."""
         return (
-            self._node_source_attenuation(wave_numbers, params)
+            self._node_source_attenuation(wave_numbers, params, band=band)
             * self._node_milky_way_attenuation(wave_numbers, params)
         )
 
-    def _node_source_attenuation(self, wave_numbers, params):
+    def _node_source_attenuation(self, wave_numbers, params, band=None):
         """Return source-dust plus IGM/host-H-I attenuation."""
         wave_numbers = np.asarray(wave_numbers, dtype=float)
         attenuation = np.ones_like(wave_numbers)
@@ -1445,15 +1458,42 @@ class MCMCModels:
             self.igm_absorption_model != 'none'
             or self.host_hi_absorption_model != 'none'
         ):
+            igm_kwargs = self._trotter_igm_kwargs(
+                1.0e4 / wave_numbers, z, absorption, band
+            )
             attenuation *= hydrogen_transmission(
                 1.0e4 / wave_numbers,
                 z,
                 igm_model=self.igm_absorption_model,
                 host_model=self.host_hi_absorption_model,
                 nhi_host_cm2=absorption.get('nhi_host'),
+                **igm_kwargs,
             )
 
         return attenuation
+
+    def _trotter_igm_kwargs(self, wavelength, redshift, absorption, band):
+        """Return one filter's Trotter IGM coordinates when required."""
+        if self.igm_absorption_model != 'trotter2011':
+            return {}
+        wavelength = np.atleast_1d(np.asarray(wavelength, dtype=float))
+        overlaps_forest = np.any(
+            (wavelength >= LYMAN_LIMIT_ANGSTROM * (1.0 + redshift))
+            & (wavelength < LYMAN_ALPHA_ANGSTROM * (1.0 + redshift))
+        )
+        if not overlaps_forest:
+            return {}
+        if band is None:
+            raise ValueError(
+                'Trotter IGM absorption requires a filter label for each '
+                'photometric observation.'
+            )
+        z_f, delta_z_f, delta_igm = filter_igm_parameters(absorption, band)
+        return {
+            'igm_z_f': z_f,
+            'igm_delta_z_f': delta_z_f,
+            'igm_delta': delta_igm,
+        }
 
     def _node_milky_way_attenuation(self, wave_numbers, params):
         """Return Milky-Way foreground attenuation at observer wavelengths."""
@@ -1532,14 +1572,30 @@ class MCMCModels:
                 getattr(self.obs.as_arrays, 'sflux_loc', all_pos), dtype=bool
             )
             gas_pos = spectral & ~skip_mask
-            gas_wn = self.obs.as_arrays.wave_numbers[gas_pos]
-            modeled[gas_pos] *= hydrogen_transmission(
-                1.0e4 / gas_wn,
-                z,
-                igm_model=self.igm_absorption_model,
-                host_model=self.host_hi_absorption_model,
-                nhi_host_cm2=absorption.get('nhi_host'),
-            )
+            if self.igm_absorption_model == 'trotter2011':
+                bands = np.asarray(self.obs.as_arrays.bands)
+                for band in np.unique(bands[gas_pos]):
+                    selected = gas_pos & (bands == band)
+                    wavelength = 1.0e4 / self.obs.as_arrays.wave_numbers[selected]
+                    modeled[selected] *= hydrogen_transmission(
+                        wavelength,
+                        z,
+                        igm_model=self.igm_absorption_model,
+                        host_model=self.host_hi_absorption_model,
+                        nhi_host_cm2=absorption.get('nhi_host'),
+                        **self._trotter_igm_kwargs(
+                            wavelength, z, absorption, str(band)
+                        ),
+                    )
+            else:
+                gas_wn = self.obs.as_arrays.wave_numbers[gas_pos]
+                modeled[gas_pos] *= hydrogen_transmission(
+                    1.0e4 / gas_wn,
+                    z,
+                    igm_model=self.igm_absorption_model,
+                    host_model=self.host_hi_absorption_model,
+                    nhi_host_cm2=absorption.get('nhi_host'),
+                )
 
         # Apply host galaxy correction
         if params.get('host') is not None and self.obs.hosts is not None:
@@ -1595,9 +1651,6 @@ class MCMCModels:
         return float(attenuation[0]) if scalar else attenuation
 
 
-from jetfit.models.trotter_lyman_alpha import TrotterIGMPrior
-trotter_igm_prior = TrotterIGMPrior()
-
 def log_prior_fn(theta, params) -> float:
     """
     Evaluates the natural log of the priors.
@@ -1617,13 +1670,7 @@ def log_prior_fn(theta, params) -> float:
     """
     lp = 0
 
-    custom_dust_params = trotter_dust_prior.get_custom_param_names()
-    
     for i, p in enumerate(params.fitting):
-        # Skip default prior evaluation for the custom parameters handled collectively
-        if p.name in custom_dust_params or p.name.startswith('delta_igm_'):
-            continue
-            
         if np.isinf(prior := p.prior.evaluate(theta[i])):
             return -np.inf
 
@@ -1639,9 +1686,12 @@ def log_prior_fn(theta, params) -> float:
             return -np.inf
         lp += dust_prior
         
-    igm = p_dict.get('igm')
-    if igm is not None:
-        lp += trotter_igm_prior.log_prior(igm)
+    absorption = p_dict.get('absorption')
+    if params.igm_absorption_model == 'trotter2011' and absorption is not None:
+        igm_prior = trotter_igm_prior.log_prior(absorption)
+        if not np.isfinite(igm_prior):
+            return -np.inf
+        lp += igm_prior
 
     return lp
 
