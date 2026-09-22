@@ -1,0 +1,78 @@
+!=====================================================
+! Evolving stellar wind bubble from data file
+!=====================================================
+
+&filelist
+        base_filename = 'output/Ostar_1D/test'
+        saveprim      = .true.
+        autoconvert   = .true.
+        convert_type  = 'vtuBmpi'        
+        nwauxio       = 1
+/
+
+&savelist
+        itsave(1,1)=0
+        itsave(1,2)=0
+        ditsave_log= 10000
+        dtsave_dat= 1.338825d2
+/
+
+&stoplist
+        time_max=5.35530d2
+        dtmin= 1.0d-12
+/
+
+&methodlist
+        time_stepper     = 'twostep'
+        flux_scheme      = 20*'tvdlf'
+        limiter          = 20*'minmod'
+        loglimit(1) = .true.
+        loglimit(3) = .true.
+        check_small_values = .false.
+        fix_small_values = .true.
+        small_values_method='replace'
+        small_values_daverage = 2
+        small_pressure = 1.0d-16
+        small_density = 1.0d-14
+/
+
+&boundlist
+        typeboundary_min1 = 'symm','symm','symm'
+        typeboundary_max1 = 'special','special','special'
+/
+
+&meshlist
+	refine_criterion=3
+	refine_max_level=4
+	w_refine_weight(1)=0.4d0
+	w_refine_weight(2)=0.4d0
+	w_refine_weight(3)=0.2d0
+	refine_threshold = 20*0.15d0
+	derefine_ratio = 20*0.1D0
+	domain_nx1=192
+	block_nx1=8
+	xprobmin1=0.19D0
+	xprobmax1=8.0d0
+/
+
+&paramlist
+        typecourant = 'maxsum'
+        courantpar  = 0.3d0
+        slowsteps=50
+/
+
+&hd_list
+        hd_radiative_cooling  = .false.   ! note I changed it to false recently
+/
+
+&rc_list
+	coolcurve   = 'SPEX_DM'
+        coolmethod = 'exact'
+        Tfix       = .true.
+/
+
+&usr_list
+       icase = 1
+       use_stellar_evolution = .true.
+       stellar_param_file = 'stellar_evolution.dat'
+/

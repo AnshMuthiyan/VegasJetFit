@@ -1,0 +1,25 @@
+All-pressure AMRVAC quality + feature-fit + surrogate summary
+
+Total runs analyzed: 12
+Decent quality runs: 12
+Domain issues flagged: 0
+Resolution issues flagged: 0
+
+Snapshot integrity findings:
+- Some runs have corrupted final snapshots (inner-domain NaNs).
+- For those runs, the analysis uses the latest fully valid snapshot.
+
+Runs where chosen snapshot != final snapshot:
+- p5_n23: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.000
+- p5_n22: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.000
+- p5_n21: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.127
+- p5_n20: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.115
+- p6_n22: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.000
+- p6_n21: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.000
+- p6_n20: chosen=test0003.vtu, final=test0004.vtu, final_valid_fraction=0.000
+
+Flagged domain issues:
+- none
+
+Flagged resolution issues:
+- none
