@@ -1,6 +1,11 @@
 # JetFit
 Gamma-ray Burst Afterglow Light Curve Fitting Tool.
 
+Ansh's AMRVAC wind-bubble development on this branch starts with
+[AMRVAC_WIND_BUBBLE_HANDOFF.md](AMRVAC_WIND_BUBBLE_HANDOFF.md). It distinguishes
+bubble-model work from the separate averaged-density and optional reverse-shock
+tasks, and lists the science and validation gates before production fits.
+
 The JetFit package fits GRB afterglow light curves for arbitrary viewing
 angle using the "boosted fireball" structured jet model [Duffell \& MacFadyen (2013)](https://iopscience.iop.org/article/10.1088/2041-8205/776/1/L9/meta)
 for the jet dynamics (for details see [Wu \& MacFadyen (2018)](https://iopscience.iop.org/article/10.3847/1538-4357/aae9de). The 
