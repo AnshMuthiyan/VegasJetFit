@@ -15,7 +15,7 @@ CAMPAIGN = Path(__file__).resolve().parent
 PLOT_DIR = CAMPAIGN / "plots"
 PLOT_DIR.mkdir(exist_ok=True)
 
-REPO_ROOT = CAMPAIGN.parents[3]
+REPO_ROOT = CAMPAIGN.parents[2]
 VEGAS_JETFIT = REPO_ROOT / "VegasJetFit"
 if str(VEGAS_JETFIT) not in sys.path:
     sys.path.insert(0, str(VEGAS_JETFIT))
@@ -39,7 +39,7 @@ TS_A7 = +0.06063005
 
 def read_plan() -> dict[str, dict[str, float]]:
     rows = {}
-    with (CAMPAIGN / "log_grid_plan.csv").open(newline="") as fh:
+    with (CAMPAIGN.parent / "tables" / "log_grid_plan.csv").open(newline="") as fh:
         for row in csv.DictReader(fh):
             rows[row["run_id"]] = {k: float(v) if k != "run_id" else v for k, v in row.items()}
     return rows
@@ -86,7 +86,7 @@ def read_vtu(path: Path) -> tuple[np.ndarray, np.ndarray, float]:
 
 
 def final_file(run_id: str) -> Path:
-    files = sorted((CAMPAIGN / f"pressure_{run_id}" / "output" / "Ostar_1D").glob("test*.vtu"))
+    files = sorted((CAMPAIGN.parent / "selected_vtu").glob(f"{run_id}__*.vtu"))
     if not files:
         raise FileNotFoundError(run_id)
     return files[-1]

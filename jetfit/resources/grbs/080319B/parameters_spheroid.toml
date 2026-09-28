@@ -1,0 +1,490 @@
+# MCMC Parameter Configuriation File
+name = 'SpheroidShellVegasModel'
+# Source-frame dust-law references:
+# Trotter, A. S. 2011, UNC-Chapel Hill PhD thesis, DOI 10.17615/2gjp-g156.
+# Cardelli, Clayton, and Mathis 1989, ApJ, 345, 245 (CCM89).
+# Allowed: "trotter2011" (default for new configs) or "ccm89".
+source_extinction_model = 'ccm89'
+
+#-------------- MODEL --------------
+#---------------- E ----------------
+[[model]]
+name  = "E52"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -2.0
+    upper = 4.0
+    initial_sigma = 2.46
+    initial_guess = 0.25
+
+#-------------- MODEL --------------
+#--------------- lfo ---------------
+[[model]]
+name  = "lf0"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = 1.69
+    upper = 3.0
+
+#-------------- MODEL --------------
+#----------- TRANSITION ------------
+#--------------- nt ----------------
+[[model]]
+name  = "n0t"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 6.0
+    initial_sigma = -4.64
+    initial_guess = 0.25
+
+#-------------- MODEL --------------
+#----------- TRANSITION ------------
+#--------------- rt ----------------
+[[model]]
+name  = "rt"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = 15.0
+    upper = 22.0
+    initial_sigma = 19.0
+    initial_guess = 0.50
+
+#-------------- MODEL --------------
+#-------------- eps_e --------------
+[[model]]
+name  = "eps_e"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 0.0
+    initial_sigma = -0.82
+    initial_guess = 0.250
+
+#-------------- MODEL --------------
+#-------------- eps_b --------------
+[[model]]
+name  = "eps_b"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -6.0
+    upper = 0.0
+    initial_sigma = -3.07
+    initial_guess = 0.250
+
+#-------------- MODEL --------------
+#---------------- p ----------------
+[[model]]
+name  = "p"
+scale = "linear"
+
+[model.prior]
+    type  = "uniform"
+    lower = 2.0
+    upper = 3.0
+    initial_guess = 2.47
+    initial_sigma = 0.10
+
+#-------------- MODEL --------------
+#--------------- k1 ----------------
+[[model]]
+name  = "k1"
+scale = "linear"
+
+[model.prior]
+    type  = "uniform"
+    lower = -1.0
+    upper = 3.0
+    initial_guess = 2.31
+    initial_sigma = 0.25
+
+#-------------- MODEL --------------
+#--------------- k2 ----------------
+[[model]]
+name  = "k2"
+scale = "linear"
+
+[model.prior]
+    type  = "uniform"
+    lower = -3.0
+    upper = 3.0
+    initial_guess = 1.16
+    initial_sigma = 0.25
+
+#-------------- MODEL --------------
+#----------- TRANSITION ------------
+#--------------- sni ---------------
+[[model]]
+name  = "sni"
+scale = "linear"
+
+[model.prior]
+    type  = "uniform"
+    lower = -1.0
+    upper = -0.1
+
+#-------------- MODEL --------------
+#---------------- X ----------------
+[[model]]
+name  = "hmf"
+scale = "linear"
+value = 0.7
+
+#-------------- MODEL --------------
+#---------------- z ----------------
+[[model]]
+name  = "z"
+scale = "linear"
+value = 0.94
+
+#-------------- MODEL --------------
+#---------------- dL ---------------
+[[model]]
+name  = "dL28"
+scale = "linear"
+value = 1.9418
+
+
+#-------------- MODEL --------------
+#------------- R_pole --------------
+[[model]]
+name  = "R_pole"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = 16.5
+    upper = 19.5
+    initial_guess = 18.0
+    initial_sigma = 0.5
+
+#-------------- MODEL --------------
+#------------- n_ism ---------------
+[[model]]
+name  = "n_ism"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -5.0
+    upper = 3.0
+    initial_guess = 0.0
+    initial_sigma = 1.0
+
+#-------------- MODEL --------------
+#--------------- eps ---------------
+[[model]]
+name  = "eps"
+scale = "linear"
+
+[model.prior]
+    type  = "uniform"
+    lower = 0.001
+    upper = 0.5
+    initial_guess = 0.1
+    initial_sigma = 0.05
+
+#-------------- MODEL --------------
+#---------------- q ----------------
+[[model]]
+name  = "q"
+scale = "log"
+
+[model.prior]
+    type  = "uniform"
+    lower = -1.0
+    upper = 1.0
+    initial_guess = 0.0
+    initial_sigma = 0.2
+
+#-------------- MODEL --------------
+#------------- n_cav ---------------
+[[model]]
+name  = "n_cav"
+scale = "log"
+value = -2.0
+#----------- EXTINCTION ------------
+#---------- source_frame -----------
+[[extinction]]
+name  = "ebv_source_frame"
+scale = "linear"
+
+[extinction.prior]
+    type  = "uniform"
+    lower = 0.0
+    upper = 0.5
+    initial_guess = 0.05
+    initial_sigma = 0.05
+
+#----------- EXTINCTION ------------
+#------------ milky_way ------------
+[[extinction]]
+name  = "ebv_milky_way"
+scale = "linear"
+value = 0.0095
+
+#-----------------------------------
+#----------- CALIBRATION -----------
+#-----------------------------------
+# DATA SOURCE 1: PANDEY 2009
+#-----------------------------------
+[[offsets]]
+name  = "B1_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.04
+
+[[offsets]]
+name  = "V1_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "R1_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "I1_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "r1_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+#-----------------------------------
+#----------- CALIBRATION -----------
+#-----------------------------------
+# DATA SOURCE 2: NATURE 2008
+#-----------------------------------
+[[offsets]]
+name  = "R2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "I2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "r2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "i2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+#-----------------------------------
+#----------- CALIBRATION -----------
+#-----------------------------------
+# DATA SOURCE 3: BLOOM 2009
+#-----------------------------------
+[[offsets]]
+name  = "B3_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.04
+
+[[offsets]]
+name  = "V3_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "R3_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "I3_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "J_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.04
+
+[[offsets]]
+name  = "H_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.05
+
+[[offsets]]
+name  = "K_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.06
+
+[[offsets]]
+name  = "g_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "r3_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "i3_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "z_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.04
+
+[[offsets]]
+name  = "uvot-u_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "uvot-b_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.02
+
+[[offsets]]
+name  = "uvot-v_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.02
+
+[[offsets]]
+name  = "uvm2_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.03
+
+[[offsets]]
+name  = "uvw1_offset"
+scale = "linear"
+
+[offsets.prior]
+    type  = "gaussian"
+    mu    = 0.0
+    sigma = 0.04
+
+#--------------- SLOP --------------
+#--------------- slop --------------
+[[slop]]
+name  = "slop"
+scale = "linear"
+
+[slop.prior]
+    type  = "uniform"
+    lower = 0.0
+    upper = 0.2
+    initial_guess = 0.05
+    initial_sigma = 0.05
+

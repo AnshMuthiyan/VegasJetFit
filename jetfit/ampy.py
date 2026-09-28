@@ -20,6 +20,7 @@ from jetfit.models.bubbleVegas import BubbleVegasModel
 from jetfit.models.bubbleVegasDylanSpectrum import BubbleVegasDylanSpectrumModel
 from jetfit.models.empiricalBubbleVegas import EmpiricalBubbleVegasModel
 from jetfit.models.empiricalBubbleVegasDylanSpectrum import EmpiricalBubbleVegasDylanSpectrumModel
+from jetfit.models.spheroidShellVegas import SpheroidShellVegasModel
             
 
 def model_factory(name: str):
@@ -32,6 +33,8 @@ def model_factory(name: str):
         The afterglow model.
     """
     match name:
+        case 'SpheroidShellVegasModel':
+            return SpheroidShellVegasModel
         case 'FireballModel':
             return FireballModel
         case 'StratifiedFireballModel':

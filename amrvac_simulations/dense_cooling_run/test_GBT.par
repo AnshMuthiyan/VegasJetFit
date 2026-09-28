@@ -1,0 +1,39 @@
+! AMRVAC parameter file for evolving wind model
+! ----------------------------------------------
+
+[grid]
+geometry = spherical
+x1beg = 0.0
+x1end = 1.5e20     ! 5 Myr × 1000 km/s ~ 1.6e20 cm (i.e. ~50 pc)
+nx1 = 1024
+
+[bound]
+x1beg = constant
+x1end = outflow
+
+[output]
+variables = rho, mom, ene
+filetype = vtu
+writetype = single
+tlog = no
+twrite = 1.0        ! output every 1.0 code time unit
+nfileout = 10       ! total number of output files
+
+[time]
+tmax = 1.7e7        ! in code units (to match full stellar lifetime in years)
+courant = 0.4
+dtmax = 1.0e15      ! optional: limit max timestep if needed
+
+[physics]
+type = hydro
+eos = adiabatic
+gamma = 5.0/3.0
+
+[scheme]
+type = tvdlf
+flux_limiter = vanleer
+
+[user]
+use_stellar_evolution = T
+winddatafile = "stellar_evolution.dat"
+
