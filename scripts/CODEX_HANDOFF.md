@@ -4356,3 +4356,23 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
 - Command validated on July 23 090424 minimized solution: at 0.02 d,
   5e14 Hz, 0.0002 d anchor, 0.417955398 versus 0.557366995 mJy.
   This is a forward-model diagnostic, not a corrected flux or new fit.
+
+## Last Touched (2026-10-07): Ethan Filter Correctness and Speed Benchmarks
+
+- Added `scripts/benchmark_ethan_filter.py` for same-input forward-call
+  timings and saved flux vectors against an explicitly selected checkout.
+  Run it with `--checkout`, `--observations`, `--parameters`, and `--output`;
+  choose analytic/native model, sampled/all rows, source dust, IGM, response
+  nodes, and bandpass mode. It does not start an MCMC fit.
+- Added `scripts/diagnose_bandpass_vs_grid.py` for the 090424 decomposition
+  of whole-observation central flux, band-context central flux, and integrated
+  flux. It shows that native request-time context is a large part of the
+  apparent early UVOT difference; it is not a flux correction routine.
+- `scripts/diagnose_vegas_time_grid.py` now accepts `--resolution-t` for a
+  controlled native time-resolution check. Results and decision are in
+  `/Users/jkeohane/GRBs/ETHAN_FILTER_VALIDATION_AND_SPEED_2026_10_07.md`;
+  benchmark JSON is retained in local `Run_Staging/2026_10_07_ethan_filter_validation/`.
+- Commands: the three diagnostic scripts, 090424/220101A benchmark runs,
+  and focused pytest. No production fit, remote deployment, or Share Folder
+  product was created. Remaining: resolve common native time-grid context
+  and full Trotter filter-level/scatter semantics before new long fits.

@@ -169,6 +169,40 @@ class BandpassResourceTests(unittest.TestCase):
 
 
 class BandpassLikelihoodTests(unittest.TestCase):
+    def test_hst_lya_overlap_matches_independent_dense_quadrature(self):
+        response = get_bandpass('F775W')
+        z = 4.61
+        time = 36.97
+        frequency = C_ANGSTROM_PER_SECOND / response.pivot_wavelength_angstrom
+        obs = _Observation([time], [frequency], ['F775W'])
+        params = {
+            'model': {'slope': -0.7, 'z': z},
+            'extinction': _zero_dust(),
+            'absorption': {},
+        }
+        wrapper = MCMCModels(
+            obs, _PowerLawAfterglow, ext_model=None,
+            bandpass_integration='verified', bandpass_nodes=16,
+            igm_absorption_model='inoue2014',
+        )
+        modeled = wrapper.model(params)[0]
+
+        raw_wl = response.wavelength_angstrom
+        wl = np.concatenate([
+            np.linspace(lo, hi, 9)[:-1]
+            for lo, hi in zip(raw_wl[:-1], raw_wl[1:])
+        ] + [raw_wl[-1:]])
+        throughput = np.interp(wl, raw_wl, response.effective_area_cm2)
+        signal = (
+            _PowerLawAfterglow(slope=-0.7).spectral_flux(
+                np.full(wl.size, time), C_ANGSTROM_PER_SECOND / wl
+            )
+            * inoue2014_igm_transmission(wl, z)
+        )
+        measure = throughput / wl
+        dense = np.trapezoid(signal * measure, wl) / np.trapezoid(measure, wl)
+        self.assertLess(abs(modeled / dense - 1.0), 1.0e-4)
+
     def test_every_verified_filter_is_integrated_in_one_mixed_observation(self):
         names = list(available_bandpasses())
         frequencies = [
