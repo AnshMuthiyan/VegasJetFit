@@ -227,7 +227,7 @@ def log(ampy, out_dir, *, burn_length, run_length):
             models.bandpass_treatment(best_z)
             if hasattr(models, 'bandpass_treatment') else 'unrecorded'
         ),
-        'observable': 'photon_weighted_ab_equivalent_fnu',
+        'observable': 'response_weighted_ab_equivalent_fnu',
         'source_extinction_model': source_extinction_model,
         'source_extinction_model_origin': source_extinction_model_origin,
         'igm_absorption_model': getattr(

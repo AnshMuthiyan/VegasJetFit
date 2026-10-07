@@ -404,17 +404,19 @@ def quantile_nodes(wavelength, weight, max_nodes, normalize=True):
 
 
 def refine_photon_cells(wavelength, weight, lower, upper, refine, breakpoints=(),
-                        subdivisions=8):
+                        subdivisions=8, response_convention="photon"):
     """Split selected quadrature cells into sub-cells.
 
     Each selected cell ``[lower, upper]`` is cut at any ``breakpoints`` strictly
     inside it and every piece is divided into ``subdivisions`` equal
     sub-intervals. Sub-cell weights share the cell's weight in proportion to
-    ``integral dlambda / lambda`` over each sub-interval (the response is
-    constant within a cell), so every cell's total photon weight -- and hence
-    the normalization -- is preserved exactly. Unselected cells are returned
-    unchanged, in order. Nodes sit at sub-interval midpoints.
+    the response's integration measure over each sub-interval (the response
+    is constant within a cell). This preserves every cell's total weight and
+    the normalization. Unselected cells are returned unchanged, in order.
+    Nodes sit at sub-interval midpoints.
     """
+    if response_convention not in ("photon", "energy"):
+        raise ValueError("Refinement requires a photon or energy response.")
     wavelength = np.asarray(wavelength, dtype=float)
     weight = np.asarray(weight, dtype=float)
     refine = np.asarray(refine, dtype=bool)
@@ -431,19 +433,20 @@ def refine_photon_cells(wavelength, weight, lower, upper, refine, breakpoints=()
         edges = np.concatenate([
             np.linspace(a, b, subdivisions + 1)[:-1] for a, b in zip(cuts[:-1], cuts[1:])
         ] + [[hi]])
-        log_width = np.log(edges[1:] / edges[:-1])
+        if response_convention == "photon":
+            subcell_weight = np.log(edges[1:] / edges[:-1])
+        else:
+            subcell_weight = 1.0 / edges[:-1] - 1.0 / edges[1:]
         out_wl.append(0.5 * (edges[1:] + edges[:-1]))
-        out_w.append(w * log_width / log_width.sum())
+        out_w.append(w * subcell_weight / subcell_weight.sum())
     return np.concatenate(out_wl), np.concatenate(out_w)
 
 
 # Rest-frame inverse-microns boundary at which the dust law's UV structure
 # (and, further blueward, Ly-alpha-forest/Lyman-limit structure) becomes
-# significant enough that a single central-wavelength evaluation is no
-# longer a safe stand-in for integrating the full filter response. Per the
-# 2026-09-22 filter-integration sync: "the magic spot...was 3.3 inverse
-# microns...if a filter function crosses 3.3 inverse microns, we're going to
-# want to integrate it. If it's all on the lower side, then we won't."
+# significant. This boundary is used only by the optional selective
+# approximation. A verified response is integrated by default regardless
+# of whether it crosses the boundary.
 #
 # This is a distinct physical boundary from Ly-alpha (1215.67 A) and the
 # Lyman limit (911.8 A) -- do not conflate the three. See
@@ -464,16 +467,16 @@ def requires_bandpass_integration(
     wavenumber range for every burst redshift,
     ``x_rest = (1 + z) / lambda_obs[micron]`` -- the same mapping used for
     source-frame dust attenuation in ``MCMCModels._node_source_attenuation``.
-    The filter needs integration when ANY part of its actual response lies at
-    ``x_rest >= x_threshold``: this includes a filter lying entirely on the
-    high-frequency side, and a filter that reaches the boundary only through
-    a faint tail (2026-10 team decision: integrate wherever the response
-    crosses; no fractional-response threshold; do not clip tails to avoid
-    integration). "Any part" is judged on the cells the quadrature integrates
+    The optional selective shortcut integrates when ANY part of the actual
+    response lies at ``x_rest >= x_threshold``: this includes a filter lying
+    entirely on the high-frequency side or reaching it through a faint tail.
+    This is not a general test of whether bandpass effects matter; full
+    verified-response integration is the default. "Any part" is judged on
+    the cells the quadrature integrates
     (:meth:`Bandpass.support_angstrom`), i.e. the blue edge of the bluest
     cell with nonzero response, not its centre. A filter lying entirely
-    redward of the boundary (``x_rest < x_threshold`` everywhere) does not
-    require integration.
+    redward of the boundary (``x_rest < x_threshold`` everywhere) is skipped
+    only when selective mode is explicitly enabled.
     """
     blue_edge, _ = response.support_angstrom()
     x_max = (1.0 + float(redshift)) * ANGSTROM_PER_MICRON / blue_edge

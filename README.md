@@ -127,6 +127,10 @@ filter-level prescription are no longer accepted (configuration validation
 rejects them with an explanation). How Trotter's sight-line scatter
 (Eq. 3.45) should enter the continuous model has not been decided, so the
 mean relation is used.
+This `trotter2011` IGM selector is therefore a continuous mean-curve
+approximation, not a reproduction of Trotter's full filter-level photometric
+prescription or its sight-line scatter. Compare it with `inoue2014` and the
+published filter-level prescription before interpreting fitted differences.
 
 To fit the host neutral-hydrogen column as well, select the independent host
 model and add a physical `N_HI` parameter. A logarithmic coordinate is
@@ -159,11 +163,11 @@ curve, and that attenuated spectrum is averaged through the response with
 the measure the curve's provenance implies (photon-counting curves such as
 the Swift/UVOT ARFs: `R dlambda/lambda`; energy-counting curves such as
 SVO's Bessell passbands: `T dlambda/lambda^2`; a curve whose convention is
-unknown refuses to integrate) -- see `jetfit/core/bandpass.py`. A band is
-integrated when any part of its response lies at rest-frame
-`x = (1+z)/lambda[um] >= 3.3` (faint tails included); a band entirely below
-that boundary uses its central frequency (`JETFIT_BANDPASS_SELECTIVE=0`
-integrates every band with a response). Instrument-ambiguous filter labels
+unknown refuses to integrate) -- see `jetfit/core/bandpass.py`. Every band
+with a verified response is integrated by default. An optional
+`JETFIT_BANDPASS_SELECTIVE=1` shortcut uses central frequency for responses
+entirely below rest-frame `x = (1+z)/lambda[um] = 3.3`; use this only after
+checking its error budget for the fit. Instrument-ambiguous filter labels
 retain the documented central wavelength approximation. These optical/UV H I models must not be applied to
 the absorption-corrected Swift-XRT integrated-flux products.
 

@@ -9,6 +9,7 @@ from jetfit.core.bandpass import (
     C_ANGSTROM_PER_SECOND,
     available_bandpasses,
     get_bandpass,
+    refine_photon_cells,
     requires_bandpass_integration,
 )
 from jetfit.core.hydrogen_absorption import (
@@ -96,6 +97,22 @@ def _zero_dust():
 
 
 class BandpassResourceTests(unittest.TestCase):
+    def test_refined_cell_respects_response_measure(self):
+        arguments = (
+            np.array([2000.0]), np.array([1.0]),
+            np.array([1500.0]), np.array([2500.0]),
+            np.array([True]), [2000.0], 1,
+        )
+        _, photon_weights = refine_photon_cells(*arguments)
+        _, energy_weights = refine_photon_cells(
+            *arguments, response_convention='energy'
+        )
+        photon_red = np.log(2500.0 / 2000.0) / np.log(2500.0 / 1500.0)
+        energy_red = (1 / 2000.0 - 1 / 2500.0) / (1 / 1500.0 - 1 / 2500.0)
+        self.assertAlmostEqual(photon_weights[-1], photon_red)
+        self.assertAlmostEqual(energy_weights[-1], energy_red)
+        self.assertAlmostEqual(sum(energy_weights), 1.0)
+
     def test_all_six_uvot_curves_load_and_generic_labels_do_not_alias(self):
         self.assertEqual(
             available_bandpasses(),
@@ -182,10 +199,7 @@ class BandpassLikelihoodTests(unittest.TestCase):
             expected.append(np.sum(intrinsic * weight))
         np.testing.assert_allclose(modeled, expected, rtol=1e-12)
 
-    def test_default_selective_mode_keeps_bands_below_boundary_monochromatic(self):
-        # Team decision (2026-10): integrate where the response crosses
-        # x = 3.3 um^-1; a band wholly below it stays on the monochromatic
-        # path, and a crossing band is integrated.
+    def test_default_integrates_all_verified_responses(self):
         names = list(available_bandpasses())
         frequencies = [
             C_ANGSTROM_PER_SECOND / get_bandpass(name).pivot_wavelength_angstrom
@@ -200,6 +214,31 @@ class BandpassLikelihoodTests(unittest.TestCase):
                 obs, _PowerLawAfterglow, ext_model=None,
                 bandpass_integration='verified', bandpass_nodes=16,
             )
+        self.assertFalse(wrapper.bandpass_selective)
+        modeled = wrapper.model(params)
+        for i, name in enumerate(names):
+            response = get_bandpass(name)
+            wavelength, weight = response.quadrature(None)
+            intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
+                np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
+            )
+            np.testing.assert_allclose(modeled[i], np.sum(intrinsic * weight),
+                                       rtol=1e-12, err_msg=name)
+
+    def test_explicit_selective_mode_keeps_bands_below_boundary_monochromatic(self):
+        names = list(available_bandpasses())
+        frequencies = [
+            C_ANGSTROM_PER_SECOND / get_bandpass(name).pivot_wavelength_angstrom
+            for name in names
+        ]
+        obs = _Observation(np.ones(len(names)), frequencies, names)
+        z = 0.544
+        params = {'model': {'slope': -0.7, 'z': z}, 'extinction': _zero_dust()}
+        wrapper = MCMCModels(
+            obs, _PowerLawAfterglow, ext_model=None,
+            bandpass_integration='verified', bandpass_nodes=16,
+            bandpass_selective=True,
+        )
         self.assertTrue(wrapper.bandpass_selective)
         modeled = wrapper.model(params)
         crossing = [
@@ -451,9 +490,8 @@ class BandpassLikelihoodTests(unittest.TestCase):
         self.assertGreater(abs(modeled / central - 1.0), 1.0e-3)
 
     def test_trotter_igm_is_applied_per_wavelength_before_integration(self):
-        # 2026-10 team decision: the Trotter IGM multiplies the spectrum at
-        # every response wavelength (each at its own absorber redshift) and
-        # the attenuated spectrum is then integrated -- no per-filter scalar.
+        # Characterize the current continuous-mean approximation, not
+        # Trotter's full filter-level prescription with sight-line scatter.
         uvm2 = get_bandpass('uvm2')
         pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom
         obs = _Observation([1.0], [pivot_nu], ['uvm2'])

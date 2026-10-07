@@ -244,9 +244,9 @@ def trotter2011_igm_transmission(wavelength_angstrom, source_redshift, delta_igm
     * lambda >= 1215.67 (1+z): 1 (redward of observed Ly-alpha the forest
       cannot absorb).
 
-    This is the continuous form of the relation, as drawn in Trotter's
-    Fig. 3.24 (2026-10 team decision), NOT the per-filter scalar of his
-    Eq. 3.46: it is meant to multiply the spectrum before filter integration.
+    This is a continuous mean-curve approximation motivated by Trotter's
+    Fig. 3.24, NOT the fitted per-filter prescription of Eqs. 3.45-3.46:
+    it multiplies the spectrum before filter integration.
     ``delta_igm`` is Trotter's ln(-ln T) offset delta (the e^delta factor of
     Eq. 3.46; its prior width is Eq. 3.44/3.45). 0 = the mean relation, which
     is what production uses; no configuration currently sets it.
@@ -279,9 +279,8 @@ def trotter2011_igm_filter_transmission(
     """REFERENCE ONLY -- Trotter's (2011) published per-filter IGM prescription.
 
     NOT used by the production pipeline and not reachable from
-    :func:`hydrogen_transmission` (2026-10 team decision: production applies
-    the continuous relation, :func:`trotter2011_igm_transmission`, per
-    wavelength before the filter integral). Kept, unchanged from the
+    :func:`hydrogen_transmission` (the current selector applies the
+    continuous mean-curve approximation per wavelength). Kept from the
     2026-09-25 tree, so Trotter's published model remains available for
     reproduction and comparison.
 

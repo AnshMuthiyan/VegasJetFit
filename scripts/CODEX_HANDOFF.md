@@ -4344,3 +4344,15 @@ If the forward-shock Lorentz-factor field in `details.fwd` is discovered, record
   bands, two models, and 120 times per series. Validation included 42 focused
   tests, script compilation, CSV assertions, and rendered inspection of the
   standalone figure and report pages.
+
+## Last Touched (2026-10-07): Native Time-Grid Probe
+
+- Added `scripts/diagnose_vegas_time_grid.py` in the isolated
+  `codex/ethan-filter-audit-2026-10-07` worktree. Run from that checkout with
+  `/Users/jkeohane/GRBs/.venv/bin/python -m scripts.diagnose_vegas_time_grid
+  <path-to-minimized.json>`; optional `--time-days`, `--anchor-days`, and
+  `--frequency-hz` vary the probe. It prints a saved solution's flux at one
+  target time alone and with an earlier anchor in the request array.
+- Command validated on July 23 090424 minimized solution: at 0.02 d,
+  5e14 Hz, 0.0002 d anchor, 0.417955398 versus 0.557366995 mJy.
+  This is a forward-model diagnostic, not a corrected flux or new fit.

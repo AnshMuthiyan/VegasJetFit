@@ -1306,22 +1306,10 @@ class MCMCModels:
             raise ValueError('Bandpass nodes must be 0 (full curve) or at least 2.')
         self.bandpass_nodes = None if configured_nodes <= 0 else configured_nodes
 
-        # Redshift-dependent selective integration (2026-09-22 filter sync,
-        # confirmed by the 2026-10 team decision): a band with a verified
-        # response is integrated when ANY part of its actual response crosses
-        # (or lies beyond) the source-frame x = 3.3 um^-1 boundary at this
-        # burst's redshift -- faint tails included, no fractional threshold
-        # (see requires_bandpass_integration). A band whose whole response
-        # lies on the low-frequency side keeps the central-frequency
-        # (monochromatic) path: "If it's all on the lower side, then we won't
-        # [integrate]. We'll just use the central frequency." This is the
-        # default whenever integration is enabled (it was opt-in before
-        # 2026-10). JETFIT_BANDPASS_SELECTIVE=0 (or bandpass_selective=False)
-        # integrates every band with a verified response regardless of z,
-        # which reproduces earlier runs. For the current data every
-        # integrated band crosses, so both settings give identical fits.
+        # Integrate every verified response by default. The 3.3 um^-1
+        # selective shortcut remains opt-in for measured error-budget tests.
         selective_setting = (
-            os.environ.get('JETFIT_BANDPASS_SELECTIVE', '1')
+            os.environ.get('JETFIT_BANDPASS_SELECTIVE', '0')
             if bandpass_selective is None else str(bandpass_selective)
         ).strip().lower()
         self.bandpass_selective = selective_setting in (
@@ -1479,7 +1467,7 @@ class MCMCModels:
         instrument-ambiguous labels retain the historical monochromatic model,
         as does a verified-response band whose whole response lies below the
         x = 3.3 um^-1 boundary at this burst's redshift when
-        ``self.bandpass_selective`` is on (the default; see
+        ``self.bandpass_selective`` is explicitly on (see
         :func:`jetfit.core.bandpass.requires_bandpass_integration`).
         """
         modeled = np.asarray(modeled, dtype=float).copy()
@@ -1689,6 +1677,7 @@ class MCMCModels:
         return refine_photon_cells(
             wavelength, weights, lower, upper, contains_step | steep,
             steps, self.bandpass_refine_subdivisions,
+            response_convention=response.response_convention,
         )
 
     def _node_extinction(self, wave_numbers, params, band=None):
