@@ -1,13 +1,35 @@
 """Neutral-hydrogen attenuation for GRB afterglow photometry.
 
-The intergalactic component implements the mean Inoue et al. (2014) model,
-including 39 Lyman-series lines and Lyman-continuum opacity from both the
-Ly-alpha-forest and DLA absorber populations.  The host component implements
-the damped Ly-alpha profile used by Trotter (2011, Eq. 3.39), following Totani
-et al. (2006), plus the source-frame Lyman limit assumed by Trotter.
+Every model here is a TRANSMISSION AS A FUNCTION OF OBSERVED WAVELENGTH,
+T_H(lambda). It multiplies the model spectrum (together with the dust
+attenuation) at each wavelength BEFORE any filter integration:
+
+    F_nu,att(lambda) = F_nu(lambda) * A_dust(lambda) * T_H(lambda)
+    <F_nu>_band      = integral F_nu,att m dlambda / integral m dlambda
+
+(2026-10 team decision; see ``MCMCModels.integrate_spectral_bandpass``). No
+function here returns a single number to be multiplied onto a band-
+integrated flux; partial-band absorption therefore comes out of the
+response-weighted integral automatically, for any response shape.
+
+Intergalactic options:
+
+* ``inoue2014`` -- the mean Inoue et al. (2014) model, including 39
+  Lyman-series lines and Lyman-continuum opacity from both the
+  Ly-alpha-forest and DLA absorber populations.
+* ``trotter2011`` -- Trotter's (2011) empirical forest relation (Eq. 3.41,
+  Table 3.6 peak values) evaluated continuously at each wavelength's absorber
+  redshift z_abs = lambda / 1215.67 A - 1 between the source Lyman limit and
+  observed Ly-alpha; zero transmission blueward of the source Lyman limit;
+  unity redward of observed Ly-alpha.
+
+The host component implements the damped Ly-alpha profile used by Trotter
+(2011, Eq. 3.39), following Totani et al. (2006), plus the source-frame
+Lyman limit assumed by Trotter.
 
 All public functions accept observed-frame wavelengths in Angstrom.  Dust
-extinction is deliberately kept in a separate module.
+extinction is deliberately kept in a separate module. The models are off by
+default (``"none"``) and are enabled per configuration.
 
 References
 ----------
@@ -20,7 +42,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from jetfit.models.trotter_lyman_alpha import calculate_igm_transmission
+from jetfit.models.trotter_lyman_alpha import (
+    calculate_igm_transmission,
+    trotter_igm_optical_depth,
+)
 
 
 C_ANGSTROM_PER_SECOND = 2.99792458e18
@@ -205,6 +230,45 @@ def inoue2014_igm_transmission(wavelength_angstrom, source_redshift):
     return np.exp(-tau)
 
 
+def trotter2011_igm_transmission(wavelength_angstrom, source_redshift, delta_igm=0.0):
+    """Trotter (2011) Ly-alpha-forest transmission as a function of wavelength.
+
+    For observed wavelength lambda and source redshift z:
+
+    * lambda < 911.8 (1+z): 0 (source-frame Lyman limit; total absorption, as
+      Trotter assumes, Sec. 3.4.1 and Fig. 3.24);
+    * 911.8 (1+z) <= lambda < 1215.67 (1+z): exp(-e^delta tau(z_abs)) with
+      z_abs = lambda / 1215.67 - 1 and tau the Eq. 3.41 mean relation
+      (``trotter_igm_optical_depth``); tau = 0 where z_abs <= 0 (no
+      intervening absorbers at non-positive redshift);
+    * lambda >= 1215.67 (1+z): 1 (redward of observed Ly-alpha the forest
+      cannot absorb).
+
+    This is the continuous form of the relation, as drawn in Trotter's
+    Fig. 3.24 (2026-10 team decision), NOT the per-filter scalar of his
+    Eq. 3.46: it is meant to multiply the spectrum before filter integration.
+    ``delta_igm`` is Trotter's ln(-ln T) offset delta (the e^delta factor of
+    Eq. 3.46; its prior width is Eq. 3.44/3.45). 0 = the mean relation, which
+    is what production uses; no configuration currently sets it.
+    """
+    wavelength, z, scalar = _validated_inputs(
+        wavelength_angstrom, source_redshift
+    )
+    delta_igm = float(delta_igm)
+    if not np.isfinite(delta_igm):
+        raise ValueError("delta_igm must be finite.")
+    transmission = np.ones_like(wavelength)
+    source_limit = LYMAN_LIMIT_ANGSTROM * (1.0 + z)
+    source_lyman_alpha = LYMAN_ALPHA_ANGSTROM * (1.0 + z)
+    transmission[wavelength < source_limit] = 0.0
+    forest = (wavelength >= source_limit) & (wavelength < source_lyman_alpha)
+    if np.any(forest):
+        z_abs = wavelength[forest] / LYMAN_ALPHA_ANGSTROM - 1.0
+        tau = np.where(z_abs > 0.0, trotter_igm_optical_depth(np.maximum(z_abs, 0.0)), 0.0)
+        transmission[forest] = np.exp(-np.exp(delta_igm) * tau)
+    return float(transmission[0]) if scalar else transmission
+
+
 def trotter2011_igm_filter_transmission(
     wavelength_angstrom,
     source_redshift,
@@ -212,11 +276,24 @@ def trotter2011_igm_filter_transmission(
     delta_z_f,
     delta_igm=0.0,
 ):
-    """Return Trotter's empirical filter-level IGM transmission.
+    """REFERENCE ONLY -- Trotter's (2011) published per-filter IGM prescription.
 
-    Trotter (2011, Eqs. 3.41--3.46) assigns one transmission to the
-    filter portion that overlaps the source Ly-alpha forest. The source
-    Lyman limit remains a wavelength-resolved hard cutoff.
+    NOT used by the production pipeline and not reachable from
+    :func:`hydrogen_transmission` (2026-10 team decision: production applies
+    the continuous relation, :func:`trotter2011_igm_transmission`, per
+    wavelength before the filter integral). Kept, unchanged from the
+    2026-09-25 tree, so Trotter's published model remains available for
+    reproduction and comparison.
+
+    Trotter (2011, Eqs. 3.45-3.46) assigns ONE transmission, at the filter's
+    response-weighted mean absorber redshift ``z_f`` (``delta_z_f`` sets the
+    width of the prior on ``delta_igm``, Eq. 3.45), to the part of the filter
+    between the source Lyman limit and observed Ly-alpha. This function
+    applies that scalar to the forest-overlap wavelengths only (the
+    2026-09-25 "forest-only" reading; the uploaded code applied it to every
+    wavelength of the filter), zero below the source Lyman limit, one
+    redward of observed Ly-alpha. Using it inside a band integral would be
+    the per-filter scalar the team rejected.
     """
     wavelength, z, scalar = _validated_inputs(
         wavelength_angstrom, source_redshift
@@ -225,11 +302,9 @@ def trotter2011_igm_filter_transmission(
     source_limit = LYMAN_LIMIT_ANGSTROM * (1.0 + z)
     source_lyman_alpha = LYMAN_ALPHA_ANGSTROM * (1.0 + z)
     transmission[wavelength < source_limit] = 0.0
-    overlaps_forest = np.any(
-        (wavelength >= source_limit) & (wavelength < source_lyman_alpha)
-    )
-    if overlaps_forest:
-        transmission *= calculate_igm_transmission(
+    forest_overlap = (wavelength >= source_limit) & (wavelength < source_lyman_alpha)
+    if np.any(forest_overlap):
+        transmission[forest_overlap] *= calculate_igm_transmission(
             z_f, delta_z_f, delta_igm
         )
     return float(transmission[0]) if scalar else transmission
@@ -274,6 +349,32 @@ def trotter2011_host_hi_transmission(
     return float(transmission[0]) if scalar else transmission
 
 
+def hydrogen_step_wavelengths(source_redshift, *, igm_model="none", host_model="none"):
+    """Observed-frame wavelengths [Angstrom] where the selected H I models
+    change discontinuously (steps in transmission).
+
+    Used by bandpass integration to place quadrature cell boundaries exactly
+    on these steps rather than letting a step fall inside a tabulation cell.
+
+    * ``inoue2014``: each Lyman-series line's absorption starts abruptly at
+      ``(1+z) * lambda_j`` (the red edge of that line's forest).
+    * ``trotter2011`` IGM: the forest window's red edge ``(1+z) * Ly-alpha``
+      (transmission jumps to 1) and the source Lyman limit ``(1+z) * 911.8``
+      (transmission drops to 0); inside the window it is continuous.
+    * ``trotter2011`` host: the source Lyman limit. (The damping wing itself is
+      continuous; it is steep, not a step.)
+    """
+    z = float(source_redshift)
+    steps = []
+    if igm_model == "inoue2014":
+        steps.extend(_LYMAN_SERIES[:, 0] * (1.0 + z))
+    elif igm_model == "trotter2011":
+        steps.extend([LYMAN_ALPHA_ANGSTROM * (1.0 + z), LYMAN_LIMIT_ANGSTROM * (1.0 + z)])
+    if host_model == "trotter2011":
+        steps.append(LYMAN_LIMIT_ANGSTROM * (1.0 + z))
+    return np.unique(np.asarray(steps, dtype=float))
+
+
 def hydrogen_transmission(
     wavelength_angstrom,
     source_redshift,
@@ -281,11 +382,12 @@ def hydrogen_transmission(
     igm_model="none",
     host_model="none",
     nhi_host_cm2=None,
-    igm_z_f=None,
-    igm_delta_z_f=None,
-    igm_delta=0.0,
 ):
-    """Return the product of independently selected IGM and host H I models."""
+    """Return T_H(lambda): the product of the selected IGM and host H I models.
+
+    Wavelength-dependent; multiply it into the spectrum before integrating
+    through a response curve (module docstring).
+    """
     wavelength, z, scalar = _validated_inputs(
         wavelength_angstrom, source_redshift
     )
@@ -294,24 +396,7 @@ def hydrogen_transmission(
     if igm_model == "inoue2014":
         transmission *= inoue2014_igm_transmission(wavelength, z)
     elif igm_model == "trotter2011":
-        source_limit = LYMAN_LIMIT_ANGSTROM * (1.0 + z)
-        source_lyman_alpha = LYMAN_ALPHA_ANGSTROM * (1.0 + z)
-        overlaps_forest = np.any(
-            (wavelength >= source_limit) & (wavelength < source_lyman_alpha)
-        )
-        if overlaps_forest and (igm_z_f is None or igm_delta_z_f is None):
-            raise ValueError(
-                "igm_model='trotter2011' requires igm_z_f and "
-                "igm_delta_z_f for a filter overlapping the Ly-alpha forest."
-            )
-        if overlaps_forest or np.any(wavelength < source_limit):
-            transmission *= trotter2011_igm_filter_transmission(
-                wavelength,
-                z,
-                0.0 if igm_z_f is None else igm_z_f,
-                1.0 if igm_delta_z_f is None else igm_delta_z_f,
-                igm_delta,
-            )
+        transmission *= trotter2011_igm_transmission(wavelength, z)
     elif igm_model != "none":
         raise ValueError(f"Unknown IGM absorption model: {igm_model!r}.")
 

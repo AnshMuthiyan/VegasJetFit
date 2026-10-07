@@ -9,6 +9,7 @@ from jetfit.core.hydrogen_absorption import (
     inoue2014_igm_optical_depth,
     inoue2014_igm_transmission,
     trotter2011_igm_filter_transmission,
+    trotter2011_igm_transmission,
     trotter2011_host_dla_delta_log10_flux,
     trotter2011_host_hi_transmission,
 )
@@ -63,39 +64,80 @@ class Inoue2014Tests(unittest.TestCase):
         )
 
 
+def _trotter_eq_3_41_transmission(z_abs):
+    """Trotter (2011) Eq. 3.41 mean relation, re-typed from the thesis
+    (Table 3.6 peak values), independent of the production function."""
+    b1, t1, z1 = -0.20184, np.radians(41.4538), 4.10
+    b2, t2, z2 = 1.18711, np.radians(79.12), 6.15
+    tau = np.exp(b1 + np.tan(t1) * (z_abs - z1)) + np.exp(b2 + np.tan(t2) * (z_abs - z2))
+    return np.exp(-tau)
+
+
 class Trotter2011IGMTests(unittest.TestCase):
-    def test_filter_transmission_matches_equation_3_46_and_lyman_limit(self):
+    """2026-10 team decision: the Trotter IGM is a transmission AS A FUNCTION
+    OF WAVELENGTH (each wavelength at its own absorber redshift), applied to
+    the spectrum before filter integration -- not one scalar per filter."""
+
+    def test_transmission_is_continuous_in_wavelength_with_lyman_limit(self):
         redshift = 3.375
-        wavelength = np.array([3500.0, 4500.0, 6000.0])
-        actual = trotter2011_igm_filter_transmission(
-            wavelength, redshift, z_f=2.7, delta_z_f=0.4, delta_igm=0.1
-        )
-        expected_filter = calculate_igm_transmission(2.7, 0.4, 0.1)
-        np.testing.assert_allclose(
-            actual,
-            np.array([0.0, expected_filter, expected_filter]),
+        # 3500 A: below the source Lyman limit (911.8*(1+z) = 3989.1 A) -> 0.
+        # 4500 A and 5000 A: inside the forest window, each at its OWN
+        #   absorber redshift z_abs = lambda/1215.67 - 1 (3.70 and 3.11).
+        # 6000 A: redward of observed Ly-alpha (5318.6 A) -> 1.
+        wavelength = np.array([3500.0, 4500.0, 5000.0, 6000.0])
+        actual = trotter2011_igm_transmission(wavelength, redshift)
+        expected = np.array([
+            0.0,
+            _trotter_eq_3_41_transmission(4500.0 / 1215.67 - 1.0),
+            _trotter_eq_3_41_transmission(5000.0 / 1215.67 - 1.0),
+            1.0,
+        ])
+        np.testing.assert_allclose(actual, expected, rtol=1e-12)
+        # Different wavelengths inside one filter get different transmissions.
+        self.assertNotAlmostEqual(actual[1], actual[2], places=3)
+
+    def test_matches_filter_level_relation_at_the_same_redshift(self):
+        # The continuous curve evaluated at z_abs equals Trotter's own
+        # relation evaluated at that redshift (calculate_igm_transmission,
+        # retained as the per-filter reference implementation).
+        wavelength = 4500.0
+        z_abs = wavelength / 1215.67 - 1.0
+        self.assertAlmostEqual(
+            trotter2011_igm_transmission(wavelength, 3.375),
+            calculate_igm_transmission(z_abs, 0.15, 0.0),
+            places=14,
         )
 
     def test_user_facing_selector_dispatches_trotter(self):
         wavelength = np.array([4500.0, 5000.0])
-        actual = hydrogen_transmission(
-            wavelength,
-            3.375,
-            igm_model='trotter2011',
-            igm_z_f=2.7,
-            igm_delta_z_f=0.4,
-            igm_delta=0.0,
+        np.testing.assert_allclose(
+            hydrogen_transmission(wavelength, 3.375, igm_model='trotter2011'),
+            trotter2011_igm_transmission(wavelength, 3.375),
         )
-        expected = trotter2011_igm_filter_transmission(
-            wavelength, 3.375, 2.7, 0.4, 0.0
-        )
-        np.testing.assert_allclose(actual, expected)
 
-    def test_forest_overlap_requires_filter_coordinates(self):
-        with self.assertRaisesRegex(ValueError, 'requires igm_z_f'):
-            hydrogen_transmission(
-                4500.0, 3.375, igm_model='trotter2011'
-            )
+    def test_no_per_filter_coordinates_are_required_or_accepted(self):
+        # Works without any filter coordinates ...
+        self.assertTrue(np.isfinite(
+            hydrogen_transmission(4500.0, 3.375, igm_model='trotter2011')
+        ))
+        # ... and the former per-filter keywords no longer exist.
+        with self.assertRaises(TypeError):
+            hydrogen_transmission(4500.0, 3.375, igm_model='trotter2011',
+                                  igm_z_f=2.7, igm_delta_z_f=0.4)
+
+
+class TrotterPerFilterReferenceTests(unittest.TestCase):
+    """Trotter's published per-filter prescription, kept as reference only
+    (not used in production). Same assertions as the 2026-09-25 test."""
+
+    def test_filter_transmission_matches_equation_3_46_and_lyman_limit(self):
+        redshift = 3.375
+        wavelength = np.array([3500.0, 4500.0, 6000.0])   # below LL, in forest, redward of Ly-alpha
+        actual = trotter2011_igm_filter_transmission(
+            wavelength, redshift, z_f=2.7, delta_z_f=0.4, delta_igm=0.1
+        )
+        expected_filter = calculate_igm_transmission(2.7, 0.4, 0.1)
+        np.testing.assert_allclose(actual, np.array([0.0, expected_filter, 1.0]))
 
 
 class TrotterHostHITests(unittest.TestCase):

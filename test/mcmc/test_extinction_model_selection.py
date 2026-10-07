@@ -151,31 +151,40 @@ class HydrogenAbsorptionConfigurationTests(unittest.TestCase):
             Parameters.from_toml(without_z)
 
     def test_trotter_igm_is_an_explicit_user_facing_choice(self):
+        # 2026-10: the Trotter IGM is continuous in wavelength, so selecting
+        # it needs only the fixed source redshift -- no per-filter
+        # coordinates.
         config = model_config({}) | {
             'igm_absorption_model': 'trotter',
             'model': [fixed_parameter('z', 3.375)],
-            'absorption': [
-                fitting_parameter('delta_igm_generic_g', -3.0, 3.0),
-                fixed_parameter('z_f_generic_g', 2.7),
-                fixed_parameter('delta_z_f_generic_g', 0.4),
-            ],
         }
         params = Parameters.from_toml(config)
         self.assertEqual(params.igm_absorption_model, 'trotter2011')
         self.assertEqual(normalize_igm_absorption_model('trotter11'), 'trotter2011')
 
-    def test_trotter_igm_rejects_absorbers_behind_the_source(self):
-        config = model_config({}) | {
-            'igm_absorption_model': 'trotter2011',
-            'model': [fixed_parameter('z', 0.544)],
-            'absorption': [
-                fitting_parameter('delta_igm_uvw1', -3.0, 3.0),
-                fixed_parameter('z_f_uvw1', 2.3),
-                fixed_parameter('delta_z_f_uvw1', 0.15),
-            ],
-        }
-        with self.assertRaisesRegex(ValueError, 'between zero and source redshift'):
+    def test_trotter_igm_still_requires_fixed_source_redshift(self):
+        config = model_config({}) | {'igm_absorption_model': 'trotter2011'}
+        with self.assertRaisesRegex(ValueError, 'fixed, known model redshift'):
             Parameters.from_toml(config)
+
+    def test_old_per_filter_trotter_triplets_are_rejected_with_explanation(self):
+        # The superseded per-filter construct (z_f, delta_z_f, delta_igm per
+        # filter) must not be silently ignored by old configurations.
+        for triplet in (
+            [fitting_parameter('delta_igm_generic_g', -3.0, 3.0),
+             fixed_parameter('z_f_generic_g', 2.7),
+             fixed_parameter('delta_z_f_generic_g', 0.4)],
+            [fixed_parameter('z_f_uvw1', 2.3)],
+        ):
+            config = model_config({}) | {
+                'igm_absorption_model': 'trotter2011',
+                'model': [fixed_parameter('z', 3.375)],
+                'absorption': triplet,
+            }
+            with self.assertRaisesRegex(
+                ValueError, 'no longer used.*continuously in wavelength'
+            ):
+                Parameters.from_toml(config)
 
     def test_host_model_requires_nhi_host(self):
         config = model_config({}) | {

@@ -28,11 +28,11 @@ HOST_HI_ABSORPTION_MODELS = ('none', 'trotter2011')
 HYDROGEN_ABSORPTION_REFERENCE_COMMENTS = (
     'Neutral-hydrogen absorption references (separate from dust extinction):',
     'Inoue et al. 2014, MNRAS, 442, 1805: mean intergalactic Lyman absorption.',
-    'Trotter 2011 thesis, Section 3.4.2: filter-level empirical IGM absorption.',
+    'Trotter 2011 thesis, Section 3.4.2: empirical Ly-alpha-forest relation, evaluated per wavelength.',
     'Trotter 2011 thesis, Section 3.4.1: host DLA and source Lyman limit.',
     'Totani et al. 2006, PASJ, 58(3), 485: host damped-Lyman-alpha profile.',
     'Allowed IGM models: "none", "inoue2014", or "trotter2011".',
-    'Trotter IGM requires z_f_*, delta_z_f_*, and delta_igm_* per filter.',
+    'Both IGM models are wavelength-dependent and need no per-filter parameters.',
     'Allowed host H I models: "none" or "trotter2011" (requires nhi_host).',
 )
 _IGM_ABSORPTION_MODEL_ALIASES = {
@@ -500,60 +500,20 @@ class Parameters:
                     'Hydrogen absorption requires a finite, non-negative redshift.'
                 )
 
-        if self.igm_absorption_model == 'trotter2011':
-            by_name = {p.name: p for p in absorption}
-            delta_names = {
-                name for name in igm_names if name.startswith('delta_igm_')
-            }
-            coordinate_names = igm_names - delta_names
-            suffixes = {
-                name.removeprefix('delta_igm_') for name in delta_names
-            }
-            orphaned = coordinate_names - {
-                coordinate
-                for suffix in suffixes
-                for coordinate in (f'z_f_{suffix}', f'delta_z_f_{suffix}')
-            }
-            if orphaned:
-                found = ', '.join(sorted(orphaned))
-                raise ValueError(
-                    'Trotter IGM coordinates have no matching delta_igm '
-                    f'parameter: {found}.'
-                )
-            redshift = next(
-                p.value for p in self.all
-                if p.category == 'model' and p.name == 'z'
-            ) if enabled else None
-            for suffix in sorted(suffixes):
-                z_name = f'z_f_{suffix}'
-                width_name = f'delta_z_f_{suffix}'
-                missing = {z_name, width_name} - names
-                if missing:
-                    found = ', '.join(sorted(missing))
-                    raise ValueError(
-                        f"delta_igm_{suffix!s} requires fixed coordinates: "
-                        f'{found}.'
-                    )
-                z_parameter = by_name[z_name]
-                width_parameter = by_name[width_name]
-                if not z_parameter.fixed or not width_parameter.fixed:
-                    raise ValueError(
-                        f'{z_name} and {width_name} must be fixed.'
-                    )
-                if not 0.0 <= z_parameter.value <= redshift:
-                    raise ValueError(
-                        f'{z_name} must lie between zero and source redshift '
-                        f'z={redshift:g}.'
-                    )
-                if (
-                    not np.isfinite(width_parameter.value)
-                    or width_parameter.value <= 0.0
-                ):
-                    raise ValueError(f'{width_name} must be finite and positive.')
-        elif igm_names:
+        if igm_names:
+            # 2026-10 team decision: hydrogen/IGM attenuation is a function of
+            # wavelength applied to the spectrum before filter integration;
+            # the trotter2011 IGM model is evaluated continuously in
+            # wavelength and has no per-filter coordinates. The former
+            # per-filter triplets (Trotter 2011, Eq. 3.46) are rejected rather
+            # than silently ignored.
+            found = ', '.join(sorted(igm_names))
             raise ValueError(
-                'Trotter filter-level IGM parameters require '
-                "igm_absorption_model='trotter2011'."
+                'Per-filter Trotter IGM parameters are no longer used: '
+                f'{found}. The trotter2011 IGM model is now evaluated '
+                'continuously in wavelength and needs no per-filter '
+                'coordinates (how its sight-line scatter enters the '
+                'continuous model has not been decided).'
             )
 
         if self.host_hi_absorption_model == 'trotter2011':

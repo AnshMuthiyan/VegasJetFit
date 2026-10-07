@@ -9,10 +9,11 @@ from jetfit.core.bandpass import (
     C_ANGSTROM_PER_SECOND,
     available_bandpasses,
     get_bandpass,
+    requires_bandpass_integration,
 )
 from jetfit.core.hydrogen_absorption import (
     inoue2014_igm_transmission,
-    trotter2011_igm_filter_transmission,
+    trotter2011_igm_transmission,
 )
 from jetfit.mcmc.mcmc import MCMCModels
 
@@ -32,6 +33,36 @@ class _Observation:
         self.length = len(times)
         self.extinguishable = np.ones(self.length, dtype=bool)
         self.hosts = None
+
+
+def _dense_uvm2_average(fnu_times_attenuation, breakpoints, substeps=64):
+    """Independent dense photon-weighted average over the raw UVM2 ARF.
+
+    Reads WAVE_MIN/WAVE_MAX/SPECRESP directly (no jetfit quadrature), splits
+    every 10 A bin into ``substeps`` pieces (and exactly at ``breakpoints``),
+    and integrates F_nu * attenuation * A / lambda with the trapezoid rule.
+    """
+    from astropy.io import fits
+    with fits.open(get_bandpass('uvm2').source_file) as hdus:
+        data = hdus[1].data
+        a = np.asarray(data['WAVE_MIN'], float)
+        b = np.asarray(data['WAVE_MAX'], float)
+        area = np.asarray(data['SPECRESP'], float)
+    lo, hi = np.minimum(a, b), np.maximum(a, b)
+    num = den = 0.0
+    for l0, l1, value in zip(lo, hi, area):
+        if value <= 0.0:
+            continue
+        cuts = np.unique([l0, l1] + [p for p in breakpoints if l0 < p < l1])
+        for c0, c1 in zip(cuts[:-1], cuts[1:]):
+            wl = np.linspace(c0, c1, substeps + 1)
+            inner = wl.copy()
+            inner[0] += 1e-9 * (c1 - c0)
+            inner[-1] -= 1e-9 * (c1 - c0)
+            w = value / wl
+            num += np.trapezoid(fnu_times_attenuation(inner) * w, wl)
+            den += np.trapezoid(w, wl)
+    return num / den
 
 
 class _PowerLawAfterglow:
@@ -135,17 +166,61 @@ class BandpassLikelihoodTests(unittest.TestCase):
             ext_model=None,
             bandpass_integration='verified',
             bandpass_nodes=16,
+            # Integrate-all switch: this test is about every verified
+            # response being usable, not about the 3.3 um^-1 selection
+            # (covered by the companion test below).
+            bandpass_selective=False,
         )
         modeled = wrapper.model(params)
         expected = []
         for name in names:
             response = get_bandpass(name)
-            wavelength, weight = response.photon_quadrature(None)
+            wavelength, weight = response.quadrature(None)
             intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
                 np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
             )
             expected.append(np.sum(intrinsic * weight))
         np.testing.assert_allclose(modeled, expected, rtol=1e-12)
+
+    def test_default_selective_mode_keeps_bands_below_boundary_monochromatic(self):
+        # Team decision (2026-10): integrate where the response crosses
+        # x = 3.3 um^-1; a band wholly below it stays on the monochromatic
+        # path, and a crossing band is integrated.
+        names = list(available_bandpasses())
+        frequencies = [
+            C_ANGSTROM_PER_SECOND / get_bandpass(name).pivot_wavelength_angstrom
+            for name in names
+        ]
+        obs = _Observation(np.ones(len(names)), frequencies, names)
+        z = 0.544
+        params = {'model': {'slope': -0.7, 'z': z}, 'extinction': _zero_dust()}
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('JETFIT_BANDPASS_SELECTIVE', None)
+            wrapper = MCMCModels(
+                obs, _PowerLawAfterglow, ext_model=None,
+                bandpass_integration='verified', bandpass_nodes=16,
+            )
+        self.assertTrue(wrapper.bandpass_selective)
+        modeled = wrapper.model(params)
+        crossing = [
+            requires_bandpass_integration(get_bandpass(n), z) for n in names
+        ]
+        self.assertTrue(any(crossing))
+        self.assertFalse(all(crossing))
+        for i, name in enumerate(names):
+            response = get_bandpass(name)
+            if crossing[i]:
+                wavelength, weight = response.quadrature(None)
+                intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
+                    np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
+                )
+                expected = np.sum(intrinsic * weight)
+            else:
+                expected = _PowerLawAfterglow(slope=-0.7).spectral_flux(
+                    np.ones(1), np.array([frequencies[i]])
+                )[0]
+            np.testing.assert_allclose(modeled[i], expected, rtol=1e-12,
+                                       err_msg=name)
 
     def test_supported_filter_is_integrated_and_generic_filter_is_unchanged(self):
         uvw2 = get_bandpass('uvw2')
@@ -272,7 +347,31 @@ class BandpassLikelihoodTests(unittest.TestCase):
         )
         expected = np.sum(intrinsic * attenuation * weight)
         self.assertTrue(np.isfinite(modeled))
-        self.assertAlmostEqual(float(modeled), float(expected), places=12)
+        # 2026-10: the CCM x = 10 um^-1 edge (observed 1970 A at z = 0.97) is
+        # a step inside a UVM2 bin. The plain midpoint sum above (the earlier
+        # algorithm) treats the step as if it fell on a bin boundary and is
+        # off by 0.8%; the default refines that cell. Check the default
+        # against an independent dense integration of the same physics
+        # (a STRONGER check than equality with the earlier algorithm), and
+        # keep the earlier algorithm exact under the legacy settings.
+        model = CCM89(Rv=3.1)
+
+        def attenuated(wl):
+            x = (1.0 + redshift) * 1.0e4 / wl
+            t = np.ones_like(wl)
+            inside = (x >= CCM89.x_range[0]) & (x <= CCM89.x_range[1])
+            t[inside] = model.extinguish(x[inside], Ebv=ebv)
+            return _PowerLawAfterglow(slope=-0.7).spectral_flux(
+                np.ones(wl.size), C_ANGSTROM_PER_SECOND / wl) * t
+
+        steps = [(1.0 + redshift) * 1.0e4 / x for x in CCM89.x_range]
+        dense = _dense_uvm2_average(attenuated, steps)
+        self.assertLess(abs(float(modeled) / dense - 1.0), 5.0e-5)
+        self.assertGreater(abs(float(expected) / dense - 1.0), 5.0e-3)
+        wrapper.bandpass_refine = False
+        wrapper.bandpass_interpolation = 'linear'
+        wrapper.bandpass_node_placement = 'response'
+        self.assertAlmostEqual(float(wrapper.model(params)[0]), float(expected), places=12)
 
     def test_all_verified_filters_remain_finite_with_ccm_and_igm(self):
         names = list(available_bandpasses())
@@ -338,10 +437,23 @@ class BandpassLikelihoodTests(unittest.TestCase):
                 uvm2.pivot_wavelength_angstrom, redshift
             )
         )
-        self.assertAlmostEqual(float(modeled), float(expected), places=12)
+        # 2026-09-25: the default now refines quadrature cells that contain an
+        # H I step (see MCMCModels.__init__). The plain midpoint sum below is
+        # the earlier algorithm; against a dense independent reference it is
+        # off by ~1e-4 here while the refined default is off by ~1e-6
+        # (reports/2026_09_25_filter_integration_verification). So: exact
+        # equality under the legacy settings, 5e-4 agreement by default.
+        self.assertLess(abs(float(modeled) / float(expected) - 1.0), 5.0e-4)
+        wrapper.bandpass_refine = False
+        wrapper.bandpass_interpolation = 'linear'
+        wrapper.bandpass_node_placement = 'response'
+        self.assertAlmostEqual(float(wrapper.model(params)[0]), float(expected), places=12)
         self.assertGreater(abs(modeled / central - 1.0), 1.0e-3)
 
-    def test_trotter_igm_selector_changes_the_bandpass_likelihood_flux(self):
+    def test_trotter_igm_is_applied_per_wavelength_before_integration(self):
+        # 2026-10 team decision: the Trotter IGM multiplies the spectrum at
+        # every response wavelength (each at its own absorber redshift) and
+        # the attenuated spectrum is then integrated -- no per-filter scalar.
         uvm2 = get_bandpass('uvm2')
         pivot_nu = C_ANGSTROM_PER_SECOND / uvm2.pivot_wavelength_angstrom
         obs = _Observation([1.0], [pivot_nu], ['uvm2'])
@@ -349,11 +461,7 @@ class BandpassLikelihoodTests(unittest.TestCase):
         params = {
             'model': {'slope': -0.7, 'z': redshift},
             'extinction': _zero_dust(),
-            'absorption': {
-                'z_f_uvm2': 0.7,
-                'delta_z_f_uvm2': 0.25,
-                'delta_igm_uvm2': 0.1,
-            },
+            'absorption': {},
         }
         wrapper = MCMCModels(
             obs,
@@ -365,15 +473,21 @@ class BandpassLikelihoodTests(unittest.TestCase):
         )
         modeled = wrapper.model(params)[0]
 
+        def attenuated(wl):
+            return _PowerLawAfterglow(slope=-0.7).spectral_flux(
+                np.ones(wl.size), C_ANGSTROM_PER_SECOND / wl
+            ) * trotter2011_igm_transmission(wl, redshift)
+
+        steps = [911.8 * (1.0 + redshift), 1215.67 * (1.0 + redshift)]
+        dense = _dense_uvm2_average(attenuated, steps)
+        self.assertLess(abs(float(modeled) / dense - 1.0), 1.0e-4)
+
         wavelength, weight = uvm2.photon_quadrature(None)
-        intrinsic = _PowerLawAfterglow(slope=-0.7).spectral_flux(
-            np.ones(wavelength.size), C_ANGSTROM_PER_SECOND / wavelength
-        )
-        transmission = trotter2011_igm_filter_transmission(
-            wavelength, redshift, 0.7, 0.25, 0.1
-        )
-        expected = np.sum(intrinsic * transmission * weight)
-        self.assertAlmostEqual(float(modeled), float(expected), places=12)
+        expected = np.sum(attenuated(wavelength) * weight)
+        wrapper.bandpass_refine = False
+        wrapper.bandpass_interpolation = 'linear'
+        wrapper.bandpass_node_placement = 'response'
+        self.assertAlmostEqual(float(wrapper.model(params)[0]), float(expected), places=12)
 
     def test_unmapped_filter_uses_central_wavelength_gas_attenuation(self):
         frequency = C_ANGSTROM_PER_SECOND / 4500.0

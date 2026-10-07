@@ -10,6 +10,13 @@ from __future__ import annotations
 
 import numpy as np
 
+# Rest-frame inverse-micron domain of the Trotter law as implemented below.
+# Outside it the attenuation is deliberately unity, which makes the
+# transmission a STEP at these x values; bandpass integration needs to know
+# where they are (see MCMCModels._attenuation_breakpoints).
+TROTTER_X_MIN_INV_MICRON = 0.3
+TROTTER_X_MAX_INV_MICRON = 10.97
+
 
 class TrotterDustPrior:
     """Evaluate the conditional Trotter dust prior and its physical parameters."""
@@ -187,7 +194,11 @@ def trotter_source_attenuation(wavenumber, extinction, prior=None):
     scalar = x.ndim == 0
     x = np.atleast_1d(x)
     attenuation = np.ones_like(x)
-    valid = np.isfinite(x) & (x > 0.3) & (x < 10.97)
+    valid = (
+        np.isfinite(x)
+        & (x > TROTTER_X_MIN_INV_MICRON)
+        & (x < TROTTER_X_MAX_INV_MICRON)
+    )
     if not np.any(valid):
         return float(attenuation[0]) if scalar else attenuation
 

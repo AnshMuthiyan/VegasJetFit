@@ -7,15 +7,26 @@ from pathlib import Path
 import emcee
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from scipy.interpolate import CubicSpline
 
 from jetfit.core import utils
-from jetfit.core.bandpass import C_ANGSTROM_PER_SECOND, get_bandpass
+from jetfit.core.bandpass import (
+    C_ANGSTROM_PER_SECOND,
+    X_INTEGRATION_THRESHOLD_INV_MICRON,
+    get_bandpass,
+    quantile_nodes,
+    refine_photon_cells,
+    requires_bandpass_integration,
+    response_source,
+)
 from jetfit.core.hydrogen_absorption import (
     LYMAN_ALPHA_ANGSTROM,
-    LYMAN_LIMIT_ANGSTROM,
+    hydrogen_step_wavelengths,
     hydrogen_transmission,
 )
 from jetfit.mcmc.trotter_extinction import (
+    TROTTER_X_MAX_INV_MICRON,
+    TROTTER_X_MIN_INV_MICRON,
     trotter_dust_prior,
     trotter_source_attenuation,
 )
@@ -24,12 +35,14 @@ from jetfit.mcmc.parameters import (
     normalize_igm_absorption_model,
     normalize_source_extinction_model,
 )
-from jetfit.models.trotter_lyman_alpha import (
-    TrotterIGMPrior,
-    filter_igm_parameters,
-)
+from jetfit.models.trotter_lyman_alpha import TrotterIGMPrior
 
 
+# Trotter's per-filter IGM scatter prior (Eq. 3.45). Since the 2026-10 team
+# decision the trotter2011 IGM is evaluated continuously in wavelength and the
+# per-filter delta_igm_* parameters are rejected at configuration time, so
+# this prior never receives parameters; it is kept for log_prior_fn's
+# existing call (returns 0 when there are no delta_igm_* keys).
 trotter_igm_prior = TrotterIGMPrior()
 
 # Compatibility shim for older ptemcee releases on modern NumPy.
@@ -1253,6 +1266,7 @@ class MCMCModels:
         self, obs, afg_model,
         afg_kw=None, ext_model=None, ext_mw_pc=None, ext_sf_pc=None,
         bandpass_integration=None, bandpass_nodes=None,
+        bandpass_selective=None, bandpass_x_threshold=None,
         source_extinction_model=None,
         igm_absorption_model=None, host_hi_absorption_model=None,
     ):
@@ -1291,6 +1305,118 @@ class MCMCModels:
         if self.bandpass_enabled and configured_nodes == 1:
             raise ValueError('Bandpass nodes must be 0 (full curve) or at least 2.')
         self.bandpass_nodes = None if configured_nodes <= 0 else configured_nodes
+
+        # Redshift-dependent selective integration (2026-09-22 filter sync,
+        # confirmed by the 2026-10 team decision): a band with a verified
+        # response is integrated when ANY part of its actual response crosses
+        # (or lies beyond) the source-frame x = 3.3 um^-1 boundary at this
+        # burst's redshift -- faint tails included, no fractional threshold
+        # (see requires_bandpass_integration). A band whose whole response
+        # lies on the low-frequency side keeps the central-frequency
+        # (monochromatic) path: "If it's all on the lower side, then we won't
+        # [integrate]. We'll just use the central frequency." This is the
+        # default whenever integration is enabled (it was opt-in before
+        # 2026-10). JETFIT_BANDPASS_SELECTIVE=0 (or bandpass_selective=False)
+        # integrates every band with a verified response regardless of z,
+        # which reproduces earlier runs. For the current data every
+        # integrated band crosses, so both settings give identical fits.
+        selective_setting = (
+            os.environ.get('JETFIT_BANDPASS_SELECTIVE', '1')
+            if bandpass_selective is None else str(bandpass_selective)
+        ).strip().lower()
+        self.bandpass_selective = selective_setting in (
+            '1', 'true', 'yes', 'on'
+        )
+        self.bandpass_x_threshold = float(
+            os.environ.get(
+                'JETFIT_BANDPASS_X_THRESHOLD',
+                str(X_INTEGRATION_THRESHOLD_INV_MICRON),
+            )
+            if bandpass_x_threshold is None else bandpass_x_threshold
+        )
+
+        # Attenuation-quadrature refinement (2026-09-25 verification audit).
+        # The tabulated response grid (10 A for UVOT) cannot resolve a STEP in
+        # transmission that falls inside one cell (Inoue Lyman-series red
+        # edges, the source Lyman limit, dust-law domain edges) nor the steep
+        # host damping wing; measured against a dense independent reference
+        # this cost well above the 0.1%
+        # target (full study, 2026-09-25: up to 16% for bands with T >= 1e-2
+        # and 64% overall without refinement; reports/2026_09_25_filter_
+        # integration_verification/convergence). Cells containing a known
+        # step, or whose transmission changes
+        # by more than ``bandpass_refine_tolerance`` in ln T across the cell,
+        # are split into ``bandpass_refine_subdivisions`` sub-cells with their
+        # photon weight conserved. If no cell qualifies the result is
+        # bit-identical to the unrefined rule. JETFIT_BANDPASS_REFINE=0 turns it
+        # off to reproduce earlier runs exactly.
+        self.bandpass_refine = os.environ.get(
+            'JETFIT_BANDPASS_REFINE', '1'
+        ).strip().lower() in ('1', 'true', 'yes', 'on')
+        self.bandpass_refine_tolerance = 0.1
+        self.bandpass_refine_subdivisions = int(
+            os.environ.get('JETFIT_BANDPASS_REFINE_SUBDIVISIONS', '8')
+        )
+
+        # Interpolation of the intrinsic spectrum between compressed nodes
+        # (2026-09-25 verification audit). Both are in (ln lambda, ln F_nu).
+        # Measured on the real UVOT/HST curves at 16 nodes against a dense
+        # independent reference (2026-09-25): 'linear' (the earlier
+        # behaviour) reaches 0.24% for a smooth self-absorption turnover;
+        # 'cubic' (not-a-knot spline) stays below 9e-5 for every smooth
+        # Granot & Sari (2002) shape tested, with no extra model evaluations.
+        # Neither resolves a HARD KINK between nodes (undeclared kinked
+        # spectra reach ~0.76% with cubic, sometimes worse than linear), so
+        # models declaring ``sharp = True`` are evaluated at every tabulated
+        # wavelength instead (see integrate_spectral_bandpass). Nothing
+        # detects kinks automatically: a model whose spectrum has hard breaks
+        # MUST declare ``sharp = True``.
+        # JETFIT_BANDPASS_INTERPOLATION=linear reproduces earlier runs.
+        self.bandpass_interpolation = os.environ.get(
+            'JETFIT_BANDPASS_INTERPOLATION', 'cubic'
+        ).strip().lower()
+        if self.bandpass_interpolation not in ('cubic', 'linear'):
+            raise ValueError(
+                "JETFIT_BANDPASS_INTERPOLATION must be 'cubic' or 'linear', "
+                f"not {self.bandpass_interpolation!r}."
+            )
+
+        # Where the compressed intrinsic-spectrum nodes go (2026-09-25 audit).
+        # 'transmitted': quantiles of response weight x attenuation, i.e. where
+        # the detected photons come from. 'response': quantiles of the response
+        # alone (earlier behaviour). They differ only when attenuation reshapes
+        # the band; e.g. UVW2 at z~3.5 behind a host absorber, whose Lyman-limit
+        # cut removes the whole main band so that the surviving photons are
+        # its red wing: with 'response' nodes the spectrum there is
+        # interpolated across one long gap (measured 2.9% error), with
+        # 'transmitted' nodes it is sampled where it matters. No extra model
+        # evaluations. JETFIT_BANDPASS_NODE_PLACEMENT=response reproduces
+        # earlier runs.
+        self.bandpass_node_placement = os.environ.get(
+            'JETFIT_BANDPASS_NODE_PLACEMENT', 'transmitted'
+        ).strip().lower()
+        if self.bandpass_node_placement not in ('transmitted', 'response'):
+            raise ValueError(
+                "JETFIT_BANDPASS_NODE_PLACEMENT must be 'transmitted' or "
+                f"'response', not {self.bandpass_node_placement!r}."
+            )
+
+        # A response whose detector convention is unknown cannot be
+        # integrated without inventing a measure; fail now with the reason
+        # rather than turning every likelihood call into NaN later.
+        if self.bandpass_enabled:
+            spectral = np.asarray(
+                getattr(obs.as_arrays, 'sflux_loc', np.ones(obs.length, bool)),
+                dtype=bool,
+            )
+            for band in np.unique(np.asarray(obs.as_arrays.bands)[spectral]):
+                response = get_bandpass(str(band))
+                if response is not None and response.response_convention == 'unknown':
+                    raise ValueError(
+                        f'Band {band!r}: response convention unknown '
+                        f'({response.convention_basis}); state it before '
+                        'enabling bandpass integration.'
+                    )
 
     def model(self, params):
         """
@@ -1346,20 +1472,30 @@ class MCMCModels:
     def model_bandpasses(self, afterglow, modeled, params):
         """Replace supported monochromatic rows with photon-weighted fluxes.
 
-        Both dust screens are evaluated at every response wavelength. The
-        smooth intrinsic spectrum is sampled at response quantiles plus both
-        tails, then interpolated in log wavelength/log flux. Unsupported or
-        instrument-ambiguous labels retain the historical monochromatic model.
+        Each replaced row is the band average of the ATTENUATED spectrum,
+        F_nu(lambda) x dust(lambda) x H I(lambda) x Milky Way(lambda), formed
+        through the response with the measure its convention implies (see
+        :meth:`integrate_spectral_bandpass`). Unsupported or
+        instrument-ambiguous labels retain the historical monochromatic model,
+        as does a verified-response band whose whole response lies below the
+        x = 3.3 um^-1 boundary at this burst's redshift when
+        ``self.bandpass_selective`` is on (the default; see
+        :func:`jetfit.core.bandpass.requires_bandpass_integration`).
         """
         modeled = np.asarray(modeled, dtype=float).copy()
         integrated = np.zeros(self.obs.length, dtype=bool)
         spectral = self.obs.as_arrays.sflux_loc
         bands = self.obs.as_arrays.bands
         times = self.obs.as_arrays.times
+        z = float((params.get('model') or {}).get('z') or 0.0)
 
         for band in np.unique(bands[spectral]):
             response = get_bandpass(str(band))
             if response is None:
+                continue
+            if self.bandpass_selective and not requires_bandpass_integration(
+                response, z, x_threshold=self.bandpass_x_threshold
+            ):
                 continue
             rows = spectral & (bands == band)
             indices = np.flatnonzero(rows)
@@ -1369,26 +1505,108 @@ class MCMCModels:
             integrated[indices] = True
         return modeled, integrated
 
+    def bandpass_treatment(self, z):
+        """Report, per spectral band, how :meth:`model_bandpasses` treats it.
+
+        Read-only provenance for run metadata; it does not change the
+        likelihood. Mirrors the decision sequence of ``model_bandpasses``
+        (a test asserts the two agree) and adds the *reason* and the kind of
+        response (``instrument`` / ``canonical_system`` / ``monochromatic``,
+        see :func:`jetfit.core.bandpass.response_source`).
+        """
+        spectral = np.asarray(self.obs.as_arrays.sflux_loc, dtype=bool)
+        bands = np.asarray(self.obs.as_arrays.bands)
+        report = {}
+        for band in np.unique(bands[spectral]):
+            band = str(band)
+            source = response_source(band)
+            entry = {
+                'response_source': source['kind'],
+                'response_file': source.get('file'),
+                'response_convention': source.get('response_convention'),
+            }
+            if not self.bandpass_enabled:
+                entry.update(treatment='monochromatic',
+                             reason='bandpass integration disabled')
+            elif source['kind'] == 'monochromatic':
+                entry.update(treatment='monochromatic', reason=source['reason'])
+            elif self.bandpass_selective and not requires_bandpass_integration(
+                get_bandpass(band), float(z or 0.0),
+                x_threshold=self.bandpass_x_threshold,
+            ):
+                entry.update(
+                    treatment='monochromatic',
+                    reason='selective mode: response entirely below '
+                           f'x={self.bandpass_x_threshold:g} um^-1 at z={float(z or 0.0):g}',
+                )
+            else:
+                entry.update(treatment='integrated', reason='verified response')
+            report[band] = entry
+        return report
+
     def integrate_spectral_bandpass(self, afterglow, band, times, params):
         """Evaluate one spectral band at arbitrary observer times.
 
         The intrinsic spectrum may use compressed response nodes, but the
         attenuation and final quadrature always use the complete archived
-        response curve. This is the shared implementation for the likelihood
-        and post-fit light-curve products.
+        response curve (refined around attenuation steps, see __init__). This
+        is the shared implementation for the likelihood and post-fit
+        light-curve products.
+
+        Pipeline (2026-10 team decision; all observer frame, lambda in A):
+
+            intrinsic F_nu(lambda)
+              x source-frame dust  T_src(x = (1+z)/lambda[um])
+              x hydrogen (IGM, host)  T_HI(lambda)
+              x Milky Way dust  T_MW(x = 1/lambda[um])
+              = attenuated spectrum, evaluated at every quadrature node
+              -> response-weighted sum:
+            <F_nu> = sum_i F_nu(c/lambda_i) T_src T_HI T_MW (lambda_i) * w_i,
+
+        i.e. attenuation is a function of wavelength applied BEFORE the
+        filter integral; no attenuation is ever applied as one scalar to the
+        band-integrated flux, so partial-band absorption is resolved by the
+        response itself. The weights w_i are the response's own measure
+        (``Bandpass.quadrature``): R dlambda/lambda for a photon-counting
+        response, T dlambda/lambda^2 for an energy-counting one, normalized
+        -- so <F_nu> is the AB-equivalent mean the detector would report.
         """
         response = get_bandpass(str(band))
         if response is None:
             raise ValueError(f'No verified response curve for {band!r}.')
 
         times = np.atleast_1d(np.asarray(times, dtype=float))
-        wavelength, weights = response.photon_quadrature(None)
-        if self.bandpass_nodes is None:
+        wavelength, weights = response.quadrature(None)
+        if self.bandpass_refine:
+            wavelength, weights = self._refined_attenuation_quadrature(
+                response, wavelength, weights, params, band
+            )
+        # A model with hard spectral kinks (``sharp = True``, e.g. the boosted
+        # fireball) cannot be interpolated between compressed nodes to 0.1%
+        # by any interpolant, so it is evaluated at every quadrature node.
+        full_resolution = self.bandpass_nodes is None or bool(
+            getattr(afterglow, 'sharp', False)
+        )
+        attenuation = self._node_extinction(
+            1.0e4 / wavelength, params, band=band
+        )
+        transmitted_weight = weights * attenuation
+        if full_resolution:
             sample_wavelength = wavelength
         else:
-            compressed_wavelength, _ = response.photon_quadrature(
-                self.bandpass_nodes
-            )
+            if (self.bandpass_node_placement == 'transmitted'
+                    and transmitted_weight.sum() > 0.0
+                    and self.bandpass_nodes < wavelength.size):
+                # Nodes at quantiles of the TRANSMITTED photon weight, so
+                # they follow the photons when absorption leaves only a red
+                # leak or one side of a Lyman break (see __init__).
+                compressed_wavelength, _ = quantile_nodes(
+                    wavelength, transmitted_weight, self.bandpass_nodes
+                )
+            else:
+                compressed_wavelength, _ = response.quadrature(
+                    self.bandpass_nodes
+                )
             # Keep both response tails. They matter when sharp absorption or
             # strong UV extinction makes a weak optical red leak dominate.
             sample_wavelength = np.unique(np.concatenate((
@@ -1401,26 +1619,76 @@ class MCMCModels:
         sampled_intrinsic = np.asarray(
             afterglow.spectral_flux(eval_times, eval_frequencies), dtype=float
         ).reshape(times.size, sample_wavelength.size)
-        if self.bandpass_nodes is None:
+        if full_resolution:
             intrinsic = sampled_intrinsic
         else:
             if np.any(sampled_intrinsic <= 0.0):
                 raise ValueError('Bandpass model flux must be positive.')
-            intrinsic = np.exp(np.asarray([
-                np.interp(
-                    np.log(wavelength),
-                    np.log(sample_wavelength),
-                    np.log(row),
-                )
-                for row in sampled_intrinsic
-            ]))
+            log_sample = np.log(sample_wavelength)
+            log_target = np.log(wavelength)
+            if self.bandpass_interpolation == 'cubic' and log_sample.size >= 4:
+                intrinsic = np.exp(CubicSpline(
+                    log_sample, np.log(sampled_intrinsic), axis=1
+                )(log_target))
+            else:
+                intrinsic = np.exp(np.asarray([
+                    np.interp(log_target, log_sample, np.log(row))
+                    for row in sampled_intrinsic
+                ]))
 
-        attenuation = self._node_extinction(
-            1.0e4 / wavelength, params, band=band
-        )
         return np.sum(
             intrinsic * attenuation[np.newaxis, :] * weights[np.newaxis, :],
             axis=1,
+        )
+
+    def _attenuation_breakpoints(self, z, params):
+        """Observed-frame wavelengths [A] where enabled attenuation steps."""
+        steps = []
+        extinction = params.get('extinction') or {}
+        x_range = getattr(self.ext_model, 'x_range', None)
+        if self.source_extinction_model == 'trotter2011':
+            if extinction.get('av_source_frame') is not None:
+                steps += [(1.0 + z) * 1.0e4 / TROTTER_X_MAX_INV_MICRON,
+                          (1.0 + z) * 1.0e4 / TROTTER_X_MIN_INV_MICRON]
+        elif extinction.get('ebv_source_frame') is not None and x_range is not None:
+            steps += [(1.0 + z) * 1.0e4 / float(x) for x in x_range]
+        if extinction.get('ebv_milky_way') is not None and x_range is not None:
+            steps += [1.0e4 / float(x) for x in x_range]
+        steps += list(hydrogen_step_wavelengths(
+            z, igm_model=self.igm_absorption_model,
+            host_model=self.host_hi_absorption_model,
+        ))
+        if self.host_hi_absorption_model == 'trotter2011':
+            # Centre of the host damping profile (continuous but with a zero).
+            steps.append(LYMAN_ALPHA_ANGSTROM * (1.0 + z))
+        return np.unique(np.asarray(steps, dtype=float))
+
+    def _refined_attenuation_quadrature(self, response, wavelength, weights,
+                                        params, band):
+        """Split quadrature cells that contain an attenuation step or whose
+        transmission changes steeply across the cell (see __init__)."""
+        cell_wl, _, lower, upper = response.quadrature_cells()
+        if cell_wl.shape != wavelength.shape or not np.allclose(cell_wl, wavelength):
+            raise RuntimeError('quadrature_cells disagrees with quadrature.')
+        z = float((params.get('model') or {}).get('z') or 0.0)
+        steps = self._attenuation_breakpoints(z, params)
+        contains_step = np.zeros(wavelength.size, dtype=bool)
+        if steps.size:
+            first_after_lower = np.searchsorted(steps, lower, side='right')
+            candidate = steps[np.minimum(first_after_lower, steps.size - 1)]
+            contains_step = (first_after_lower < steps.size) & (candidate < upper)
+        # Adjacent cells share an edge; evaluate each distinct edge once.
+        edges, index = np.unique(np.concatenate((lower, upper)), return_inverse=True)
+        t_edges = self._node_extinction(1.0e4 / edges, params, band=band)
+        t_lower = t_edges[index[:lower.size]]
+        t_upper = t_edges[index[lower.size:]]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            change = np.abs(np.log(t_upper) - np.log(t_lower))
+        one_side_dark = (t_lower == 0.0) != (t_upper == 0.0)
+        steep = one_side_dark | (np.isfinite(change) & (change > self.bandpass_refine_tolerance))
+        return refine_photon_cells(
+            wavelength, weights, lower, upper, contains_step | steep,
+            steps, self.bandpass_refine_subdivisions,
         )
 
     def _node_extinction(self, wave_numbers, params, band=None):
@@ -1458,42 +1726,17 @@ class MCMCModels:
             self.igm_absorption_model != 'none'
             or self.host_hi_absorption_model != 'none'
         ):
-            igm_kwargs = self._trotter_igm_kwargs(
-                1.0e4 / wave_numbers, z, absorption, band
-            )
+            # Wavelength-dependent H I transmission at every node (no
+            # per-filter scalar; see jetfit.core.hydrogen_absorption).
             attenuation *= hydrogen_transmission(
                 1.0e4 / wave_numbers,
                 z,
                 igm_model=self.igm_absorption_model,
                 host_model=self.host_hi_absorption_model,
                 nhi_host_cm2=absorption.get('nhi_host'),
-                **igm_kwargs,
             )
 
         return attenuation
-
-    def _trotter_igm_kwargs(self, wavelength, redshift, absorption, band):
-        """Return one filter's Trotter IGM coordinates when required."""
-        if self.igm_absorption_model != 'trotter2011':
-            return {}
-        wavelength = np.atleast_1d(np.asarray(wavelength, dtype=float))
-        overlaps_forest = np.any(
-            (wavelength >= LYMAN_LIMIT_ANGSTROM * (1.0 + redshift))
-            & (wavelength < LYMAN_ALPHA_ANGSTROM * (1.0 + redshift))
-        )
-        if not overlaps_forest:
-            return {}
-        if band is None:
-            raise ValueError(
-                'Trotter IGM absorption requires a filter label for each '
-                'photometric observation.'
-            )
-        z_f, delta_z_f, delta_igm = filter_igm_parameters(absorption, band)
-        return {
-            'igm_z_f': z_f,
-            'igm_delta_z_f': delta_z_f,
-            'igm_delta': delta_igm,
-        }
 
     def _node_milky_way_attenuation(self, wave_numbers, params):
         """Return Milky-Way foreground attenuation at observer wavelengths."""
@@ -1572,30 +1815,16 @@ class MCMCModels:
                 getattr(self.obs.as_arrays, 'sflux_loc', all_pos), dtype=bool
             )
             gas_pos = spectral & ~skip_mask
-            if self.igm_absorption_model == 'trotter2011':
-                bands = np.asarray(self.obs.as_arrays.bands)
-                for band in np.unique(bands[gas_pos]):
-                    selected = gas_pos & (bands == band)
-                    wavelength = 1.0e4 / self.obs.as_arrays.wave_numbers[selected]
-                    modeled[selected] *= hydrogen_transmission(
-                        wavelength,
-                        z,
-                        igm_model=self.igm_absorption_model,
-                        host_model=self.host_hi_absorption_model,
-                        nhi_host_cm2=absorption.get('nhi_host'),
-                        **self._trotter_igm_kwargs(
-                            wavelength, z, absorption, str(band)
-                        ),
-                    )
-            else:
-                gas_wn = self.obs.as_arrays.wave_numbers[gas_pos]
-                modeled[gas_pos] *= hydrogen_transmission(
-                    1.0e4 / gas_wn,
-                    z,
-                    igm_model=self.igm_absorption_model,
-                    host_model=self.host_hi_absorption_model,
-                    nhi_host_cm2=absorption.get('nhi_host'),
-                )
+            # Monochromatic rows: the same wavelength-dependent transmission,
+            # evaluated at each row's own catalogue wavelength.
+            gas_wn = self.obs.as_arrays.wave_numbers[gas_pos]
+            modeled[gas_pos] *= hydrogen_transmission(
+                1.0e4 / gas_wn,
+                z,
+                igm_model=self.igm_absorption_model,
+                host_model=self.host_hi_absorption_model,
+                nhi_host_cm2=absorption.get('nhi_host'),
+            )
 
         # Apply host galaxy correction
         if params.get('host') is not None and self.obs.hosts is not None:

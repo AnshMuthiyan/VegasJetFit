@@ -84,9 +84,20 @@ offers two scientifically distinct prescriptions:
 - `inoue2014` evaluates the wavelength-resolved mean Lyman-series and
   Lyman-continuum opacity of
   [Inoue et al. (2014)](https://doi.org/10.1093/mnras/stu936).
-- `trotter2011` evaluates the empirical, filter-level IGM transmission and
-  sight-line scatter model in
-  [Trotter (2011), Section 3.4.2](https://doi.org/10.17615/2gjp-g156).
+- `trotter2011` evaluates the empirical Ly-alpha-forest relation of
+  [Trotter (2011), Section 3.4.2](https://doi.org/10.17615/2gjp-g156)
+  (Eq. 3.41, Table 3.6 peak values) **continuously in wavelength**: each
+  observed wavelength between the source Lyman limit and observed Ly-alpha
+  gets the transmission at its own absorber redshift
+  `z_abs = lambda/1215.67 A - 1`, as in Trotter's Fig. 3.24; transmission is
+  zero blueward of the source Lyman limit and one redward of observed
+  Ly-alpha. (Team decision, 2026-10: Trotter's per-filter scalar,
+  Eq. 3.46, is not used.)
+
+Both IGM models, and the host model below, are transmissions as a function
+of wavelength. They multiply the model spectrum, together with the dust
+attenuation, **before** any filter integration; no hydrogen absorption is
+applied as one number to a band-integrated flux.
 
 The optional host-galaxy component is a separate switch. It uses the
 damped-Lyman-alpha profile and source-frame Lyman limit in Trotter (2011),
@@ -100,7 +111,7 @@ choices explicitly:
 ```toml
 # Neutral-hydrogen absorption references (separate from dust extinction):
 # Inoue et al. 2014, MNRAS, 442, 1805: mean intergalactic Lyman absorption.
-# Trotter 2011 thesis, Section 3.4.2: filter-level empirical IGM absorption.
+# Trotter 2011 thesis, Section 3.4.2: empirical Ly-alpha-forest relation, evaluated per wavelength.
 # Trotter 2011 thesis, Section 3.4.1: host DLA and source Lyman limit.
 # Totani et al. 2006, PASJ, 58(3), 485: host damped-Lyman-alpha profile.
 # IGM choices: "none", "inoue2014", or "trotter2011".
@@ -109,40 +120,13 @@ igm_absorption_model = 'inoue2014'
 host_hi_absorption_model = 'none'
 ```
 
-The Inoue model has no fitted coordinate; it is determined by the fixed,
-known source redshift `z`. The Trotter IGM model instead needs the
-response-weighted absorber redshift `z_f`, effective redshift width
-`delta_z_f`, and fitted sight-line offset `delta_igm` for each filter that
-overlaps the source Ly-alpha forest. Filter suffixes are lowercase, with
-punctuation replaced by underscores. For example:
-
-```toml
-igm_absorption_model = 'trotter2011'
-
-[[absorption]]
-name = 'z_f_uvm2'
-scale = 'linear'
-value = 0.70
-
-[[absorption]]
-name = 'delta_z_f_uvm2'
-scale = 'linear'
-value = 0.25
-
-[[absorption]]
-name = 'delta_igm_uvm2'
-scale = 'linear'
-
-[absorption.prior]
-type = 'uniform'
-lower = -3.0
-upper = 3.0
-```
-
-The fixed `z_f` and `delta_z_f` values must be calculated from that filter's
-response curve at the known source redshift. The Trotter scatter prior is then
-applied to `delta_igm` in addition to its finite TOML support. Do not copy
-these example coordinates to another filter or burst.
+Neither IGM model has a fitted coordinate; both are determined by the
+fixed, known source redshift `z`. The per-filter `z_f_<filter>`,
+`delta_z_f_<filter>` and `delta_igm_<filter>` parameters of Trotter's
+filter-level prescription are no longer accepted (configuration validation
+rejects them with an explanation). How Trotter's sight-line scatter
+(Eq. 3.45) should enter the continuous model has not been decided, so the
+mean relation is used.
 
 To fit the host neutral-hydrogen column as well, select the independent host
 model and add a physical `N_HI` parameter. A logarithmic coordinate is
@@ -169,10 +153,18 @@ non-negative, linearly stored `z`; the host model also requires `nhi_host`.
 Invalid combinations fail before MCMC initialization.
 
 For filters with archived response curves, run with
-`--bandpass-integration verified`. The intrinsic spectrum, dust, IGM, and
-host-H-I transmission are then combined inside the photon-counting response
-integral. Instrument-ambiguous filter labels retain the documented central
-wavelength approximation. These optical/UV H I models must not be applied to
+`--bandpass-integration verified`. The intrinsic spectrum is multiplied by
+the dust, IGM and host-H-I transmissions at every wavelength of the response
+curve, and that attenuated spectrum is averaged through the response with
+the measure the curve's provenance implies (photon-counting curves such as
+the Swift/UVOT ARFs: `R dlambda/lambda`; energy-counting curves such as
+SVO's Bessell passbands: `T dlambda/lambda^2`; a curve whose convention is
+unknown refuses to integrate) -- see `jetfit/core/bandpass.py`. A band is
+integrated when any part of its response lies at rest-frame
+`x = (1+z)/lambda[um] >= 3.3` (faint tails included); a band entirely below
+that boundary uses its central frequency (`JETFIT_BANDPASS_SELECTIVE=0`
+integrates every band with a response). Instrument-ambiguous filter labels
+retain the documented central wavelength approximation. These optical/UV H I models must not be applied to
 the absorption-corrected Swift-XRT integrated-flux products.
 
 # Module Description

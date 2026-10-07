@@ -8,7 +8,7 @@ source_extinction_model = 'ccm89'
 
 # Neutral-hydrogen absorption is selected separately from dust extinction.
 # IGM choices: "none", "inoue2014" (wavelength-resolved mean opacity), or
-# "trotter2011" (filter-level transmission with configured filter coordinates).
+# "trotter2011" (Trotter 2011 forest relation, evaluated per wavelength).
 # Host H I choices: "none" or "trotter2011" (requires nhi_host).
 igm_absorption_model = 'none'
 host_hi_absorption_model = 'none'

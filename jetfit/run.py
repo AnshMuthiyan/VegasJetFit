@@ -194,10 +194,38 @@ def log(ampy, out_dir, *, burn_length, run_length):
         'source_extinction_model_origin',
         'legacy_unrecorded',
     )
+    best_z = (out_params.get('model') or {}).get('z')
     out_params['photometry'] = {
         'bandpass_integration': bandpass_mode,
         'bandpass_nodes': (
             'full' if bandpass_nodes is None else int(bandpass_nodes)
+        ),
+        'bandpass_selective': bool(getattr(models, 'bandpass_selective', False)),
+        'bandpass_x_threshold_inv_micron': float(
+            getattr(models, 'bandpass_x_threshold', 3.3)
+        ),
+        'bandpass_attenuation_refinement': (
+            {
+                'enabled': bool(models.bandpass_refine),
+                'ln_transmission_tolerance': float(models.bandpass_refine_tolerance),
+                'subdivisions': int(models.bandpass_refine_subdivisions),
+            }
+            if hasattr(models, 'bandpass_refine') else 'unrecorded'
+        ),
+        'bandpass_interpolation': getattr(
+            models, 'bandpass_interpolation', 'unrecorded'
+        ),
+        'bandpass_node_placement': getattr(
+            models, 'bandpass_node_placement', 'unrecorded'
+        ),
+        'bandpass_arf_edges': os.environ.get(
+            'JETFIT_BANDPASS_ARF_EDGES', 'full'
+        ).strip().lower(),
+        # Per-band treatment at the best-fit redshift: integrated through an
+        # instrument / canonical-system response, or monochromatic and why.
+        'band_treatment': (
+            models.bandpass_treatment(best_z)
+            if hasattr(models, 'bandpass_treatment') else 'unrecorded'
         ),
         'observable': 'photon_weighted_ab_equivalent_fnu',
         'source_extinction_model': source_extinction_model,
