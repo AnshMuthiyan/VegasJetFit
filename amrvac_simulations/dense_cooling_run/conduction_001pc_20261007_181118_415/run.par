@@ -3,7 +3,7 @@
 !=====================================================
 
 &filelist
-        base_filename = 'test26(1)/test'
+        base_filename = 'conduction_001pc_20261007_181118_415/test'
         saveprim      = .true.
         autoconvert   = .true.
         convert_type  = 'vtuBmpi'        
@@ -23,8 +23,7 @@
 /
 
 &methodlist
-        ! SSPRK3 allocates ps2 geometry needed by STS + spherical AMR in v3.1.
-        time_stepper     = 'threestep'
+        time_stepper     = 'twostep'
         flux_scheme      = 20*'tvdlf'
         limiter          = 20*'minmod'
         loglimit(1) = .true.

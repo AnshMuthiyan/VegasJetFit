@@ -3,7 +3,7 @@
 !=====================================================
 
 &filelist
-        base_filename = 'test26(1)/test'
+        base_filename = 'dense_hydro_20261007_104710/test'
         saveprim      = .true.
         autoconvert   = .true.
         convert_type  = 'vtuBmpi'        
@@ -23,8 +23,7 @@
 /
 
 &methodlist
-        ! SSPRK3 allocates ps2 geometry needed by STS + spherical AMR in v3.1.
-        time_stepper     = 'threestep'
+        time_stepper     = 'twostep'
         flux_scheme      = 20*'tvdlf'
         limiter          = 20*'minmod'
         loglimit(1) = .true.
@@ -56,7 +55,7 @@
 	derefine_ratio = 20*0.1D0
 	domain_nx1=192
 	block_nx1=8
-	xprobmin1=0.01D0
+	xprobmin1=0.19D0
 	xprobmax1=8.0d0
 /
 
@@ -69,24 +68,13 @@
 &hd_list
         hd_energy             = .true.
         hd_radiative_cooling  = .true.
-        hd_thermal_conduction = .true.
-/
-
-&tc_list
-        tc_saturate = .true.
-/
-
-&sts_list
-        sts_method = 1
-        sts_dtpar = 0.8d0
-        sts_ncycles = 1000
-        sourcetype_sts = 2
+        hd_thermal_conduction = .false.
 /
 
 &rc_list
 	coolcurve   = 'SPEX_DM'
         coolmethod = 'exact'
-        ! Cooling cutoff follows ism_temperature_k; do not reheat gas.
+        ! Stop cooling at 50 K (set in initglobaldata_usr); do not reheat gas.
         Tfix       = .false.
 /
 
@@ -94,7 +82,6 @@
        icase = 1
        ! Ambient mass density in g cm^-3; used by initialization and outer BC.
        rho_ism_cgs = 1.6726d-20
-       ism_temperature_k = 20.0d0
        use_stellar_evolution = .true.
        stellar_param_file = 'stellar_evolution.dat'
 /

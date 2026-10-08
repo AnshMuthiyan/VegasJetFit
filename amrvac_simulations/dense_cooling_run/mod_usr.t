@@ -8,6 +8,11 @@ module mod_usr
   integer :: icase
   character(len=100) :: stellar_param_file = 'stellar_evolution.dat'
   logical :: use_stellar_evolution = .false.
+  ! Optional .par override; -1 retains the selected case's ambient density.
+  double precision :: rho_ism_cgs = -1.0d0
+  double precision :: ism_temperature_k = -1.0d0
+  double precision, allocatable :: wind_age(:), wind_mdot(:), wind_speed(:), wind_temp(:)
+  integer :: wind_entries = 0
 
 contains
 
@@ -16,7 +21,8 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /usr_list/ icase, stellar_param_file, use_stellar_evolution
+    namelist /usr_list/ icase, stellar_param_file, use_stellar_evolution, &
+                        rho_ism_cgs, ism_temperature_k
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -26,37 +32,104 @@ contains
 
   end subroutine usr_params_read
 
-  !> Read stellar parameters from external file at given time
+  !> Cache the stellar history once per MPI rank, not once per boundary call.
+  subroutine load_stellar_history()
+    use mod_global_parameters
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    integer :: iu, ios, count, row
+    double precision :: age, log_mdot, speed, temp
+    character(len=1024) :: line
+
+    if (allocated(wind_age)) return
+    open(newunit=iu, file=trim(stellar_param_file), status='old', action='read', iostat=ios)
+    if (ios /= 0) call mpistop('Cannot open stellar_param_file')
+    count = 0
+    do
+      read(iu,'(A)',iostat=ios) line
+      if (ios < 0) exit
+      if (ios /= 0) call mpistop('Error reading stellar_param_file')
+      line = adjustl(line)
+      if (len_trim(line) == 0) cycle
+      if (line(1:1) == '#' .or. line(1:1) == '!') cycle
+      count = count + 1
+    enddo
+    if (count == 0) call mpistop('Empty stellar evolution table')
+    allocate(wind_age(count), wind_mdot(count), wind_speed(count), wind_temp(count))
+    rewind(iu)
+    row = 0
+    do
+      read(iu,'(A)',iostat=ios) line
+      if (ios < 0) exit
+      if (ios /= 0) call mpistop('Error reading stellar_param_file')
+      line = adjustl(line)
+      if (len_trim(line) == 0) cycle
+      if (line(1:1) == '#' .or. line(1:1) == '!') cycle
+      read(line,*,iostat=ios) age, log_mdot, speed, temp
+      if (ios /= 0) call mpistop('Malformed stellar evolution row')
+      if (.not.all(ieee_is_finite([age,log_mdot,speed,temp]))) &
+        call mpistop('Nonfinite stellar evolution row')
+      if (age < zero .or. speed <= zero .or. temp <= zero) &
+        call mpistop('Invalid stellar age, wind speed or temperature')
+      if (log_mdot <= log10(tiny(one)) .or. &
+          log_mdot >= log10(huge(one)/const_msun*const_years)) &
+        call mpistop('Stellar mass loss outside representable range')
+      if (row > 0) then
+        if (age < wind_age(row)) call mpistop('Stellar ages must be nondecreasing')
+        ! Rounded duplicate ages: the last row at that age wins.
+        if (age > wind_age(row)) row = row + 1
+      else
+        row = 1
+      endif
+      wind_age(row) = age
+      wind_mdot(row) = 10.0d0**log_mdot * const_msun / const_years
+      wind_speed(row) = speed * 1.0d5
+      wind_temp(row) = temp
+    enddo
+    close(iu)
+    wind_entries = row
+    if (mype == 0) then
+      write(*,*) 'Loaded stellar history: ', trim(stellar_param_file)
+      write(*,*) 'Unique ages: ', wind_entries, ' range [yr]: ', &
+                 wind_age(1), wind_age(wind_entries)
+    endif
+  end subroutine load_stellar_history
+
+  !> Interpolate linear mass-loss rate, speed and temperature at stellar age.
   subroutine read_stellar_parameters(current_time, found_params)
     use mod_global_parameters
     double precision, intent(in) :: current_time
     logical, intent(out) :: found_params
-    double precision :: current_age_years
+    double precision :: current_age_years, fraction
+    integer :: lo, hi, mid
 
-    found_params = .true.
+    call load_stellar_history()
     current_age_years = current_time * time_convert_factor / const_years
-
-    if (current_age_years <= 3.4499d6) then
-      ! Main Sequence
-      Mdot = 3.51d-6 * const_msun / const_years
-      vwind = 2.42d8
-      Twind = 1.0d4
-    else if (current_age_years <= 3.4796d6) then
-      ! LBV
-      Mdot = 4.71d-4 * const_msun / const_years
-      vwind = 4.92d7
-      Twind = 1.0d4
+    if (current_age_years <= wind_age(1)) then
+      lo = 1
+      hi = 1
+    else if (current_age_years >= wind_age(wind_entries)) then
+      lo = wind_entries
+      hi = lo
     else
-      ! Wolf-Rayet
-      Mdot = 6.41d-5 * const_msun / const_years
-      vwind = 2.25d8
-      Twind = 1.0d4
+      lo = 1
+      hi = wind_entries
+      do while (hi-lo > 1)
+        mid = (lo+hi)/2
+        if (wind_age(mid) <= current_age_years) then
+          lo = mid
+        else
+          hi = mid
+        endif
+      enddo
     endif
-
-    ! Enforce constant ISM params in case called during init
-    rhoISM= 1.6726d-20
-    vISM  = 0.0d0
-    TISM  = 5.0d1
+    fraction = zero
+    if (hi /= lo) fraction = (current_age_years-wind_age(lo))/(wind_age(hi)-wind_age(lo))
+    Mdot = wind_mdot(lo) + fraction*(wind_mdot(hi)-wind_mdot(lo))
+    vwind = wind_speed(lo) + fraction*(wind_speed(hi)-wind_speed(lo))
+    Twind = wind_temp(lo) + fraction*(wind_temp(hi)-wind_temp(lo))
+    found_params = .true.
+    ! Ambient conditions are initialized once in initglobaldata_usr.
+    ! Retarded wind updates must not change the outer-boundary environment.
   end subroutine read_stellar_parameters
 
   !> Update wind parameters at retarded time for material reaching radius r.
@@ -88,12 +161,15 @@ contains
     call usr_params_read(par_files)
 
     unit_length        = 3.0857D18
-    unit_temperature   = 1.0d7**2.0d0/ (kb_cgs/mp_cgs)
-    unit_numberdensity = 10.0**(-25)/mp_cgs
+    unit_density       = 1.0d-25
+    unit_velocity      = 1.0d7
+    ! hd_activate derives consistent pressure, temperature, number-density
+    ! and time units, including the configured composition.
 
     usr_set_parameters  => initglobaldata_usr
     usr_init_one_grid   => wind_init_one_grid
     usr_special_bc      => specialbound_usr
+    usr_get_dt          => wind_boundary_dt
     usr_refine_grid     => specialrefine_grid
     ! The wind is injected only through the inner boundary. The legacy
     ! internal-source injector targets Rwind, which lies outside this tight
@@ -111,17 +187,28 @@ contains
 
   subroutine initglobaldata_usr()
     use mod_global_parameters
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     logical :: found
 
     hd_gamma=5.0d0/3.0d0
+
+    ! Initialize conversions before evaluating the stellar history.
+    ! Cooling and hydrodynamics must use the same physical units.
+    length_convert_factor   = unit_length
+    time_convert_factor     = unit_time
+    w_convert_factor(rho_)  = unit_density
+    w_convert_factor(mom(1))= unit_velocity
+    w_convert_factor(p_)    = unit_pressure
+    Tscale = 1.0d0 / unit_temperature
+    Lscale = w_convert_factor(rho_)*time_convert_factor / &
+             (mp_cgs*w_convert_factor(mom(1)))**2
 
     ! Set default parameters or read from file if enabled
     if (use_stellar_evolution) then
       ! Try to read initial parameters from file
       call read_stellar_parameters(zero, found)
       if (.not. found) then
-        if (mype == 0) write(*,*) 'Warning: Using default case parameters'
-        use_stellar_evolution = .false.
+        call mpistop('Failed to initialize wind from stellar evolution file')
       endif
     endif
     
@@ -166,26 +253,38 @@ contains
       end select
     else
       ! ISM parameters for stellar evolution runs
-      rhoISM= (10.0d0)**(-23)
-      vISM  = 5.0d6
-      TISM  = 1.0d2
+      rhoISM= 1.6726d-20
+      vISM  = 0.0d0
+      TISM  = 5.0d1
       Rstar = 5.0d13
       Rwind = 2.0d-1
       Rtshock = 1.0d0
     endif
 
 
-    length_convert_factor    = unit_length
-    w_convert_factor(rho_)   = 10.0**(-25)
-    w_convert_factor(mom(1))  = 1.0d7
-    ! In 1D, only one momentum component
-    w_convert_factor(p_)      = w_convert_factor(rho_)*w_convert_factor(mom(1))*w_convert_factor(mom(1))
-    time_convert_factor       = length_convert_factor/w_convert_factor(mom(1))
-
-    Tscale = (1.0D0/(w_convert_factor(mom(1))**2.0d0)) * kb_cgs/mp_cgs
-    Lscale =  w_convert_factor(rho_)*time_convert_factor/((mp_cgs*w_convert_factor(mom(1)))**2.0)
+    ! Apply the .par ambient density after all case/evolution defaults.
+    ! This shared value controls both initial ISM cells and the outer boundary.
+    if (rho_ism_cgs /= -1.0d0) then
+      if (.not.ieee_is_finite(rho_ism_cgs) .or. rho_ism_cgs <= zero) &
+        call mpistop('rho_ism_cgs must be finite and positive (g cm^-3)')
+      rhoISM = rho_ism_cgs
+    endif
+    if (ism_temperature_k /= -1.0d0) then
+      if (.not.ieee_is_finite(ism_temperature_k) .or. ism_temperature_k <= zero) &
+        call mpistop('ism_temperature_k must be finite and positive (K)')
+      TISM = ism_temperature_k
+    endif
+    if (allocated(rc_fl)) then
+      rc_fl%tlow = TISM / unit_temperature
+      rc_fl%Tfix = .false.
+    endif
 
     if(mype == 0) then
+       write(*,'(A,ES24.16)') 'Ambient density [g cm^-3]: ', rhoISM
+       write(*,'(A,ES24.16)') 'Ambient density [code]:   ', rhoISM/unit_density
+       write(*,'(A,ES24.16)') 'Ambient temperature [K]: ', TISM
+       if (allocated(rc_fl)) write(*,'(A,ES24.16)') &
+         'Cooling cutoff [K]: ', rc_fl%tlow*unit_temperature
        write(*,1004) 'time_convert_factor:     ', time_convert_factor
        write(*,1004) 'length_convert_factor:   ', length_convert_factor
        write(*,1004) 'w_convert_factor(mom(1)):', w_convert_factor(mom(1))
@@ -201,6 +300,8 @@ contains
        write(*,*) 'Using stellar evolution file: ', use_stellar_evolution
        if (use_stellar_evolution) then
          write(*,*) 'Stellar parameter file: ', trim(stellar_param_file)
+         write(*,'(A,3ES24.16)') 'Initial wind [Msun/yr, km/s, K]: ', &
+              Mdot*const_years/const_msun, vwind/1.0d5, Twind
        endif
        write(*,*)
     endif
@@ -227,25 +328,34 @@ Rstar = Rstar / length_convert_factor
     double precision, intent(in) :: x(ixG^S,1:ndim)
     double precision, intent(inout) :: w(ixG^S,1:nw)
     
-    double precision :: rad(ixG^S)
+    ! Begin with undisturbed ISM everywhere in the computational domain.
+    ! The stellar wind enters only through specialbound_usr at the inner face.
+    ! No cavity, termination shock, or swept-up wall is imposed initially.
+    w(ix^S,rho_) = rhoISM/w_convert_factor(rho_)
+    w(ix^S,mom(1)) = zero
+    w(ix^S,p_) = w(ix^S,rho_)*TISM*Tscale
 
-    ! In 1D Cartesian, x(ix^S,1) is the distance coordinate
-    rad(ix^S) = x(ix^S,1)
-
-    where ( rad(ix^S)>= Rtshock )
-      w(ix^S,rho_) = rhoISM/w_convert_factor(rho_)
-      w(ix^S,mom(1))  = zero  ! No radial velocity in ISM
-      w(ix^S,p_)   = w(ix^S,rho_)*TISM*Tscale
-    elsewhere
-      w(ix^S,rho_) = Mdot/(4.0D0*dpi*vwind * (rad(ix^S)*length_convert_factor)**2 ) &
-                   / w_convert_factor(rho_)
-      w(ix^S,mom(1))  = (vwind /w_convert_factor(mom(1)))  ! Pure radial velocity
-      w(ix^S,p_)     =  w(ix^S,rho_)*Twind*Tscale
-    end where
-
+    call check_injected_primitive(ixG^L,ix^L,w)
     call hd_to_conserved(ixG^L,ix^L,w,x)
 
   end subroutine wind_init_one_grid
+
+  subroutine wind_boundary_dt(w,ixI^L,ixO^L,dtnew,dx1,x)
+    use mod_global_parameters
+    integer, intent(in) :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S,1:nw), dx1, x(ixI^S,1:ndim)
+    double precision, intent(inout) :: dtnew
+    double precision :: wind_signal
+
+    dtnew = bigdouble
+    ! The stock CFL estimate excludes ghost cells. Initially all interior
+    ! cells are cold ISM, but the inner ghost cells already contain fast wind.
+    ! Include that injected wind's signal speed on the boundary-adjacent block.
+    if (minval(x(ixO^S,1)) <= xprobmin1 + 0.51d0*dx1) then
+      wind_signal = abs(vwind)/unit_velocity + sqrt(hd_gamma*Twind/unit_temperature)
+      dtnew = courantpar*dx1/wind_signal
+    endif
+  end subroutine wind_boundary_dt
 
   subroutine specialrefine_grid(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
     ! Enforce additional refinement or coarsening
@@ -287,17 +397,35 @@ Rstar = Rstar / length_convert_factor
                       / w_convert_factor(rho_)
       w(ixO^S,mom(1)) = vwind / w_convert_factor(mom(1))
       w(ixO^S,p_)     = w(ixO^S,rho_)*Twind*Tscale
+      call check_injected_primitive(ixG^L,ixO^L,w)
       call hd_to_conserved(ixG^L,ixO^L,w,x)
-    case(2)  ! In 1D Cartesian: boundary 2 = outer (x=max): ISM inflow
+    case(2)  ! Outer spherical boundary: undisturbed ambient gas.
       w(ixO^S,rho_)   = rhoISM/w_convert_factor(rho_)
       w(ixO^S,mom(1)) = zero  ! No velocity in ISM
       w(ixO^S,p_)     = w(ixO^S,rho_)*TISM*Tscale
+      call check_injected_primitive(ixG^L,ixO^L,w)
       call hd_to_conserved(ixG^L,ixO^L,w,x)
     case default
       call mpistop("This boundary is not supposed to be special")
     end select
 
   end subroutine specialbound_usr
+
+  subroutine check_injected_primitive(ixI^L,ixO^L,w)
+    use mod_global_parameters
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    integer, intent(in) :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S,1:nw)
+
+    ! hd_to_conserved does not validate primitives in the installed v3.1.
+    ! Reject invalid injection states without adding mass or thermal energy.
+    if (any(.not.ieee_is_finite(w(ixO^S,1:nw)))) &
+      call mpistop('Nonfinite initial/boundary primitive state')
+    if (any(w(ixO^S,rho_) < small_density)) &
+      call mpistop('Initial/boundary density below numerical floor')
+    if (any(w(ixO^S,p_) < small_pressure)) &
+      call mpistop('Initial/boundary pressure below numerical floor')
+  end subroutine check_injected_primitive
 
   subroutine special_source(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
     use mod_global_parameters
@@ -363,9 +491,10 @@ Rstar = Rstar / length_convert_factor
       double precision, intent(in)  :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
       double precision, intent(out) :: var(ixI^S)
 
-      if (iflag >nw+1)call mpistop(' iflag error')
-      ! In 1D Cartesian, only one velocity component
-      var(ixO^S) = abs(w(ixO^S,mom(1)))/w(ixO^S,rho_)
+      if (iflag /= nw+1) call mpistop('Unexpected AMR variable')
+      ! The estimator receives conserved states: extract thermal pressure,
+      ! rather than refining kinetic-energy or momentum gradients.
+      call hd_get_pthermal(w,x,ixI^L,ixO^L,var)
 
   end subroutine myvar_for_errest
 

@@ -3,7 +3,7 @@
 !=====================================================
 
 &filelist
-        base_filename = 'test26(1)/test'
+        base_filename = 'uniform_ism_20261007_155836/test'
         saveprim      = .true.
         autoconvert   = .true.
         convert_type  = 'vtuBmpi'        
@@ -23,8 +23,7 @@
 /
 
 &methodlist
-        ! SSPRK3 allocates ps2 geometry needed by STS + spherical AMR in v3.1.
-        time_stepper     = 'threestep'
+        time_stepper     = 'twostep'
         flux_scheme      = 20*'tvdlf'
         limiter          = 20*'minmod'
         loglimit(1) = .true.
@@ -56,7 +55,7 @@
 	derefine_ratio = 20*0.1D0
 	domain_nx1=192
 	block_nx1=8
-	xprobmin1=0.01D0
+	xprobmin1=0.19D0
 	xprobmax1=8.0d0
 /
 
@@ -69,18 +68,7 @@
 &hd_list
         hd_energy             = .true.
         hd_radiative_cooling  = .true.
-        hd_thermal_conduction = .true.
-/
-
-&tc_list
-        tc_saturate = .true.
-/
-
-&sts_list
-        sts_method = 1
-        sts_dtpar = 0.8d0
-        sts_ncycles = 1000
-        sourcetype_sts = 2
+        hd_thermal_conduction = .false.
 /
 
 &rc_list

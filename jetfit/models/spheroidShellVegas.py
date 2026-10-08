@@ -80,7 +80,7 @@ class SpheroidShellVegasModel(powerlawVegasModel):
         self.z = float(z)
         self.lumi_dist = float(dl) * 1e28
         
-        # New model parameters
+        # New model parameters (already linear from JetFit MCMC)
         self.R_pole = float(R_pole)
         self.n_ism = float(n_ism)
         self.eps = float(eps)
@@ -94,13 +94,12 @@ class SpheroidShellVegasModel(powerlawVegasModel):
         self.ref_radius = self.R_pole
         
         self.vegas_resolutions = resolve_vegas_resolutions(
-            kwargs.pop("model_kwargs", None),
-            default_t_shock_resolution=1000,
-            default_t_integration_resolution=100,
-            default_r_integration_resolution=250,
-            default_phi_integration_resolution=150,
-            default_theta_integration_resolution=250,
+            vegas_resolutions=kwargs.get('vegas_resolutions'),
+            vegas_resolution_phi=kwargs.get('vegas_resolution_phi'),
+            vegas_resolution_theta=kwargs.get('vegas_resolution_theta'),
+            vegas_resolution_t=kwargs.get('vegas_resolution_t')
         )
+
 
         self._setup_model()
 
@@ -116,8 +115,14 @@ class SpheroidShellVegasModel(powerlawVegasModel):
 
         # Medium setup
         self.vegas_medium = Medium(
-            spheroid_shell_medium_native,
-            (self.R_pole, self.n_ism, self.eps, self.q, self.n_cav, m_mol)
+            rho=spheroid_shell_medium_native(
+                R_pole=self.R_pole,
+                n_ism=self.n_ism,
+                eps=self.eps,
+                q=self.q,
+                n_cav=self.n_cav,
+                m_mol=m_mol
+            )
         )
 
         self.vegas_observer = Observer(self.theta_v, self.lumi_dist, self.z)
@@ -128,12 +133,16 @@ class SpheroidShellVegasModel(powerlawVegasModel):
         else:
             self.vegas_radiation = Radiation(self.eps_e, self.eps_b, self.p)
 
+        from jetfit.models.vegas_resolution import model_kwargs_with_resolution
+
         self.vegas_model = Model(
-            self.vegas_jet,
-            self.vegas_medium,
-            self.vegas_radiation,
-            self.vegas_observer,
-            **self.vegas_resolutions,
+            **model_kwargs_with_resolution(
+                jet=self.vegas_jet,
+                medium=self.vegas_medium,
+                observer=self.vegas_observer,
+                radiation=self.vegas_radiation,
+                resolutions=self.vegas_resolutions
+            )
         )
 
     def number_density_cm3(self, radius_cm):

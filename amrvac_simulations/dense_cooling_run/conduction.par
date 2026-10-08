@@ -1,0 +1,13 @@
+! Optional overlay: pass after amrvac_evolving.par (or its output-folder copy).
+&hd_list
+  hd_thermal_conduction = .true.
+/
+&tc_list
+  tc_saturate = .true.
+/
+&sts_list
+  sts_method = 1
+  sts_dtpar = 0.8d0
+  sts_ncycles = 1000
+  sourcetype_sts = 2
+/

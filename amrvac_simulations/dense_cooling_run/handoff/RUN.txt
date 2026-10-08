@@ -1,0 +1,41 @@
+Dense cooling wind bubble for MPI-AMRVAC 3.1
+
+Included inputs: mod_usr.t, amrvac_evolving.par, stellar_evolution.dat, amrvac.h.
+Keep these files in the same new run directory. Build on the receiving machine;
+the sender's executable, object files, mod_usr.f and module files are unnecessary.
+
+Tested source: AMRVAC v3.1, commit 244c677fd6095bb019587a2fdc97feb67a66f06a.
+Use the receiving machine's MPI/Fortran compiler and AMRVAC architecture profile.
+
+Linux/macOS/WSL commands, from the directory containing these inputs:
+
+export AMRVAC_DIR=/path/to/your/amrvac
+"$AMRVAC_DIR/setup.pl" -d=1
+make -j2
+mkdir -p 'test26(1)'
+export OMP_NUM_THREADS=1
+set -o pipefail
+mpirun -np 2 ./amrvac -i amrvac_evolving.par 2>&1 | tee run.log
+
+If the installation uses an architecture other than default, use its usual
+setup/compiler profile. Run from this directory so stellar_evolution.dat is found.
+Outputs are written to test26(1)/test*.dat, test*.vtu, and test.log.
+
+Model: 1D spherical hydro; initially uniform stationary ISM, rho=1.6726e-20 g/cm^3,
+T=20 K. Domain: 0.01-8 pc. Wind enters through the inner boundary and follows
+the supplied table (age in years, log10 mass loss in Msun/year, speed in km/s,
+wind temperature in K). Duplicate ages use the last row; interpolation is linear
+in mass-loss rate, speed, and temperature. Outside table coverage, endpoint values
+are held. Ambient density and temperature do not change with stellar history.
+
+Cooling: SPEX_DM, exact integration, 20 K cutoff, Tfix=false.
+Conduction: Spitzer, flux saturation, STS method 1, split sources.
+Hydro integrator: threestep (SSPRK3), required here to avoid the v3.1
+STS/spherical-AMR temporary-state geometry failure seen with twostep.
+CFL=0.2, plus the injected-wind boundary CFL check. Floors stop on invalid states.
+
+Startup should print Spitzer HD par, ambient density 1.6726e-20,
+ambient temperature 20 K, and loaded stellar history.
+Configured end time: 397.161 code units, about 3.89 million years.
+The corrected configuration was tested to about 48,923 years on two MPI ranks;
+the complete configured duration has not yet been validated.
