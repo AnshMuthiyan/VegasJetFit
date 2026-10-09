@@ -1,0 +1,59 @@
+Resolution check for the evolving-wind dense cooling run
+
+Current inputs: uniform 30 K ISM, n_H=1e4 hydrogen nuclei/cm^3 including
+helium (rho=2.34164e-20 g/cm^3), exact radiative cooling with Tfix=false,
+saturated Spitzer conduction, and the supplied evolving wind. The configured
+end is the table's last age, 5.24 Myr (535.5304793077746 code units).
+With Tfix=false, the 30 K cooling cutoff does not enforce a hard thermal floor.
+The gas EOS is still the existing fully ionized approximation; the density
+normalization does not add a molecular/temperature-dependent EOS.
+
+From this problem directory in PowerShell:
+    .\prepare_resolution_runs.ps1
+
+This creates separate 192-, 384-, and 768-base-cell inputs and prints their
+launch commands. It does not start simulations. Keep the executable and wind
+table unchanged until all three runs finish. The inputs differ only in base
+cell count and output paths. All use AMR max level 4, the same refinement
+thresholds, and matching 100,000-year snapshot times, plus the final output.
+
+Maximum-level cell widths for the 0.01-8 pc domain:
+    192: 0.00520182 pc
+    384: 0.00260091 pc
+    768: 0.00130046 pc
+These are attainable minimum widths, not a guarantee the entire wall stays
+at maximum AMR level. Check the actual cell/block spacing around each front.
+If AMR fails to cover a front, increase its coverage consistently in every
+member of the comparison and repeat the study.
+
+Compare at identical ages, especially before/during/after wind transitions:
+  - Forward-shock radius and wind termination-shock radius.
+  - Shell mass from native cell density times spherical cell volume.
+  - Shell mass-weighted radius.
+  - Radial interval containing a fixed fraction (e.g. central 80%) of shell
+    mass, using the same definition of shell in every run.
+  - Hot-bubble pressure/energy and the resulting light curve if available.
+Use native cell quantities for conservation measurements. VTU PointData
+interpolates cell values onto nodes, which can bias very thin shell widths
+and peaks. Cross-check global mass against accumulated injected wind mass
+and net flux through both domain boundaries.
+
+Suggested initial acceptance targets (choose tighter ones if the fit needs
+them): successive two refinements change wall radius and mass by <5%, the
+mass-based wall width by <10%, and relevant light-curve features by <5%.
+Require the discrepancies to shrink with refinement and verify this across
+the epochs of interest. If they do not, add a 1536-cell run or equivalent
+extra AMR coverage. Small changes between just one pair are insufficient.
+Also halve CFL in a separate matched control after the spatial comparison;
+source/cooling time accuracy can limit convergence even with exact cooling.
+
+As a useful screening check, aim for at least 10-20 actual cells across the
+wall width you wish to model. This is not a convergence proof. If the mass
+and radius converge but the wall remains a few cells thick, its microscopic
+thickness/peak density remain unresolved. Use an integrated thin-shell
+description or increase resolution rather than treating numerical width as
+a measured physical cooling-layer thickness.
+
+The table contains rounded duplicate ages; the loader keeps the last row
+at each age. Extension to 5.24 Myr does not recover the lost transition timing.
+Use higher-precision stellar ages when available and repeat late-time checks.

@@ -1,9 +1,9 @@
 !=====================================================
-! Evolving wind through the final tabulated age (5.24 million years)
+! Constant wind: 2000 km/s, 1e-5 Msun/yr, for one million years
 !=====================================================
 
 &filelist
-        base_filename = 'test26(1)/test'
+        base_filename = 'conduction_001pc_20261008_140732_426/test'
         saveprim      = .true.
         autoconvert   = .true.
         convert_type  = 'vtuBmpi'        
@@ -19,8 +19,7 @@
 /
 
 &stoplist
-        time_max=535.5304793077746d0
-        final_dt_reduction = .true.
+        time_max=102.2004731503387d0
         dtmin= 1.0d-12
 /
 
@@ -88,18 +87,16 @@
 &rc_list
 	coolcurve   = 'SPEX_DM'
         coolmethod = 'exact'
-        ! Stop radiative cooling at 30 K without reheating colder gas.
+        ! Cooling cutoff follows ism_temperature_k; do not reheat gas.
         Tfix       = .false.
 /
 
 &usr_list
        icase = 1
-       ! n_H=1e4 hydrogen nuclei/cm^3, n_He/n_H=0.1: rho=1.4*m_p*n_H.
-       ! Mass density in g cm^-3; used by initialization and outer BC.
-       rho_ism_cgs = 2.34164d-20
-       ism_temperature_k = 30.0d0
-       cooling_temperature_k = 30.0d0
-       use_stellar_evolution = .true.
+       ! Ambient mass density in g cm^-3; used by initialization and outer BC.
+       rho_ism_cgs = 1.6726d-20
+       ism_temperature_k = 100.0d0
+       use_stellar_evolution = .false.
        stellar_param_file = 'stellar_evolution.dat'
 /
 

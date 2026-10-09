@@ -12,6 +12,8 @@ module mod_usr
   ! Optional .par override; -1 retains the selected case's ambient density.
   double precision :: rho_ism_cgs = -1.0d0
   double precision :: ism_temperature_k = -1.0d0
+  ! Optional cooling cutoff in kelvin; -1 follows the ambient temperature.
+  double precision :: cooling_temperature_k = -1.0d0
   double precision, allocatable :: wind_age(:), wind_mdot(:), wind_speed(:),&
       wind_temp(:)
   integer :: wind_entries = 0
@@ -24,7 +26,7 @@ contains
     integer                      :: n
 
     namelist /usr_list/ icase, stellar_param_file, use_stellar_evolution,&
-        rho_ism_cgs, ism_temperature_k
+        rho_ism_cgs, ism_temperature_k, cooling_temperature_k
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -223,8 +225,8 @@ contains
     ! Set parameters based on case if not using evolution file
     if (.not. use_stellar_evolution) then
       select case( icase )
-       case(1) ! Custom 500k yr dense-cooling run
-         Mdot  = 5.0d-5*const_msun/const_years
+       case(1) ! Constant 2000 km/s, 1e-5 Msun/yr dense-cooling wind
+         Mdot  = 1.0d-5*const_msun/const_years
          vwind = 2.0d8
          Twind = 1.0d4
          rhoISM= 1.6726d-20
@@ -285,7 +287,13 @@ contains
     endif
     if (allocated(rc_fl)) then
       rc_fl%tlow = TISM / unit_temperature
-      rc_fl%Tfix = .false.
+      if (cooling_temperature_k /= -1.0d0) then
+        if (.not.ieee_is_finite(cooling_temperature_k) .or. &
+           cooling_temperature_k <= zero) call &
+           mpistop('cooling_temperature_k must be finite and positive (K)')
+        rc_fl%tlow = cooling_temperature_k / unit_temperature
+      endif
+      ! Honor Tfix from &rc_list instead of overriding it here.
     endif
 
     if(mype == 0) then
@@ -295,6 +303,8 @@ contains
        write(*,'(A,ES24.16)') 'Ambient temperature [K]: ', TISM
        if (allocated(rc_fl)) write(*,'(A,ES24.16)') 'Cooling cutoff [K]: ',&
            rc_fl%tlow*unit_temperature
+       if (allocated(rc_fl)) write(*,'(A,L1)') 'Cooling Tfix enabled: ',&
+           rc_fl%Tfix
        write(*,1004) 'time_convert_factor:     ', time_convert_factor
        write(*,1004) 'length_convert_factor:   ', length_convert_factor
        write(*,1004) 'w_convert_factor(mom(1)):', w_convert_factor(mom(1))
@@ -311,9 +321,9 @@ contains
        write(*,*) 'Using stellar evolution file: ', use_stellar_evolution
        if (use_stellar_evolution) then
          write(*,*) 'Stellar parameter file: ', trim(stellar_param_file)
-         write(*,'(A,3ES24.16)') 'Initial wind [Msun/yr, km/s, K]: ',&
-             Mdot*const_years/const_msun, vwind/1.0d5, Twind
        endif
+       write(*,'(A,3ES24.16)') 'Initial wind [Msun/yr, km/s, K]: ',&
+           Mdot*const_years/const_msun, vwind/1.0d5, Twind
        write(*,*)
     endif
 
