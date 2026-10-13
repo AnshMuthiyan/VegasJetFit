@@ -1,0 +1,8 @@
+BoOST p4_n24 cooling full; base cells=24576; domain scale=4; pinned Pauley MPI-AMRVAC v3.2 binary; see input_sha256.txt after launch.
+Ansh ecc7b91 problem with BoOST free-wind initial state and retarded wind.
+rho_ISM=1.0d-24 g/cm^3; T_ISM=2.1744085007970003d+04 K; initial Rt=0.98384773486773214 pc.
+Domain, AMR weights, BoOST table, integrator, CFL, and units are held fixed within this matrix.
+Cooling=True; saturated Spitzer conduction=False; cooling cutoff=30 K, Tfix=false.
+Numerical-control overrides: sts_dtpar=None, courantpar=None; None means the audited base.par setting.
+Historical v3.2 Mac curves are references, not equivalent baselines: their user density/velocity conversions differed from AMRVAC's source-term units, and their initial ambient pressure differs. The saved old VTU endpoint is 5.24 Myr.
+Success requires run.exit=0, AMRVAC completion marker, finite positive fields, and correct physical end age.

@@ -1,0 +1,107 @@
+!=====================================================
+! Evolving wind through the final tabulated age (5.24 million years)
+!=====================================================
+
+&filelist
+        base_filename = 'output/test'
+        saveprim      = .true.
+        autoconvert   = .true.
+        convert_type  = 'vtuBmpi'        
+        nwauxio       = 1
+/
+
+&savelist
+        itsave(1,1)=0
+        itsave(1,2)=0
+        ditsave_log= 10000
+        ! Save every 100,000 years (AMRVAC uses 3.1536e7 seconds/year).
+        dtsave_dat= 10.22004731503387d0
+/
+
+&stoplist
+        time_max=535.5304793077746d0
+        final_dt_reduction = .true.
+        dtmin= 1.0d-12
+/
+
+&methodlist
+        ! Keep one integrator across the cooling/conduction control matrix.
+        time_stepper     = 'threestep'
+        flux_scheme      = 20*'tvdlf'
+        limiter          = 20*'minmod'
+        loglimit(1) = .true.
+        loglimit(3) = .true.
+        check_small_values = .true.
+        fix_small_values = .true.
+        ! Invoke validation, but stop on bad states instead of replacing them.
+        small_values_method='error'
+        small_temperature = 0.0d0
+        small_pressure = 1.0d-16
+        small_density = 1.0d-14
+/
+
+&boundlist
+        typeboundary_min1 = 'special','special','special'
+        typeboundary_max1 = 'special','special','special'
+/
+
+&meshlist
+	refine_criterion=3
+	refine_max_level=4
+        ! Conserved slots: rho, radial momentum, total energy.
+        ! Slot nw+1=4 is thermal pressure from myvar_for_errest.
+	w_refine_weight(1)=0.4d0
+	w_refine_weight(2)=0.4d0
+	w_refine_weight(3)=0.2d0
+	refine_threshold = 20*0.15d0
+	derefine_ratio = 20*0.1D0
+	domain_nx1=24576
+	block_nx1=8
+	xprobmin1=1.9676954697354643d-01
+	xprobmax1=1.2885709894840386d+02
+/
+
+&paramlist
+        typecourant = 'maxsum'
+        courantpar  = 0.3d0
+        slowsteps=50
+/
+
+&hd_list
+        hd_energy             = .true.
+        hd_radiative_cooling  = .true.
+        hd_thermal_conduction = .false.
+/
+
+&tc_list
+        tc_saturate = .true.
+/
+
+&sts_list
+        sts_method = 1
+        sts_dtpar = 0.8d0
+        sts_ncycles = 1000
+        sourcetype_sts = 2
+/
+
+&rc_list
+	coolcurve   = 'SPEX_DM'
+        coolmethod = 'exact'
+        ! Stop radiative cooling at 30 K without reheating colder gas.
+        Tfix       = .false.
+/
+
+&usr_list
+       icase = 1
+       ! Mass density in g cm^-3, varied by case; for n_He/n_H=0.1,
+       ! the corresponding n_H is rho_ism_cgs/(1.4*m_p).
+       rho_ism_cgs = 1.0d-22
+       ism_temperature_k = 2.1744085007970003d+02
+       cooling_temperature_k = 30.0d0
+       initialize_free_wind = .true.
+       initial_rt_pc = 9.8384773486773214d-01
+       use_stellar_evolution = .true.
+       stellar_param_file = 'stellar_evolution.dat'
+/
+
+/

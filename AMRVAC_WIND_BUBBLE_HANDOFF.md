@@ -1,5 +1,21 @@
 # AMRVAC simulation and surrogate handoff
 
+## Last touched (2026-10-13): BoOST p4 results snapshot
+
+- Published the validated, compact BoOST p4 snapshot in
+  `amrvac_simulations/results/boost_p4_2026_10_13/` on
+  `codex/boost-p4-results-2026-10-13`. It contains the science report,
+  selected validation and matched-age CSVs, three final-age Mac
+  12288-to-24576 cooling plots, and per-case Pauley input/hash records;
+  no raw VTUs or active VM outputs.
+- The three Mac 24576 cooling fulls passed 54-VTU/5.24-Myr validation.
+  Four VM 24576 fulls remain active. Boundary flags and front/width
+  changes prevent a convergence or fit-template claim.
+- Commands: selected non-overwriting copies, CSV checks, `git diff --check`,
+  commit, and push. No simulations or analysis products regenerated.
+  Remaining: validate VM endpoints and publish paired Mac/VM comparisons
+  only after those controls finish.
+
 Status: research handoff, 2026-09-22. This branch does **not** change any VegasAfterglow fit or launch a new AMRVAC run.
 
 ## Two branches, two jobs
