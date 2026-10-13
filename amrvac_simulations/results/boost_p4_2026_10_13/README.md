@@ -38,6 +38,8 @@ controls; those are not the three Pauley runs summarized here.
 - The three `plots/` PNGs show final-age Mac cooling profiles for the
   12288-to-24576 comparison. Earlier completed 6144-to-12288 and
   1536-to-12288 summaries are retained in `data/` for context.
+- [Download all three PNG plots](boost_p4_pauley_cooling_plots_2026_10_13.zip)
+  as a small ZIP archive; it contains only the three published images.
 - `inputs/` preserves each Pauley case's `run.par`, `RUN.txt`, and input
   SHA-256 listing, so the Mac settings and pinned executable can be audited.
 

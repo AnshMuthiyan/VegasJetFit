@@ -1,5 +1,13 @@
 # AMRVAC simulation and surrogate handoff
 
+## Last touched (2026-10-13): Pauley plot download
+
+- Added `amrvac_simulations/results/boost_p4_2026_10_13/boost_p4_pauley_cooling_plots_2026_10_13.zip`
+  containing only the three already-published PNG grid-comparison plots,
+  plus a README download link. Commands: `zip`, `unzip -t`, `git diff --check`,
+  commit/push, remote-ref confirmation. No science results regenerated or
+  physics changed; VM 24576 fulls remain pending.
+
 ## Last touched (2026-10-13): published physics labels clarified
 
 - Added a case-by-case physics table to the BoOST p4 results README.
