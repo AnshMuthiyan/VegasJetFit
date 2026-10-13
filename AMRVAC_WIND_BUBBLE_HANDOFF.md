@@ -1,5 +1,16 @@
 # AMRVAC simulation and surrogate handoff
 
+## Last touched (2026-10-13): published physics labels clarified
+
+- Added a case-by-case physics table to the BoOST p4 results README.
+  Pauley n22/n23/n24 24576-cell fulls are cooling-only, with radiative
+  cooling on and thermal conduction off in each preserved `run.par`.
+- Files modified: results README and this handoff. Commands: checked all
+  three `run.par` switches, `git diff --check`, commit, push, remote-ref
+  confirmation. No outputs regenerated. Earlier conduction and combined
+  controls remain documented in the science report but are not part of
+  this published Pauley 24576-cell snapshot.
+
 ## Last touched (2026-10-13): BoOST p4 results snapshot
 
 - Published the validated, compact BoOST p4 snapshot in

@@ -7,6 +7,22 @@ trees remain on Lyra under
 `/Users/jkeohane/GRBs/Run_Staging/amrvac_boost_p4_physics_20261009/`;
 raw VTUs, checkpoints, executables, and in-progress runs are not in Git.
 
+## Physics in this snapshot
+
+| Pauley404 case | Ambient density | Radiative cooling | Thermal conduction |
+| --- | --- | --- | --- |
+| `p4_n22_cooling` | 1e-22 g/cm3 | On | Off |
+| `p4_n23_cooling` | 1e-23 g/cm3 | On | Off |
+| `p4_n24_cooling` | 1e-24 g/cm3 | On | Off |
+
+All three published 24576-cell Pauley full runs are **cooling-only**.
+Their `inputs/<case>/run.par` files explicitly set
+`hd_radiative_cooling = .true.` and
+`hd_thermal_conduction = .false.`. No conduction-only or
+cooling-plus-conduction 24576-cell Pauley result is included. The
+science report discusses separate, earlier conduction and combined
+controls; those are not the three Pauley runs summarized here.
+
 ## What is complete
 
 - The 12288-cell VM and Mac full controls passed 54-snapshot, 5.24-Myr
