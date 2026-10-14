@@ -50,6 +50,13 @@ The 12288-cell run archives supply the underlying profiles for these
 paired comparisons. The earlier 192-cell original-domain physics matrix
 has its own separate published folder and is not duplicated here.
 
+The [analysis/](analysis/) directory preserves the exact Lyra validation,
+comparison, front-measurement, and VTU-reading scripts used for these
+products. They are provenance copies, not a standalone packaged workflow:
+their default paths assume the original `GRBs/Run_Staging/` layout, and
+the scripts require NumPy and Matplotlib. The raw archives and CSVs above
+remain the published data products.
+
 The Mac cooling fulls remain boundary-flagged and their inner fronts
 change materially with resolution. The hydro comparison is one grid pair.
 Neither platform agreement nor these pairs establish convergence. There
