@@ -1,0 +1,87 @@
+! Purpose: Tfix-only control with the original uniform grid; constant WR wind in n_total=1e4 cm^-3, 100 K gas.
+! Both physical transport terms and Tfix remain enabled in every candidate.
+&filelist
+ base_filename='output/test'
+ saveprim=.true.
+ autoconvert=.true.
+ convert_type='vtuBmpi'
+ nwauxio=1
+/
+&savelist
+ itsave(1,1)=0
+ itsave(1,2)=0
+ ditsave_log=1000
+ dtsave_dat=2.55501182875846646e-02
+/
+&stoplist
+ time_max=1.02200473150338658e-01
+ final_dt_reduction=.true.
+ dtmin=1.d-14
+/
+&methodlist
+ ! SSPRK3 provides ps2 geometry needed by spherical AMR+STS in v3.1.
+ time_stepper='threestep'
+ flux_scheme=20*'tvdlf'
+ limiter=20*'minmod'
+ loglimit(1)=.true.
+ loglimit(3)=.true.
+ check_small_values=.true.
+ fix_small_values=.true.
+ small_values_method='replace'
+ small_temperature=0.d0
+ small_pressure=1.d-14
+ small_density=1.d-14
+/
+&boundlist
+ typeboundary_min1='special','special','special'
+ typeboundary_max1='special','special','special'
+/
+&meshlist
+ refine_criterion=3
+ refine_max_level=4
+ w_refine_weight(1)=0.7d0
+ w_refine_weight(2)=0.d0
+ w_refine_weight(3)=0.d0
+ w_refine_weight(4)=0.3d0
+ refine_threshold=20*0.05d0
+ derefine_ratio=20*0.1d0
+ domain_nx1=192
+ block_nx1=8
+ xprobmin1=0.01d0
+ ! Leave room for the forward shock at one million years.
+ xprobmax1=20.d0
+
+/
+&paramlist
+ typecourant='maxsum'
+ courantpar=0.2d0
+ slowsteps=50
+/
+&hd_list
+ hd_energy=.true.
+ hd_gamma=1.6666666666666667d0
+ hd_radiative_cooling=.true.
+ hd_thermal_conduction=.true.
+/
+&tc_list
+ tc_saturate=.true.
+/
+&sts_list
+ sts_method=1
+ sts_dtpar=0.8d0
+ sts_ncycles=1000
+ sourcetype_sts=2
+/
+&rc_list
+ coolcurve='SPEX_DM'
+ coolmethod='exact'
+ Tfix=.true.
+/
+&usr_list
+ ! This is total particle density; the code derives rho using the HD EOS.
+ ambient_particles_cm3=1.d4
+ ambient_temperature_k=100.d0
+ wind_mdot_msunyr=1.d-5
+ wind_velocity_kms=2000.d0
+ wind_temperature_k=1.d4
+/

@@ -1,0 +1,47 @@
+# Purpose: Record reproduced NaN mechanism and distinguish evidence from remaining uncertainty.
+
+Affected case: tc_off_rc_off; conduction and radiative cooling both disabled.
+All phases are still MS when this happens. The first NaN log row was at step
+20000 (~193 yr); the 100-year smoke tests ended before the failure.
+
+Diagnostic 1: diagnostic_nan_20261016_153351/run.log
+Hardware invalid/divide-by-zero/overflow traps produced SIGFPE at
+wr_cooling_conduction_tests/library/mod_finite_volume.f:1339,
+the dlog10(w(...,iw)) call in reconstruct_LR.
+
+Diagnostic 2: diagnostic_nan_20261016_153657/run.log
+A wrapper around phys_to_primitive caught a nonpositive primitive before log.
+Step 14748; time 0.014536909212245409 code units (~142.24 yr).
+MPI rank 0; cell index 4; radius 0.010149686815614848 pc.
+Conserved rho=309.55981004690653, momentum=5706.0743169248735,
+total energy=52589.649969962295, kinetic energy=52589.649969962295.
+Recovered pressure=0 before and after the existing small-value repair.
+
+The configured small_pressure=1e-14 gives small_e=1.5e-14 for gamma=5/3.
+The representable spacing at this kinetic energy is 7.275957614183426e-12.
+Adding small_e to kinetic energy rounds back to kinetic energy exactly.
+Thus the replacement E=KE+small_e does not enforce positive recovered pressure
+when pressure is recomputed from (gamma-1)*(E-KE). Taking log10(0) creates -Inf;
+subsequent reconstruction arithmetic can create NaN and contaminate cell states.
+
+Why production continued:
+The recorded production build flags have no -ffpe-trap option. Runtime bounds
+checks do not catch floating-point NaN. hd_check_w at mod_hd_phys.f:609-638 only
+checks comparisons such as p<small_pressure and rho<small_density. These tests
+are false for NaN. Consequently the 'replace' handler does not detect or repair
+NaNs, and the loop can keep incrementing simulation time.
+
+Evidence limits:
+The probe confirms the zero-pressure state and ineffective floor; it does not
+identify the very first upstream hydro update that lost internal energy.
+That earlier loss needs separate stage-level tracing and numerical comparison.
+Both diagnostic runs used the same production library read-only; only separate
+diagnostic executables, copied inputs, and debug instrumentation were created.
+The production executable and configuration were not modified by this diagnosis.
+
+Required before trusting replacement runs:
+Explicit finite-value checks and fail-fast diagnostics; a representable and
+physically/numerically justified positivity strategy; investigation of the
+upstream hydro positivity loss; longer validation beyond this failure time;
+and an audit of energy added by numerical repairs. Disabling traps and observing
+continued execution is not evidence that the solution is stable or valid.

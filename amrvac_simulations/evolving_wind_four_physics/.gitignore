@@ -1,0 +1,10 @@
+# Purpose: Exclude generated AMRVAC binaries, snapshots, and smoke-test outputs.
+build/
+library/
+__pycache__/
+**/output/
+**/smoke_*/
+*.o
+*.mod
+core*
+diagnostic_nan_*/amrvac

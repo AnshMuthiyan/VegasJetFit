@@ -1,0 +1,57 @@
+# Purpose: Record the tested repair, rejected alternatives, and limits before production restart.
+
+Selected configuration
+  flux_scheme=20*'tvdlf', limiter=20*'minmod', time_stepper='threestep'
+  courantpar=0.1, qstretch_baselevel(1)=1.03
+  Domain 0.01--20 pc, 192 base cells, AMR max level 3.
+  The screenshot's cumulative phase ends remain 4.3, 4.5, and 4.77 Myr.
+  MS: 1e-6 Msun/yr, 2000 km/s. RSG: 5e-5, 15. WR: 1e-5, 2000.
+  Assumed wind temperatures: MS/WR 10000 K, RSG 1000 K (not specified in image).
+  Ambient n_total=1e4 cm^-3, T=100 K. All four conduction/cooling switches retained.
+  Exact SPEX_DM cooling and Tfix=100 K in cooling-enabled runs; saturated Spitzer
+  conduction with STS in conduction-enabled runs. No physical temperature floor
+  is added to the cooling-disabled controls.
+
+Evidence for the selected setup
+  tvdlf_physics_1000yr_*: all four physics combinations completed 1000 yr.
+  tvdlf_phase_150yr_*: MS->RSG and RSG->WR in each combination, eight tests total.
+  These transition tests switch at 50 yr and end at 150 yr; production ages do
+  not change. They exercise abrupt source changes in young bubbles, not a
+  physically evolved 4.3/4.5 Myr bubble.
+  ALL 12 passed with finite native cell values, strictly positive recovered
+  pressure, and the 100 K floor respected in cooling-enabled runs.
+  ALL 12 recorded zero activations of the new numerical energy-rescue guard.
+  Runtime logs confirm the intended activation of conduction and cooling.
+  Validation is reproduced by validation_tools/summarize_validation.py --require-selected.
+
+Why this configuration was selected
+  The old absolute pressure floor could vanish in E-KE cancellation; the new
+  guard uses a representable increment and explicitly rejects nonfinite states.
+  A larger absolute floor fixes that rounding path, but does not resolve the
+  strong-transition positivity problem by itself.
+  HLL variants passed several MS tests but failed strong cooling-enabled WR
+  transitions under the allowed correction limit. Reducing CFL to 0.05 or 0.025
+  or disabling logarithmic reconstruction did not solve the difficult HLL test.
+  TVDLF at CFL 0.1 passed it with zero energy rescues, then passed the full matrix.
+  Moving the inner boundary to 0.05 pc changed the 1000-year bubble radius by
+  about 17%, so that domain change was rejected.
+  Gentler stretching keeps the physical boundaries and raises the minimum cell
+  width. In the hydro-only 1000-year comparison, outer disturbed radius changed
+  from 0.09456 to 0.09515 pc (about 0.63%). This is a screening comparison, not a
+  spatial-convergence demonstration of density peaks or cooling-shell widths.
+
+Protection retained for full runs
+  Invalid/divide-by-zero/overflow traps enabled in the executable.
+  Explicit finite checks before pressure conversion and after advancement.
+  Refuse an individual energy rescue above 0.1% of the cell energy scale.
+  Refuse the volume-weighted state-evaluation rescue budget above 0.1% of the
+  analytic injected wind energy. The evaluation sum includes RK intermediate
+  states and is not a measurement of net energy-conservation error.
+  External supervisor stops all runs if any case exits unsuccessfully or logs
+  NaN/Infinity. Successful completion requires independent native-cell auditing.
+
+Production is restarted from fresh ambient initial conditions in this folder.
+The invalid earlier campaign and all diagnostic evidence are preserved separately.
+The full 4.77 Myr lifetime has not been validated to completion. TVDLF's extra
+numerical diffusion and unresolved cooling layers require resolution/timestep
+comparisons before using detailed shell widths or density peaks scientifically.
