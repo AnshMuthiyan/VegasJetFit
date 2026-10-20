@@ -1,5 +1,11 @@
 # AMRVAC pressure-grid source bundle
 
+For Jonathan's newer finite-GMC 40-Msun direct-WR work, see
+`finite_gmc_40msun_20261020/README.md`. It is a separate dated bundle with
+exact case inputs, validation tables, selected VTUs, and a meeting book;
+do not merge its physics or results with the historical pressure-grid bundle
+described below.
+
 This directory is a compact, versioned starting point for **offline** wind-bubble simulation analysis. It is not a VegasAfterglow fitting model and does not contain all AMRVAC run outputs.
 
 Source on Lyra: `/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/Boost_Test_runs_2026_04_25_rtwind_fulltimeline_xmin0p2_p6diag/`. The source campaign reports MPI-AMRVAC v3.2 at commit `c45d84650ed3379eb22dcfa6fb927a45734e5d8c`. Its README, surrogate plan, p4 physics report, and May 1 analysis notes are copied into `provenance/`, so Ansh can inspect the rationale without a Lyra mount. This bundle is a snapshot of selected source inputs and data, not a claim that the prototype is scientifically final.

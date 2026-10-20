@@ -1,0 +1,10 @@
+! Isolated hydro diagnostic: 1,000 years at reduced CFL, not a production input.
+&paramlist
+  courantpar = 0.01d0
+/
+&savelist
+  dtsave_dat = 1.0220047315033867d-1
+/
+&stoplist
+  time_max = 1.0220047315033867d-1
+/

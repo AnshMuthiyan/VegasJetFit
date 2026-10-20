@@ -1,0 +1,23 @@
+&filelist
+  base_filename = 'cloudmass_gmc_n10000b2000_wrorth4096_wind'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 2.0440243137638427e+00
+/
+&stoplist
+  time_max = 1.0220121568819215e+01
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .true.
+/
+&usr_list
+  wind_enabled = .true.
+  ionization_enabled = .true.
+  cloud_gravity_enabled = .true.
+  wind_phase_age_offset_myr = 4.5d0
+/

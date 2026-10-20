@@ -1,0 +1,28 @@
+! One-factor cloud/gravity control against nref1000 baseline.
+&filelist
+  base_filename = 'cloudmass_slope16_nref1000_wind'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 2.0440243137638427e+00
+/
+&stoplist
+  time_max = 1.0220121568819215e+01
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .true.
+/
+&usr_list
+  n_ref_cm3 = 1000.0d0
+  cloud_pc = 2.00d0
+  edge_width_pc = 0.50d0
+  slope_p = 1.60d0
+  star_mass_msun = 40.00d0
+  wind_enabled = .true.
+  ionization_enabled = .true.
+  cloud_gravity_enabled = .true.
+/

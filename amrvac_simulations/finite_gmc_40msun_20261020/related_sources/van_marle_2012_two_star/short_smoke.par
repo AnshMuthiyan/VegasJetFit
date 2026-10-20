@@ -1,0 +1,8 @@
+! Append after a generated run.par in an isolated scratch directory.
+! 1,000 yr = 0.001 Myr = 0.1022004731503387 AMRVAC time units.
+&savelist
+  dtsave_dat = 1.022004731503387d-1
+/
+&stoplist
+  time_max = 1.022004731503387d-1
+/

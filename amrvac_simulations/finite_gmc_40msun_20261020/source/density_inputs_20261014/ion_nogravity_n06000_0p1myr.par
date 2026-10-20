@@ -1,0 +1,23 @@
+! Three-phase 40 Msun wind density sweep; base mesh and physics unchanged.
+&filelist
+  base_filename = 'ion_nogravity_n06000_0p1myr'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 2.044024313763843d0
+/
+&stoplist
+  time_max = 1.0220121568819214d1
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .false.
+/
+&usr_list
+  n0_cm3 = 6000.0d0
+  wind_enabled = .true.
+  ionization_enabled = .true.
+/

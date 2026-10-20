@@ -1,6 +1,33 @@
 # AMRVAC simulation and surrogate handoff
 
-Status: research handoff, 2026-09-22. This branch does **not** change any VegasAfterglow fit or launch a new AMRVAC run.
+2026-10-20 Lyra update: Jonathan's finite-GMC 40-Msun direct-WR source,
+exact generated input sets, selected validated snapshots, age-fixed
+diagnostics, numerical quality inventory, and the meeting book are now in
+`amrvac_simulations/finite_gmc_40msun_20261020/`. Read that folder's README
+before reusing a case. Its GMC1000 20,480-cell wind is validated at 0.0015
+Myr; the companion GMC2000 20,480-cell static is validated, but its wind is
+unlaunched/held for a guard-runtime decision. This is a separate fixed-physics
+direct-WR study, not an extension of Ansh's cooling/conduction campaign or a
+fit-ready surrogate. Full raw time series remain on Lyra.
+
+Status: research handoff, 2026-09-22. This branch does **not** change any VegasAfterglow fit. At handoff, no new AMRVAC run had been launched.
+
+2026-10-08 update: Ansh's newer `dense_cooling_run/` inputs at commit
+`e640710` were tested separately from the older curated surrogate bundle.
+Pinned AMRVAC v3.1 is installed on Keohane1-4; four concurrent short pilots
+and a checkpoint restart passed, with matched physics controls evaluated. See
+`amrvac_simulations/analysis/2026_10_08_ansh_conduction_multivm_audit.md`.
+This is still not a validated full-duration sweep or fitting surrogate.
+
+2026-10-09 update: Pulled Ansh's `ecc7b91`, built the revised 5.24-Myr
+evolving-wind source, and started matched 192/384/768-cell full runs on
+Keohane2-4. Keohane1 is running a seven-case, one-factor-at-a-time
+constant-wind endpoint sweep. All full jobs use CFL 0.1 after the supplied
+CFL 0.2 crashed in a constant-wind smoke. The constant-wind sweep uses an
+isolated runtime-override variant of `mod_usr.t`; Ansh's tracked source is
+unchanged. Commands, paths, test results, checksums, and science cautions:
+`amrvac_simulations/analysis/2026_10_09_ansh_endpoint_convergence_and_wind_sweep.md`.
+Completion and convergence are pending; do not treat launched jobs as results.
 
 ## Two branches, two jobs
 
