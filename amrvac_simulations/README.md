@@ -1,3 +1,7 @@
+# Current stellar-track results
+
+See [RESULTS_INDEX.md](RESULTS_INDEX.md) for full40-Msun wind histories, all saved outputs and images, newer25/40-Msun tests, and the running24-model matched full-lifetime grid. The older bundles below retain their original dates and model assumptions.
+
 # AMRVAC pressure-grid source bundle
 
 For Jonathan's newer finite-GMC 40-Msun direct-WR work, see

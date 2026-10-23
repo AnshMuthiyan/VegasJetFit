@@ -1,0 +1,10 @@
+rsync -c amrvac.h /home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default/amrvac.h
+make -C /home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default -f /home/jonathan/codes/amrvac-v3.1-244c677/arch/lib.make
+make[1]: Entering directory '/home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default'
+make[1]: Leaving directory '/home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default'
+/home/jonathan/codes/amrvac-v3.1-244c677/src/vacpp.pl  -d=1 mod_usr.t > mod_usr.f
+/home/jonathan/codes/amrvac-v3.1-244c677/src/vacpp.pl  -d=1 /home/jonathan/codes/amrvac-v3.1-244c677/src/amrvac.t > amrvac.f
+mpif90 -cpp -ffree-form -fimplicit-none -O3 -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -Wno-zerotrip -Wno-target-lifetime -c mod_usr.f -o mod_usr.o -I/home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default
+mpif90 -cpp -ffree-form -fimplicit-none -O3 -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -Wno-zerotrip -Wno-target-lifetime -c amrvac.f -o amrvac.o -I/home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default
+mpif90  -cpp -ffree-form -fimplicit-none -O3 -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -Wno-zerotrip -Wno-target-lifetime -cpp -ffree-form -fimplicit-none -O3 -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -Wno-zerotrip -Wno-target-lifetime amrvac.o mod_usr.o -o amrvac -L/home/jonathan/codes/amrvac-v3.1-244c677/lib/1d_default -lamrvac
+rm mod_usr.o amrvac.o amrvac.f

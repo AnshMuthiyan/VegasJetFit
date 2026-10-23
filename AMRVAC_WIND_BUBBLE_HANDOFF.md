@@ -1,3 +1,7 @@
+# Current full-track handoff (23 October2026)
+
+Start with [`amrvac_simulations/RESULTS_INDEX.md`](amrvac_simulations/RESULTS_INDEX.md). Full40-Msun phase-complete saved outputs are now included on this branch, newer25/40-Msun short tests are labeled separately, and a new24-model full25/40-Msun density-pressure grid is running. The historical held/in-flight states below are dated provenance and do not supersede the current index. No completed full25-Msun result is claimed until the new grid passes final validation.
+
 # AMRVAC simulation and surrogate handoff
 
 2026-10-20 Lyra update: Jonathan's finite-GMC 40-Msun direct-WR source,

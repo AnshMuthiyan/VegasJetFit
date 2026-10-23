@@ -1,0 +1,4 @@
+*.csv -text whitespace=cr-at-eol
+reference_sources/** -text whitespace=-blank-at-eol,-blank-at-eof
+**/*.log -text -diff
+**/*.err -text -diff
