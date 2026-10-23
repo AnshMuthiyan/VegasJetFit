@@ -1,0 +1,177 @@
+{
+  "purpose": "Independent volume-integrated mass-budget comparison for completed candidate tests.",
+  "interpretation": "Difference includes numerical inner-boundary flux error and any outer-boundary flux, not just refinement error.",
+  "cases": [
+    {
+      "batch": "20261020_000334_controls",
+      "case": "both_ghost_copy",
+      "initial_mass_Msun": 5039882.570872192,
+      "final_mass_Msun": 5039882.583653868,
+      "mass_change_Msun": 0.012781675904989243,
+      "wind_injected_Msun": 0.012499999999953434,
+      "relative_mass_difference": 0.02253407240294865
+    },
+    {
+      "batch": "20261020_002503_positive_refinement",
+      "case": "both",
+      "initial_mass_Msun": 5039882.570872192,
+      "final_mass_Msun": 5039882.596352155,
+      "mass_change_Msun": 0.025479963049292564,
+      "wind_injected_Msun": 0.024999999999953434,
+      "relative_mass_difference": 0.019198521973600956
+    },
+    {
+      "batch": "20261020_090228_long_rsg",
+      "case": "both",
+      "initial_mass_Msun": 5039882.570872192,
+      "final_mass_Msun": 5039883.078925436,
+      "mass_change_Msun": 0.5080532440915704,
+      "wind_injected_Msun": 0.5,
+      "relative_mass_difference": 0.016106488183140755
+    },
+    {
+      "batch": "20261020_090655_full_remaining_rsg",
+      "case": "both",
+      "initial_mass_Msun": 5039883.078925436,
+      "final_mass_Msun": 5039892.73115855,
+      "mass_change_Msun": 9.652233113534749,
+      "wind_injected_Msun": 9.5,
+      "relative_mass_difference": 0.016024538266815637
+    },
+    {
+      "batch": "20261020_091134_wr_switch",
+      "case": "both",
+      "initial_mass_Msun": 5039892.73115855,
+      "final_mass_Msun": 5039892.739668895,
+      "mass_change_Msun": 0.008510344661772251,
+      "wind_injected_Msun": 0.01,
+      "relative_mass_difference": -0.14896553382277491
+    },
+    {
+      "batch": "20261020_091637_long_wr",
+      "case": "both",
+      "initial_mass_Msun": 5039892.739668895,
+      "final_mass_Msun": 5039892.839718081,
+      "mass_change_Msun": 0.10004918649792671,
+      "wind_injected_Msun": 0.1,
+      "relative_mass_difference": 0.0004918649792670649
+    },
+    {
+      "batch": "20261020_092256_matrix_tc_off_rc_off",
+      "case": "neither",
+      "initial_mass_Msun": 5039882.754125989,
+      "final_mass_Msun": 5039892.761106948,
+      "mass_change_Msun": 10.006980959326029,
+      "wind_injected_Msun": 10.01,
+      "relative_mass_difference": -0.00030160246493216416
+    },
+    {
+      "batch": "20261020_093837_exact_flux_rsg",
+      "case": "both",
+      "initial_mass_Msun": 5039882.570872192,
+      "final_mass_Msun": 5039883.070870743,
+      "mass_change_Msun": 0.4999985508620739,
+      "wind_injected_Msun": 0.5,
+      "relative_mass_difference": -2.898275852203369e-06
+    },
+    {
+      "batch": "20261020_095453_exact_flux_remaining_rsg",
+      "case": "both",
+      "initial_mass_Msun": 5039883.070870743,
+      "final_mass_Msun": 5039892.5708709145,
+      "mass_change_Msun": 9.500000171363354,
+      "wind_injected_Msun": 9.5,
+      "relative_mass_difference": 1.803824776097348e-08
+    },
+    {
+      "batch": "20261020_100012_exact_flux_wr_switch",
+      "case": "both",
+      "initial_mass_Msun": 5039892.5708709145,
+      "final_mass_Msun": 5039892.580871024,
+      "mass_change_Msun": 0.010000109672546387,
+      "wind_injected_Msun": 0.01,
+      "relative_mass_difference": 1.0967254638651058e-05
+    },
+    {
+      "batch": "20261020_102416_matrix_tc_on_rc_off",
+      "case": "conduction_only",
+      "initial_mass_Msun": 5039882.6170839695,
+      "final_mass_Msun": 5039892.623929432,
+      "mass_change_Msun": 10.00684546213597,
+      "wind_injected_Msun": 10.01,
+      "relative_mass_difference": -0.0003151386477551643
+    },
+    {
+      "batch": "20261020_102444_wr_rank_benchmark_1",
+      "case": "both",
+      "initial_mass_Msun": 5039892.580871024,
+      "final_mass_Msun": 5039892.581114794,
+      "mass_change_Msun": 0.00024376995861530304,
+      "wind_injected_Msun": 0.00024376705520786347,
+      "relative_mass_difference": 1.1910581752307837e-05
+    },
+    {
+      "batch": "20261020_102454_wr_rank_benchmark_2",
+      "case": "both",
+      "initial_mass_Msun": 5039892.580871024,
+      "final_mass_Msun": 5039892.581114794,
+      "mass_change_Msun": 0.00024376995861530304,
+      "wind_injected_Msun": 0.00024376705520786347,
+      "relative_mass_difference": 1.1910581752307837e-05
+    },
+    {
+      "batch": "20261020_102501_wr_rank_benchmark_4",
+      "case": "both",
+      "initial_mass_Msun": 5039892.580871024,
+      "final_mass_Msun": 5039892.581114794,
+      "mass_change_Msun": 0.00024376995861530304,
+      "wind_injected_Msun": 0.00024376705520786347,
+      "relative_mass_difference": 1.1910581752307837e-05
+    },
+    {
+      "batch": "20261020_102508_wr_rank_benchmark_8",
+      "case": "both",
+      "initial_mass_Msun": 5039892.580871024,
+      "final_mass_Msun": 5039892.581114794,
+      "mass_change_Msun": 0.00024376995861530304,
+      "wind_injected_Msun": 0.00024376705520786347,
+      "relative_mass_difference": 1.1910581752307837e-05
+    },
+    {
+      "batch": "20261020_103232_tc_audit_equivalence",
+      "case": "both",
+      "initial_mass_Msun": 5039892.580871024,
+      "final_mass_Msun": 5039892.581114794,
+      "mass_change_Msun": 0.00024376995861530304,
+      "wind_injected_Msun": 0.00024376705520786347,
+      "relative_mass_difference": 1.1910581752307837e-05
+    },
+    {
+      "batch": "20261020_103351_tc_audit_equivalence",
+      "case": "both",
+      "initial_mass_Msun": 5039892.580871024,
+      "final_mass_Msun": 5039892.581114794,
+      "mass_change_Msun": 0.00024376995861530304,
+      "wind_injected_Msun": 0.00024376705520786347,
+      "relative_mass_difference": 1.1910581752307837e-05
+    },
+    {
+      "batch": "20261020_103817_audited_rsg_full",
+      "case": "both",
+      "initial_mass_Msun": 5039882.570872192,
+      "final_mass_Msun": 5039892.580871024,
+      "mass_change_Msun": 10.009998831897974,
+      "wind_injected_Msun": 10.01,
+      "relative_mass_difference": -1.1669350906818731e-07
+    },
+    {
+      "batch": "20261020_104020_matrix_tc_off_rc_on",
+      "case": "cooling_only",
+      "initial_mass_Msun": 5039882.615984743,
+      "final_mass_Msun": 5039892.7845775625,
+      "mass_change_Msun": 10.168592819012702,
+      "wind_injected_Msun": 10.01,
+      "relative_mass_difference": 0.015843438462807367
+    }
+  ]
+}

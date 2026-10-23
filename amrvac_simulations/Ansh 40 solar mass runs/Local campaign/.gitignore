@@ -1,0 +1,15 @@
+# Purpose: Exclude generated AMRVAC binaries, snapshots, and smoke-test outputs.
+build/
+library/
+__pycache__/
+**/output/
+**/smoke_*/
+*.o
+*.mod
+core*
+
+# Purpose: Keep machine-specific pause state and resumed output segments local.
+pause_state.json
+pause_state.tmp
+restart_checks/
+restarted_runs/

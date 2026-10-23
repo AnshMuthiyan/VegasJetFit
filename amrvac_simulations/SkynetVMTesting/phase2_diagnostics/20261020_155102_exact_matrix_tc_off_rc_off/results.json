@@ -1,0 +1,29 @@
+{
+  "purpose": "Source-term isolation at a deliberately reset 4.3 Myr stellar age.",
+  "checkpoint": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/tc_off_rc_off/test0013.dat",
+  "checkpoint_sha256": "ed98023f599fd5623a61a2b2a40213cc2c0bdd3a402d96c68d44aadf0f635bcb",
+  "original_age_years": 1214065.4109451554,
+  "executable": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/positive_amr_audited_candidate/amrvac",
+  "executable_sha256": "72c94abbef11d48943ba92ba00f697d7f0795dbd6812f232136fc1fc8a7e453d",
+  "target_duration_years": 201000.0,
+  "ranks": 1,
+  "cases": [
+    {
+      "case": "neither",
+      "returncode": 1,
+      "wall_seconds": 1567.4013289029826,
+      "completed": false,
+      "log": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/20261020_155102_exact_matrix_tc_off_rc_off/neither/run.log",
+      "last_saved_age_years": 4316082.646906581,
+      "invalid_cells": 0,
+      "passed": false
+    }
+  ],
+  "start_age_years": 4300000.0,
+  "fixed_steps": null,
+  "ghost_copy": true,
+  "primitive_prolong": false,
+  "courant": 0.1,
+  "sts_dtpar": 0.1,
+  "cancellation_note": "Additional final-source matrix testing deliberately checkpointed and stopped at wrap-up; earlier matrix results retained."
+}

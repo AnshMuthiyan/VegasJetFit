@@ -1,0 +1,30 @@
+{
+  "purpose": "Verify delivered source identity, per-case physics, restart configuration and unchanged valid checkpoints.",
+  "passed": true,
+  "cases": [
+    {
+      "case": "tc_off_rc_off",
+      "checkpoint": "test0013.dat",
+      "original_gas_age_years": 1214065.4109451554,
+      "checkpoint_sha256": "ed98023f599fd5623a61a2b2a40213cc2c0bdd3a402d96c68d44aadf0f635bcb"
+    },
+    {
+      "case": "tc_off_rc_on",
+      "checkpoint": "test0011.dat",
+      "original_gas_age_years": 1067801.003333674,
+      "checkpoint_sha256": "9eecc61dfdaa2518328f0b9249ec700c028cf9c43f281db185de39a0c68b5446"
+    },
+    {
+      "case": "tc_on_rc_off",
+      "checkpoint": "test0011.dat",
+      "original_gas_age_years": 1073816.4744766506,
+      "checkpoint_sha256": "6f4f90a17cd74b0b05cb243268291a7e34e6b29f21084ba7719099381143486f"
+    },
+    {
+      "case": "tc_on_rc_on",
+      "checkpoint": "test0011.dat",
+      "original_gas_age_years": 1022650.888508874,
+      "checkpoint_sha256": "64043eecd126873a4fa1bdc08bdd53b8e73e7ddab1a8bd8c1ecfc2e24cb4157b"
+    }
+  ]
+}

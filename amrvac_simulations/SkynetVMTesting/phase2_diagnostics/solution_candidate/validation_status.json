@@ -1,0 +1,16 @@
+{
+  "purpose": "Track validation scope of the portable numerical-fix candidate.",
+  "status": "Candidate under extended testing; do not interpret short tests as full-run validation.",
+  "passed": [
+    "500-yr conservative-refinement test",
+    "10,000-yr RSG test",
+    "remaining 190,000-yr RSG continuation",
+    "first 1,000 WR years"
+  ],
+  "pending": [
+    "extended WR evolution",
+    "all four physics configurations"
+  ],
+  "physics": "Conduction, cooling, and Tfix remain enabled in this packaged case.",
+  "scope": "Dedicated AMRVAC 3.2, 1D HD, rho/m1/e layout only."
+}

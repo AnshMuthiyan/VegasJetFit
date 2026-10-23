@@ -1,0 +1,71 @@
+{
+  "purpose": "Prove the old duplicate-coordinate failure and verify the corrected conservative geometry selection and fail-fast controls.",
+  "scope": "Actual preprocessed user procedure with controlled state storage; VM checkpoint test0050.dat was not available locally.",
+  "core_source_modified": false,
+  "cases": [
+    {
+      "version": "before",
+      "case": "unique",
+      "returncode": 0,
+      "expected_rejection": null,
+      "passed": true,
+      "output": " CONSERVATIVE ALIAS CHECK PASSED: unique\n"
+    },
+    {
+      "version": "before",
+      "case": "equivalent",
+      "returncode": 128,
+      "expected_rejection": "Ambiguous fine-block geometry in user refinement",
+      "passed": true,
+      "output": " Ambiguous fine-block geometry in user refinement\nSTOP 128\n"
+    },
+    {
+      "version": "after",
+      "case": "unique",
+      "returncode": 0,
+      "expected_rejection": null,
+      "passed": true,
+      "output": " CONSERVATIVE ALIAS CHECK PASSED: unique\n"
+    },
+    {
+      "version": "after",
+      "case": "equivalent",
+      "returncode": 0,
+      "expected_rejection": null,
+      "passed": true,
+      "output": " Equivalent refinement geometry accepted: rank,grids,iteration=           0           1           2         123\n CONSERVATIVE ALIAS CHECK PASSED: equivalent\n"
+    },
+    {
+      "version": "after",
+      "case": "roundoff",
+      "returncode": 0,
+      "expected_rejection": null,
+      "passed": true,
+      "output": " Equivalent refinement geometry accepted: rank,grids,iteration=           0           1           2         123\n CONSERVATIVE ALIAS CHECK PASSED: roundoff\n"
+    },
+    {
+      "version": "after",
+      "case": "conflict",
+      "returncode": 128,
+      "expected_rejection": "Coordinate-matched refinement volumes disagree",
+      "passed": true,
+      "output": " Coordinate-matched refinement volumes disagree\nSTOP 128\n"
+    },
+    {
+      "version": "after",
+      "case": "nan_volume",
+      "returncode": 128,
+      "expected_rejection": "Nonfinite coordinate-matched refinement volumes",
+      "passed": true,
+      "output": " Nonfinite coordinate-matched refinement volumes\nSTOP 128\n"
+    },
+    {
+      "version": "after",
+      "case": "negative_volume",
+      "returncode": 128,
+      "expected_rejection": "Nonpositive coordinate-matched refinement volumes",
+      "passed": true,
+      "output": " Nonpositive coordinate-matched refinement volumes\nSTOP 128\n"
+    }
+  ]
+}

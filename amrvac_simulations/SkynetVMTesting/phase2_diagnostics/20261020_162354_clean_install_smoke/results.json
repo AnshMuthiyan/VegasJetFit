@@ -1,0 +1,30 @@
+{
+  "purpose": "Source-term isolation at a deliberately reset 4.3 Myr stellar age.",
+  "checkpoint": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/20261020_100012_exact_flux_wr_switch/both/output/test0010.dat",
+  "checkpoint_sha256": "52ed630238f041825dd1466c3c5377e5c6cb2867d55c02fddd9962417b523366",
+  "original_age_years": 4501000.0,
+  "executable": "/tmp/clean-amr-install-h_jvwjf4/problem/amrvac",
+  "executable_sha256": "52288f7d5d576ef07994361bcb6dac21f626ea0e1f4a42ba14b6af353a0f6f89",
+  "target_duration_years": 500,
+  "ranks": 4,
+  "cases": [
+    {
+      "case": "both",
+      "returncode": 0,
+      "wall_seconds": 7.839844570000423,
+      "completed": true,
+      "log": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/20261020_162354_clean_install_smoke/both/run.log",
+      "physics_flags_match": true,
+      "last_saved_age_years": 4501024.376705521,
+      "invalid_cells": 0,
+      "passed": true,
+      "timeloop_seconds": 5.27
+    }
+  ],
+  "start_age_years": 4501000.0,
+  "fixed_steps": 1000,
+  "ghost_copy": true,
+  "primitive_prolong": false,
+  "courant": 0.1,
+  "sts_dtpar": 0.1
+}

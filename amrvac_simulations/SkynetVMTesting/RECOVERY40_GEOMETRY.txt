@@ -1,0 +1,66 @@
+# Purpose: Deploy the user-module geometry fix and resume the 40 Msun VM01 run from recovery40/test0050.dat without resetting age or changing engine code.
+
+The reported abort is 'Ambiguous fine-block geometry in user refinement'.
+The old user hook required a unique coordinate match among allocated grids.
+The replacement accepts repeated matches only when their positive, finite
+cell volumes agree within 64 machine epsilons. Conflicting geometry still
+aborts. The child-pair mass, momentum and total energy check is unchanged.
+Thermal conduction, radiative cooling, Tfix and the 40 Msun wind history
+remain enabled. No AMRVAC engine source patch is involved.
+
+1. In Windows PowerShell, set VM01_IP to the SSH address of modeling-prod01-01:
+
+   $vm = 'muthiyan@VM01_IP'
+   $local = 'C:\Users\anshm\Projects\GRB modelling\VegasJetFit\amrvac_simulations\SkynetVMTesting'
+   $remote = '/skynet/amrvac3.2/VanMarleTCRC/SkynetVMTesting'
+   ssh $vm "mkdir -p $remote/phase2_diagnostics"
+   scp "$local\mod_usr.t" "$local\resume_40Msun_geometry.par" "${vm}:$remote/"
+   scp "$local\phase2_diagnostics\inspect_restart.py" "${vm}:$remote/phase2_diagnostics/"
+
+2. On VM01, in tcsh, rebuild only the user problem using the existing MPI:
+
+   cd /skynet/amrvac3.2/VanMarleTCRC/SkynetVMTesting
+   setenv AMRVAC_DIR /skynet/amrvac3.2
+   which mpifort mpirun
+   make -B mod_usr.f F90=mpifort
+   make -j4 F90=mpifort F90FLAGS='-cpp -ffree-form -fimplicit-none -O3 -g -fcheck=bounds -fbacktrace -ffpe-trap=invalid,zero,overflow' >& build_geometry40.log
+   tail -n 20 build_geometry40.log
+   grep -aFo 'Equivalent refinement geometry accepted:' amrvac
+
+   Stop here if compilation fails or the marker is missing. The compiler
+   wrappers must be from the MPI installation that built the current library.
+
+3. Validate the newest reported completed checkpoint and prepare new outputs:
+
+   cd production_20261019_165850_tc_on_rc_on
+   python3 ../phase2_diagnostics/inspect_restart.py recovery40/test0050.dat
+
+   Proceed only if it prints VALID. If validation fails, select and validate
+   an earlier completed recovery40/testNNNN.dat and change restart_from_file
+   in ../resume_40Msun_geometry.par accordingly.
+
+   cp run_recovery40.par run_recovery40_geometry.par
+   sed -i "s|^[[:space:]]*base_filename[[:space:]]*=.*| base_filename='recovery40_geometry/test'|" run_recovery40_geometry.par
+   mkdir -p recovery40_geometry
+
+   Use this new output directory for the first geometry-fix attempt only;
+   if it already contains native snapshots from another attempt, use a new
+   prefix. Keep base_filename out of the overlay: v3.2 concatenates prefixes.
+
+4. Launch once, after confirming the crashed launcher is no longer running:
+
+   setenv OMP_NUM_THREADS 1
+   nohup mpirun --bind-to none -np 8 ../amrvac -i run_recovery40_geometry.par ../resume_40Msun_geometry.par < /dev/null >& recovery40_geometry.log &
+   tail -f recovery40_geometry.log
+
+   Startup must select recovery40/test0050.dat and retain its saved time and
+   iteration. The original three-phase table ../stellar_evolution.dat is
+   selected explicitly; it ends at 4.77 Myr. Status prints every 30 seconds.
+   New native data go under recovery40_geometry/. Ctrl+C exits tail only.
+
+Validation scope: the before/after geometry test exercises the actual
+preprocessed user procedure, including duplicate matches and conflicting,
+nonfinite and negative volume controls. The full user module also compiles
+against stock AMRVAC 3.2. The production test0050.dat is on VM01 and was not
+replayed locally; the local restart fixture verifies parameter handling,
+age/iteration preservation and separate outputs, not that VM state.

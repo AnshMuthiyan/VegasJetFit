@@ -1,0 +1,46 @@
+! Purpose: Resume the 40 Msun recovery from VM01 recovery40/test0050.dat with the corrected user-module geometry guard and unchanged stellar age/physics.
+! Run ONLY with the original 40 Msun primary input, copied to run_recovery40_geometry.par.
+! Set that primary file's base_filename='recovery40_geometry/test'; do not put base_filename in this overlay.
+! Requires rebuilt mod_usr.t containing 'Equivalent refinement geometry accepted:'.
+! Validate the native checkpoint before launching; no gas or stellar-clock reset is requested.
+&filelist
+ restart_from_file='recovery40/test0050.dat'
+ reset_grid=.false.
+ firstprocess=.false.
+/
+&stoplist
+ reset_time=.false.
+ reset_it=.false.
+ time_max=4.87496256927115382e+02
+
+ it_max=5274124
+ wall_time_max=1.d99
+ final_dt_reduction=.true.
+/
+&savelist
+ dtsave_dat=1.02200473150338667e+00
+/
+&boundlist
+ ghost_copy=.true.
+/
+&meshlist
+ prolongprimitive=.false.
+ coarsenprimitive=.false.
+/
+&paramlist
+ courantpar=0.1d0
+/
+&sts_list
+ sts_dtpar=0.1d0
+/
+&hd_list
+ hd_thermal_conduction=.true.
+ hd_radiative_cooling=.true.
+/
+&rc_list
+ Tfix=.true.
+/
+&usr_list
+ stellar_param_file='../stellar_evolution.dat'
+ amr_pair_fallback=.true.
+/

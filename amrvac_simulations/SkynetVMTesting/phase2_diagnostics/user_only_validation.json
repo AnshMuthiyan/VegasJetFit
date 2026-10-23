@@ -1,0 +1,150 @@
+{
+  "purpose": "Document successful short validation on unmodified AMRVAC 3.2 and the remaining full-duration uncertainty.",
+  "passed_short_checks": true,
+  "build": {
+    "purpose": "Prove the delivered user module compiles with unmodified AMRVAC 3.2 core sources.",
+    "passed": true,
+    "source_commit": "c45d84650ed3379eb22dcfa6fb927a45734e5d8c",
+    "core_source_files_unchanged": 187,
+    "mod_refine_sha256": "e7bff9c949d901aa75316418cb394cfbdee537b06e431a149461879c4fd15135",
+    "flags": "-cpp -ffree-form -fimplicit-none -O3 -g -fcheck=bounds -fbacktrace -ffpe-trap=invalid,zero,overflow",
+    "temporary_build": "/tmp/user-only-amrvac-sfpicsya",
+    "executable": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/user_module_only_build/amrvac",
+    "executable_sha256": "d71ca2e7b649920fe226b4fe38d536b3ed583b127a1ef549ac98f0a7d070c190",
+    "user_module_sha256": "e6bf4d2a0f0f37b70849e2f9bee8699998fc663ed649d6185c41f27cf630a8de",
+    "reused_official_compiled_library": true
+  },
+  "report": "20261021_230054_user_only_checks/results.json",
+  "cases": [
+    {
+      "case": "old_failure_regression",
+      "returncode": 0,
+      "wall_seconds": 19.18780955701368,
+      "passed": true,
+      "last_saved_age_years": 4300999.999999999,
+      "last_iteration": 5914,
+      "invalid_saved_cells": 0,
+      "snapshots_checked": 4,
+      "physics_flags_match": true,
+      "last_guard_record": {
+        "age_yr": "  4.3009999999999991E+06",
+        "rescue_events": "  1.7870000000000000E+03",
+        "evaluation_energy_erg": "  2.4368228186967688E+38",
+        "wind_energy_erg": "  1.7104723187674998E+50",
+        "evaluation_fraction": "  1.4246490819872777E-12",
+        "worst_cell_fraction": "  5.4880254590580397E-07",
+        "amr_pair_fallbacks": "  3.9000000000000000E+01",
+        "amr_pair_max_relative_conservation_error": "  1.5885498896739325E-16"
+      },
+      "last_tc_floor_record": {
+        "age_yr": "  4.3009999999999991E+06",
+        "tc_floor_events": "  0.0000000000000000E+00",
+        "tc_floor_evaluation_energy_erg": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00"
+      }
+    },
+    {
+      "case": "tc_off_rc_off",
+      "returncode": 0,
+      "wall_seconds": 30.48487878596643,
+      "passed": true,
+      "last_saved_age_years": 999.9999999999999,
+      "last_iteration": 30514,
+      "invalid_saved_cells": 0,
+      "snapshots_checked": 40,
+      "physics_flags_match": true,
+      "last_guard_record": {
+        "age_yr": "  9.9999999999999989E+02",
+        "rescue_events": "  0.0000000000000000E+00",
+        "evaluation_energy_erg": "  0.0000000000000000E+00",
+        "wind_energy_erg": "  4.4750699999999996E+45",
+        "evaluation_fraction": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00",
+        "amr_pair_fallbacks": "  0.0000000000000000E+00",
+        "amr_pair_max_relative_conservation_error": "  0.0000000000000000E+00"
+      }
+    },
+    {
+      "case": "tc_off_rc_on",
+      "returncode": 0,
+      "wall_seconds": 30.286864146997686,
+      "passed": true,
+      "last_saved_age_years": 999.9999999999999,
+      "last_iteration": 30376,
+      "invalid_saved_cells": 0,
+      "snapshots_checked": 40,
+      "physics_flags_match": true,
+      "last_guard_record": {
+        "age_yr": "  9.9999999999999989E+02",
+        "rescue_events": "  0.0000000000000000E+00",
+        "evaluation_energy_erg": "  0.0000000000000000E+00",
+        "wind_energy_erg": "  4.4750699999999996E+45",
+        "evaluation_fraction": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00",
+        "amr_pair_fallbacks": "  0.0000000000000000E+00",
+        "amr_pair_max_relative_conservation_error": "  0.0000000000000000E+00"
+      }
+    },
+    {
+      "case": "tc_on_rc_off",
+      "returncode": 0,
+      "wall_seconds": 56.56289805698907,
+      "passed": true,
+      "last_saved_age_years": 999.9999999999999,
+      "last_iteration": 33185,
+      "invalid_saved_cells": 0,
+      "snapshots_checked": 40,
+      "physics_flags_match": true,
+      "last_guard_record": {
+        "age_yr": "  9.9999999999999989E+02",
+        "rescue_events": "  0.0000000000000000E+00",
+        "evaluation_energy_erg": "  0.0000000000000000E+00",
+        "wind_energy_erg": "  4.4750699999999996E+45",
+        "evaluation_fraction": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00",
+        "amr_pair_fallbacks": "  0.0000000000000000E+00",
+        "amr_pair_max_relative_conservation_error": "  0.0000000000000000E+00"
+      },
+      "last_tc_floor_record": {
+        "age_yr": "  9.9999999999999989E+02",
+        "tc_floor_events": "  0.0000000000000000E+00",
+        "tc_floor_evaluation_energy_erg": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00"
+      }
+    },
+    {
+      "case": "tc_on_rc_on",
+      "returncode": 0,
+      "wall_seconds": 58.58619410201209,
+      "passed": true,
+      "last_saved_age_years": 999.9999999999999,
+      "last_iteration": 30394,
+      "invalid_saved_cells": 0,
+      "snapshots_checked": 40,
+      "physics_flags_match": true,
+      "last_guard_record": {
+        "age_yr": "  9.9999999999999989E+02",
+        "rescue_events": "  0.0000000000000000E+00",
+        "evaluation_energy_erg": "  0.0000000000000000E+00",
+        "wind_energy_erg": "  4.4750699999999996E+45",
+        "evaluation_fraction": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00",
+        "amr_pair_fallbacks": "  0.0000000000000000E+00",
+        "amr_pair_max_relative_conservation_error": "  0.0000000000000000E+00"
+      },
+      "last_tc_floor_record": {
+        "age_yr": "  9.9999999999999989E+02",
+        "tc_floor_events": "  0.0000000000000000E+00",
+        "tc_floor_evaluation_energy_erg": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00"
+      }
+    }
+  ],
+  "delivered_inputs": "../mod_usr.t and the four ../tc_*/run.par files; no engine patch required.",
+  "initial_condition_change": "Fresh 25 Msun analytic MS free wind inside 0.03 pc; unchanged 100 K, 1e4 total-particle/cm3 ambient outside.",
+  "limits": [
+    "Fresh 25 Msun tests cover the first 1000 years only, not 7 Myr.",
+    "The old-failure regression uses the historical 40 Msun gas checkpoint reset to 4.3 Myr; it tests the numerical failure, not a physical 25 Msun RSG bubble.",
+    "Runtime overhead has not been measured separately. User-hook checks still have a cost."
+  ]
+}

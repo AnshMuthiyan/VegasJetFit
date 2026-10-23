@@ -1,0 +1,126 @@
+! Purpose: Stock-core user-module-only diagnostic: tc_on_rc_on.
+! Purpose: Fresh 25 Msun MS/RSG evolution from age zero to 7 Myr with conduction and cooling enabled.
+! Purpose: Standalone VM input for the tc_on_rc_on evolving-wind run.
+! Case tc_on_rc_on: conduction=true, radiative cooling=true.
+&filelist
+ ! The existing checkpoint is from the 40 Msun model; initialize fresh 25 Msun gas.
+ restart_from_file='undefined'
+ firstprocess=.false.
+ reset_grid=.false.
+
+ base_filename='output/test'
+ saveprim=.true.
+
+ autoconvert=.false.
+ convert_type='vtuBmpi'
+ nwauxio=1
+/
+&savelist
+ itsave(1,1)=0
+
+ itsave(1,2)=1000000000
+ ditsave_log=10000
+
+ dtsave_dat=2.55501182875846619e-03
+/
+&stoplist
+ wall_time_max=1.d99
+
+ it_max=1000000000
+ time_init=0.d0
+ it_init=0
+ ! Start fresh at zero; later resumes retain the chosen checkpoint age and iteration.
+
+ reset_time=.false.
+
+ reset_it=.false.
+
+ ! 7 Myr: MS ends at 6.5 Myr; RSG ends at 7 Myr. No WR phase.
+
+ time_max=1.02200473150338658e-01
+ final_dt_reduction=.true.
+ dtmin=1.d-14
+/
+&methodlist
+ ! Retain the original campaign SSPRK3 integration for spherical AMR plus STS.
+ time_stepper='threestep'
+ ! TVDLF retained from the tested 40 Msun setup; 25 Msun full-duration stability is untested.
+ flux_scheme=20*'tvdlf'
+ limiter=20*'minmod'
+ loglimit(1)=.true.
+ loglimit(3)=.true.
+ check_small_values=.true.
+ fix_small_values=.true.
+ ! Numerical positivity fallback; this is not a physical 100 K floor.
+ small_values_method='replace'
+ small_temperature=0.d0
+ small_pressure=1.d-14
+ small_density=1.d-14
+/
+&boundlist
+ ghost_copy=.true.
+ typeboundary_min1='special','special','special'
+ typeboundary_max1='special','special','special'
+/
+&meshlist
+ coarsenprimitive=.false.
+ prolongprimitive=.false.
+ refine_criterion=3
+ refine_max_level=3
+ w_refine_weight(1)=0.7d0
+ w_refine_weight(2)=0.d0
+ w_refine_weight(3)=0.d0
+ w_refine_weight(4)=0.3d0
+ refine_threshold=20*0.05d0
+ derefine_ratio=20*0.1d0
+ domain_nx1=192
+ block_nx1=8
+ ! Resolve the free wind; logarithmic spacing keeps inner ghost radii positive.
+ xprobmin1=0.01d0
+ xprobmax1=20.d0
+ stretch_dim(1)='uni'
+ ! Keep the physical domain; gentler stretching reduces the innermost CFL cost.
+ qstretch_baselevel(1)=1.03d0
+/
+&paramlist
+ typecourant='maxsum'
+
+ courantpar=0.1d0
+ slowsteps=50
+/
+&hd_list
+ hd_energy=.true.
+ hd_gamma=1.6666666666666667d0
+ hd_thermal_conduction=.true.
+ hd_radiative_cooling=.true.
+/
+&tc_list
+ tc_saturate=.true.
+/
+&sts_list
+ sts_method=1
+
+ sts_dtpar=0.1d0
+ sts_ncycles=1000
+ sourcetype_sts=2
+/
+&rc_list
+ coolcurve='SPEX_DM'
+ coolmethod='exact'
+ ! Active only when radiative cooling is enabled. No cooling means no Tfix heating.
+ Tfix=.true.
+/
+&usr_list
+ ! Recover invalid refinement child pairs conservatively through the user module.
+ amr_pair_fallback=.true.
+ ! Seed only a 0.03 pc analytic free wind at startup; ambient outside stays unchanged.
+ wind_init_radius_pc=0.03d0
+ ! Total gas particles, not hydrogen nuclei, under the inherited fixed H/He EOS.
+ ambient_particles_cm3=1.d4
+ ambient_temperature_k=100.d0
+ stellar_param_file='../stellar_evolution_25Msun.dat'
+ ! Numerical rescue in units of representable spacing, without a new physical T floor.
+ guard_ulps=32.d0
+ guard_max_cell_fraction=1.d-3
+ guard_max_budget_fraction=1.d-3
+/

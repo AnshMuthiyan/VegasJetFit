@@ -1,0 +1,11 @@
+# Purpose: Keep generated build trees, binaries, and diagnostic output separate from reviewable source, inputs, and reports.
+positive_amr_build/amrvac_source/
+positive_amr_build/problem/
+**/amrvac
+**/*.o
+**/*.mod
+**/*.f
+**/output/
+**/__pycache__/
+power_control_*/
+WORK_STATUS.json

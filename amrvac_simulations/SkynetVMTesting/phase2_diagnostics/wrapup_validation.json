@@ -1,0 +1,69 @@
+{
+  "purpose": "Record successful stability checks and unfinished full-duration coverage without treating deliberate stops as numerical failures.",
+  "status": "Stable over sustained phase-switch tests; diagnostic jobs checkpointed and stopped at user request.",
+  "source_commit": "c45d84650ed3379eb22dcfa6fb927a45734e5d8c",
+  "final_source_checks": [
+    {
+      "batch": "20261020_103817_audited_rsg_full",
+      "case": "both",
+      "start_age_years": 4300000.0,
+      "latest_saved_age_years": 4501000.0,
+      "latest_checkpoint": "20261020_103817_audited_rsg_full\\both\\output\\test0021.dat",
+      "snapshots_checked": 22,
+      "invalid_saved_cells": 0,
+      "minimum_saved_pressure_cgs": 7.106384591300716e-17,
+      "courant": 0.1,
+      "target_completed": true,
+      "deliberate_stop": null,
+      "tc_floor_last_record": {
+        "age_yr": "  4.5010000000000000E+06",
+        "tc_floor_events": "  0.0000000000000000E+00",
+        "tc_floor_evaluation_energy_erg": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00"
+      }
+    },
+    {
+      "batch": "20261020_103525_audited_full_wr",
+      "case": "both",
+      "start_age_years": 4501000.0,
+      "latest_saved_age_years": 4610042.220613754,
+      "latest_checkpoint": "20261020_103525_audited_full_wr\\both\\output\\test0022.dat",
+      "snapshots_checked": 23,
+      "invalid_saved_cells": 0,
+      "minimum_saved_pressure_cgs": 2.803361027285216e-16,
+      "courant": 0.4,
+      "target_completed": false,
+      "deliberate_stop": "Validation concluded after sustained WR stability at user request; checkpoint retained; full 4.77 Myr target not completed.",
+      "tc_floor_last_record": {
+        "age_yr": "  4.6100173441488426E+06",
+        "tc_floor_events": "  0.0000000000000000E+00",
+        "tc_floor_evaluation_energy_erg": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00"
+      }
+    },
+    {
+      "batch": "20261020_155102_exact_matrix_tc_off_rc_off",
+      "case": "neither",
+      "start_age_years": 4300000.0,
+      "latest_saved_age_years": 4316082.646906581,
+      "latest_checkpoint": "20261020_155102_exact_matrix_tc_off_rc_off\\neither\\output\\test0002.dat",
+      "snapshots_checked": 3,
+      "invalid_saved_cells": 0,
+      "minimum_saved_pressure_cgs": 2.487324519506729e-16,
+      "courant": 0.1,
+      "target_completed": false,
+      "deliberate_stop": "Additional final-source matrix testing deliberately checkpointed and stopped at wrap-up; earlier matrix results retained."
+    }
+  ],
+  "earlier_matrix": "Other three physics combinations completed 201000 years through the WR switch with the same AMR fix, before the subsequent prescribed-wind-flux correction and TC observer.",
+  "remaining_limit": "Full 4.77-Myr endpoint and full four-case matrix with the final source have not been completed. Saved-state checks do not inspect every intermediate substep.",
+  "clean_install_report": "clean_install_verification.json",
+  "restart_caveat": "Original approximately 1-Myr gas is reused with stellar clock reset to 4.3 Myr; omitted MS evolution is not reconstructed.",
+  "clean_build_and_restart": {
+    "passed": true,
+    "steps": 1000,
+    "physics_flags_match": true,
+    "matches_previous_decoded_cells_exactly": true,
+    "report": "20261020_162354_clean_install_smoke\\results.json"
+  }
+}

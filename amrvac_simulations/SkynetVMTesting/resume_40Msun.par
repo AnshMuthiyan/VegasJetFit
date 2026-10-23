@@ -1,0 +1,48 @@
+! Purpose: Recover the crashed 40 Msun production run from its latest validated checkpoint without resetting gas, age, iterations, or the existing grid.
+! Run from the production case directory: ../amrvac -i run_recovery40.par ../resume_40Msun.par
+! This is an overlay for the ORIGINAL 40 Msun run.par; do not combine it with fresh 25 Msun inputs.
+! Copy original run.par to run_recovery40.par and set its base_filename='recovery40/test'.
+! Do not set base_filename here: AMRVAC 3.2 concatenates differing prefixes across parameter files.
+! Validate output/test0043.dat before launch. If it is invalid/incomplete, select an earlier valid native checkpoint here.
+&filelist
+ restart_from_file='output/test0043.dat'
+ reset_grid=.false.
+ firstprocess=.false.
+/
+&stoplist
+ reset_time=.false.
+ reset_it=.false.
+ time_max=4.87496256927115382e+02
+ it_max=1000000000
+ wall_time_max=1.d99
+ final_dt_reduction=.true.
+/
+&savelist
+ ! Save every 10000 years during recovery rather than the old 100000-year interval.
+ dtsave_dat=1.02200473150338667e+00
+/
+&boundlist
+ ghost_copy=.true.
+/
+&meshlist
+ prolongprimitive=.false.
+ coarsenprimitive=.false.
+/
+&paramlist
+ courantpar=0.1d0
+/
+&sts_list
+ sts_dtpar=0.1d0
+/
+&hd_list
+ hd_thermal_conduction=.true.
+ hd_radiative_cooling=.true.
+/
+&rc_list
+ Tfix=.true.
+/
+&usr_list
+ ! The original THREE-PHASE 40 Msun history, not stellar_evolution_25Msun.dat.
+ stellar_param_file='../stellar_evolution.dat'
+ amr_pair_fallback=.true.
+/

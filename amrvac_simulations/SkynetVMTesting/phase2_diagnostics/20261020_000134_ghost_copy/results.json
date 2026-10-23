@@ -1,0 +1,25 @@
+{
+  "purpose": "Source-term isolation at a deliberately reset 4.3 Myr stellar age.",
+  "checkpoint": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/tc_on_rc_on/test0011.dat",
+  "checkpoint_sha256": "64043eecd126873a4fa1bdc08bdd53b8e73e7ddab1a8bd8c1ecfc2e24cb4157b",
+  "original_age_years": 1022650.888508874,
+  "executable": "/tmp/skynet-v32-qdvc32bu/problem/amrvac",
+  "executable_sha256": "fbe26ade6f7f4a3c3f62bac35552b94b8ad3fd65841b27101424afb15b8bbff2",
+  "target_duration_years": 500,
+  "ranks": 8,
+  "cases": [
+    {
+      "case": "both",
+      "returncode": 1,
+      "wall_seconds": 72.69251108798198,
+      "completed": false,
+      "log": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/20261020_000134_ghost_copy/both/run.log",
+      "last_saved_age_years": 4300000.0,
+      "invalid_cells": 0,
+      "passed": false
+    }
+  ],
+  "ghost_copy": true,
+  "primitive_prolong": false,
+  "cancellation_note": "Stopped deliberately to remove CPU contention; superseded by sequential controls. Do not interpret as a numerical failure."
+}
