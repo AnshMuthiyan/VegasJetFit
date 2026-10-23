@@ -1,0 +1,23 @@
+&filelist
+  base_filename = 'cloudmass_gmc_n03000b0900_32k14fix_atmosphere'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 1.0220121568819215e+01
+/
+&stoplist
+  time_max = 1.0220121568819215e+01
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .true.
+/
+&usr_list
+  wind_enabled = .false.
+  ionization_enabled = .false.
+  cloud_gravity_enabled = .true.
+  wind_phase_age_offset_myr = 0.0d0
+/

@@ -1,0 +1,110 @@
+[
+  {
+    "host": "keohane1",
+    "farm": "/tmp/van_marle_full_grid_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T13:20:30.068867+00:00",
+    "cases": [
+      "m25_n3000_pk1000000",
+      "m25_n3000_pk1000000000",
+      "m25_n10000_pk100000000",
+      "m25_n30000_pk10000000"
+    ],
+    "launch": "PID 745665",
+    "resources": {
+      "cores": 16,
+      "free_disk_GiB": 109.7
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane1.json"
+  },
+  {
+    "host": "keohane2",
+    "farm": "/tmp/van_marle_full_grid_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T13:20:31.024663+00:00",
+    "cases": [
+      "m40_n3000_pk1000000",
+      "m40_n3000_pk1000000000",
+      "m40_n10000_pk100000000",
+      "m40_n30000_pk10000000"
+    ],
+    "launch": "PID 698625",
+    "resources": {
+      "cores": 16,
+      "free_disk_GiB": 110.7
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane2.json"
+  },
+  {
+    "host": "keohane3",
+    "farm": "/tmp/van_marle_full_grid_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T13:20:32.015083+00:00",
+    "cases": [
+      "m25_n3000_pk10000000",
+      "m25_n10000_pk1000000",
+      "m25_n10000_pk1000000000",
+      "m25_n30000_pk100000000"
+    ],
+    "launch": "PID 690832",
+    "resources": {
+      "cores": 16,
+      "free_disk_GiB": 110.5
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane3.json"
+  },
+  {
+    "host": "keohane4",
+    "farm": "/tmp/van_marle_full_grid_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T13:20:32.969085+00:00",
+    "cases": [
+      "m40_n3000_pk10000000",
+      "m40_n10000_pk1000000",
+      "m40_n10000_pk1000000000",
+      "m40_n30000_pk100000000"
+    ],
+    "launch": "PID 744830",
+    "resources": {
+      "cores": 24,
+      "free_disk_GiB": 110.2
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane4.json"
+  },
+  {
+    "host": "pauley404-01",
+    "farm": "/private/tmp/van_marle_full_grid_20261023_farm",
+    "arch": "arm64",
+    "utc": "2026-10-23T13:20:34.402986+00:00",
+    "cases": [
+      "m25_n3000_pk100000000",
+      "m25_n10000_pk10000000",
+      "m25_n30000_pk1000000",
+      "m25_n30000_pk1000000000"
+    ],
+    "launch": "PID 6992",
+    "resources": {
+      "cores": 10,
+      "free_disk_GiB": 701.4
+    },
+    "pins_file": "builds/arm64/pins_pauley404-01.json"
+  },
+  {
+    "host": "pauley404-02",
+    "farm": "/private/tmp/van_marle_full_grid_20261023_farm",
+    "arch": "arm64",
+    "utc": "2026-10-23T13:20:35.691043+00:00",
+    "cases": [
+      "m40_n3000_pk100000000",
+      "m40_n10000_pk10000000",
+      "m40_n30000_pk1000000",
+      "m40_n30000_pk1000000000"
+    ],
+    "launch": "PID 17264",
+    "resources": {
+      "cores": 10,
+      "free_disk_GiB": 675.8
+    },
+    "pins_file": "builds/arm64/pins_pauley404-02.json"
+  }
+]

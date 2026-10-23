@@ -1,0 +1,10 @@
+! Diagnostic only: append after a hydro run.par in isolated scratch.
+&paramlist
+  courantpar = 0.01d0
+/
+&savelist
+  dtsave_dat = 1.0d-5
+/
+&stoplist
+  time_max = 1.0d-5
+/

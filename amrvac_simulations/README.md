@@ -1,4 +1,14 @@
+# Current stellar-track results
+
+See [RESULTS_INDEX.md](RESULTS_INDEX.md) for full40-Msun wind histories, all saved outputs and images, newer25/40-Msun tests, and the running24-model matched full-lifetime grid. The older bundles below retain their original dates and model assumptions.
+
 # AMRVAC pressure-grid source bundle
+
+For Jonathan's newer finite-GMC 40-Msun direct-WR work, see
+`finite_gmc_40msun_20261020/README.md`. It is a separate dated bundle with
+exact case inputs, validation tables, selected VTUs, and a meeting book;
+do not merge its physics or results with the historical pressure-grid bundle
+described below.
 
 This directory is a compact, versioned starting point for **offline** wind-bubble simulation analysis. It is not a VegasAfterglow fitting model and does not contain all AMRVAC run outputs.
 

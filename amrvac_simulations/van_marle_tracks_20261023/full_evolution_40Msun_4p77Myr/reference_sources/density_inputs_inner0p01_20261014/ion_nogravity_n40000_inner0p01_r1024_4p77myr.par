@@ -1,0 +1,23 @@
+! Separate 0.01 pc inner-boundary density series; see README.
+&filelist
+  base_filename = 'ion_nogravity_n40000_inner0p01_r1024_4p77myr'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 1.0220121568819214d1
+/
+&stoplist
+  time_max = 4.8749979883267656d2
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .false.
+/
+&usr_list
+  n0_cm3 = 40000.0d0
+  wind_enabled = .true.
+  ionization_enabled = .true.
+/

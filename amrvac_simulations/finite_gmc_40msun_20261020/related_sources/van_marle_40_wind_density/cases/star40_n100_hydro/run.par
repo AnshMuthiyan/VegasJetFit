@@ -1,0 +1,77 @@
+! 40 Msun wind-only pilot, van Marle et al. (2012) Table 1.
+! No supernova, companion, production launch, or convergence claim.
+&filelist
+  base_filename = 'output/star40_n100_hydro'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  itsave(1,1) = 0
+  itsave(1,2) = 0
+  ditsave_log = 1000
+  dtsave_dat = 5.1100236575169333e+00
+/
+&stoplist
+  time_max = 4.8749625692711538e+02
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&methodlist
+  time_stepper = 'threestep'
+  flux_scheme = 20*'tvdlf'
+  limiter = 20*'minmod'
+  loglimit(1) = .true.
+  loglimit(3) = .true.
+  check_small_values = .true.
+  fix_small_values = .true.
+  small_values_method = 'error'
+  small_pressure = 1.0d-16
+  small_density = 1.0d-14
+/
+&boundlist
+  typeboundary_min1 = 3*'special'
+  typeboundary_max1 = 3*'special'
+/
+&meshlist
+  refine_criterion = 3
+  refine_max_level = 2
+  w_refine_weight(1) = 0.5d0
+  w_refine_weight(2) = 0.25d0
+  w_refine_weight(3) = 0.25d0
+  refine_threshold = 20*0.15d0
+  derefine_ratio = 20*0.1d0
+  domain_nx1 = 512
+  block_nx1 = 8
+  xprobmin1 = 1.5d0
+  xprobmax1 = 100.0d0
+/
+&paramlist
+  typecourant = 'maxsum'
+  courantpar = 0.3d0
+  slowsteps = 50
+/
+&hd_list
+  hd_energy = .true.
+  hd_radiative_cooling = .false.
+  hd_thermal_conduction = .false.
+/
+&tc_list
+  tc_saturate = .true.
+/
+&sts_list
+  sts_method = 1
+  sts_dtpar = 0.8d0
+  sts_ncycles = 1000
+  sourcetype_sts = 2
+/
+&rc_list
+  ! Built-in solar CLOUDY table is a candidate, not proven paper-identical.
+  coolcurve = 'cloudy_solar'
+  coolmethod = 'exact'
+  Tfix = .true.
+  tlow = 1.3560799792401208e-04
+/
+&usr_list
+  ambient_rho_cgs = 1.6726219000000001e-22
+/

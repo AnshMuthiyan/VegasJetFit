@@ -1,0 +1,22 @@
+! Wind + time-dependent photon budget; no cloud gravity.
+&filelist
+  base_filename = 'ion_nogravity_1kyr'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 1.0220121568819214d-1
+/
+&stoplist
+  time_max = 1.0220121568819214d-1
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .false.
+/
+&usr_list
+  wind_enabled = .true.
+  ionization_enabled = .true.
+/

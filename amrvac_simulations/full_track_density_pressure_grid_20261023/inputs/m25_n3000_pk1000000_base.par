@@ -1,0 +1,63 @@
+! Full-lifetime 160-pc domain; explicit external pressure; 1024-cell survey grid.
+&filelist
+  base_filename = 'output/'
+/
+&savelist
+  itsave(1,1) = 0
+  itsave(1,2) = 0
+  ditsave_log = 1000
+/
+&methodlist
+  time_stepper = 'threestep'
+  flux_scheme = 20*'tvdlf'
+  limiter = 20*'minmod'
+  loglimit(1) = .true.
+  loglimit(3) = .true.
+  check_small_values = .true.
+  fix_small_values = .true.
+  small_values_method = 'error'
+  small_pressure = 1.0d-16
+  small_density = 1.0d-14
+/
+&boundlist
+  typeboundary_min1 = 3*'special'
+  typeboundary_max1 = 3*'special'
+/
+&meshlist
+  refine_max_level = 1
+  domain_nx1 = 1024
+  block_nx1 = 8
+  xprobmin1 = 0.001d0
+  xprobmax1 = 160.0d0
+  stretch_dim(1) = 'uni'
+  qstretch_baselevel(1) = 1.008223428514686d0
+/
+&paramlist
+  typecourant = 'maxsum'
+  courantpar = 0.2d0
+  slowsteps = 10
+/
+&hd_list
+  hd_energy = .true.
+  hd_radiative_cooling = .false.
+  hd_thermal_conduction = .false.
+/
+&usr_list
+  n_ref_cm3 = 3000.0d0
+  r_flat_pc = 0.2d0
+  slope_p = 1.8d0
+  cloud_pc = 2.0d0
+  edge_width_pc = 0.5d0
+  n_bg_cm3 = 1000.0d0
+  finite_gmc_enabled = .true.
+  n_ext_cm3 = 10.0d0
+  gmc_pc = 15.0d0
+  gmc_edge_width_pc = 1.0d0
+  star_mass_msun = 25.0d0
+  support_kms = 0.72d0
+  q_ms = 0.0d0
+  q_rsg = 0.0d0
+  q_wr = 0.0d0
+  atmosphere_outer_pc = 160.0d0
+  external_pressure_over_k = 1000000.0d0
+/

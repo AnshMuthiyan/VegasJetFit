@@ -1,0 +1,51 @@
+! Ten-year, serial hydro/numerics smoke only; no evolving radiation or gravity.
+&filelist
+  base_filename = 'output/ionized_core_smoke'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  itsave(1,1) = 0
+  itsave(1,2) = 0
+  ditsave_log = 100
+  dtsave_dat = 1.0227121650456950d-3
+/
+&stoplist
+  time_max = 1.0227121650456950d-3
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&methodlist
+  time_stepper = 'threestep'
+  flux_scheme = 20*'tvdlf'
+  limiter = 20*'minmod'
+  loglimit(1) = .true.
+  loglimit(3) = .true.
+  check_small_values = .true.
+  fix_small_values = .true.
+  small_values_method = 'error'
+  small_pressure = 1.0d-16
+  small_density = 1.0d-14
+/
+&boundlist
+  typeboundary_min1 = 3*'special'
+  typeboundary_max1 = 3*'special'
+/
+&meshlist
+  refine_max_level = 1
+  domain_nx1 = 256
+  block_nx1 = 8
+  xprobmin1 = 0.03d0
+  xprobmax1 = 4.0d0
+/
+&paramlist
+  typecourant = 'maxsum'
+  courantpar = 0.2d0
+  slowsteps = 10
+/
+&hd_list
+  hd_energy = .true.
+  hd_radiative_cooling = .false.
+  hd_thermal_conduction = .false.
+/

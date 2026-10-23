@@ -1,0 +1,23 @@
+&filelist
+ base_filename = 'm40_n10000_pk100000000_smoke'
+ saveprim = .true.
+ autoconvert = .true.
+ convert_type = 'vtuBmpi'
+/
+&savelist
+ dtsave_dat = 1.02201215688192144e-02
+/
+&stoplist
+ time_max = 1.02201215688192144e-02
+ final_dt_reduction = .true.
+ dtmin = 1.0d-12
+/
+&hd_list
+ hd_gravity = .true.
+/
+&usr_list
+ wind_enabled = .true.
+ ionization_enabled = .false.
+ cloud_gravity_enabled = .true.
+ wind_phase_age_offset_myr = 0.0d0
+/

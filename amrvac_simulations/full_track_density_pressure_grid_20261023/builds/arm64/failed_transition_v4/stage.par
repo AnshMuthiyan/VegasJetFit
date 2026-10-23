@@ -1,0 +1,23 @@
+&filelist
+ base_filename = 'phase_m40_a4p49995'
+ saveprim = .true.
+ autoconvert = .true.
+ convert_type = 'vtuBmpi'
+/
+&savelist
+ dtsave_dat = 2.55503039220480359e-03
+/
+&stoplist
+ time_max = 1.02201215688192144e-02
+ final_dt_reduction = .true.
+ dtmin = 1.0d-12
+/
+&hd_list
+ hd_gravity = .true.
+/
+&usr_list
+ wind_enabled = .true.
+ ionization_enabled = .false.
+ cloud_gravity_enabled = .true.
+ wind_phase_age_offset_myr = 4.499950000000d0
+/

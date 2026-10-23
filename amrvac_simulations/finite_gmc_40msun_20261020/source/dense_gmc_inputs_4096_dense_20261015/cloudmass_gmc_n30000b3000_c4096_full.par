@@ -1,0 +1,22 @@
+&filelist
+  base_filename = 'cloudmass_gmc_n30000b3000_c4096_full'
+  saveprim = .true.
+  autoconvert = .true.
+  convert_type = 'vtuBmpi'
+/
+&savelist
+  dtsave_dat = 1.0156245809014093e+01
+/
+&stoplist
+  time_max = 4.8749979883267645e+02
+  final_dt_reduction = .true.
+  dtmin = 1.0d-12
+/
+&hd_list
+  hd_gravity = .true.
+/
+&usr_list
+  wind_enabled = .true.
+  ionization_enabled = .true.
+  cloud_gravity_enabled = .true.
+/
