@@ -1,0 +1,8 @@
+{
+  "kind": "postprocessing_gate_design",
+  "status": "RETAINED",
+  "criterion": "all saves r>=40pc rho/p drift <2 percent",
+  "rho_max": 0.02691455505665763,
+  "p_max": 0.04551640969451598,
+  "interpretation": "The initial analysis mistakenly applied the endpoint stability tolerance to every evolving save. No AMRVAC run failed or was retried. Retain all-history drift and gate the stable outer endpoint separately."
+}
