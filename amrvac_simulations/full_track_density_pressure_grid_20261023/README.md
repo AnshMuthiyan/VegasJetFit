@@ -3,6 +3,12 @@
 Jonathan approved 24 complete stellar-track models, using the current dense finite-GMC model, and then shifted the pressure range to target mostly sub-parsec rising-density structure. This campaign is separate from BoOST and from the earlier 1500-year direct-phase tests. It is not a promise that a selected density/pressure produces a sub-parsec feature: that is an output to measure.
 
 
+## Latest additive delivery: first three 25-Msun endpoints, 26 October 2026
+
+Three original25-Msun MS/RSG histories now reach exactly7Myr, bringing the three campaigns to17 reconciled/published (seven original,ten midpoint);65 cases remain running at this delivery. [New25-Msun subset inventory](completed_endpoint_inventory_20261026_mac01_25_v3.csv) and [combined17 inventory](../full_track_campaign_endpoint_inventory_20261026_v3.csv) preserve differing measurement definitions. ALL213 full DAT/213 full VTU/213 native CSV/213 per-save density PNGs and240 total PNGs are delivered in `results/25Msun/<density>/<pressure>/<case>/`; shared immutable provenance is in `provenance/Pauley404-01_completed25_20261026_v3/`. The parent review sheet now includes all71 saves; existing49-save products are preserved.
+
+No strong separate local_jump_v1 rise is found beyond1.2 times the flow candidate at any of these three endpoints. Flow-selected RSG termination candidates are0.0172578,0.00476805,0.0256346pc in new-inventory order; legacy first density rises nearly coincide and span2.20--2.32native cells, unresolved. No compressed outer density peak passes the criterion. Missing/unresolved features are not physical-width, GRB-wall, convergence or surrogate evidence. First-cell RSG flux estimates, exact source units, complete phase coverage and retained outer history are documented in case READMEs and shared scientific_review_qa.json.12holdouts remain withheld. Earlier dated statuses below describe their own delivery epochs.
+
 ## First validated endpoint delivery, 26 October 2026
 
 Four original40-Msun models on Pauley404-02 are complete and independently reconciled to4.77Myr. The other20 original,46 midpoint and12 withheld cases remain running at01:48UTC. Start with [completed_endpoint_inventory_20261026.csv](completed_endpoint_inventory_20261026.csv), then the clearly labeled `results/40Msun/<density>/<pressure>/<case>/README.md`. Each case includes every raw saved file,49 native profile CSVs,49 individual density images, preferred reviewed full/inner phase-and-mass/flow plots and checks. Shared provenance is in `provenance/Pauley404-02_20261026/`.

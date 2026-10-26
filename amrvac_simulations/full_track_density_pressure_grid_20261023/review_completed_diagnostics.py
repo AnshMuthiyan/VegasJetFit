@@ -96,7 +96,11 @@ def review(case):
         if handles: axes[0].legend(handles,labels,fontsize=8)
         fig.suptitle(case.name+' | endpoint candidate features | '+('inner' if inner else 'full domain'))
         fig.savefig(dest/('endpoint_flow_inner.png' if inner else 'endpoint_flow_full.png'),dpi=150);plt.close(fig)
-    fig, axes = plt.subplots(7, 7, figsize=(18, 15), constrained_layout=True)
+    # Preserve the established 49-save sheet while including every 25-Msun save.
+    columns = 7
+    rows = (len(data) + columns - 1) // columns
+    fig, axes = plt.subplots(rows, columns, figsize=(18, 15*rows/7),
+                             constrained_layout=True, squeeze=False)
     for i, ax in enumerate(axes.flat):
         if i >= len(data): ax.set_visible(False);continue
         d=data[i];ax.stairs(d['rho_g_cm3'],np.r_[d['r_lo_cm'],d['r_hi_cm'][-1]],lw=.6)
@@ -107,6 +111,8 @@ def review(case):
     fig.savefig(dest/'all_save_review.png',dpi=130);plt.close(fig)
     write_json(dest/'review_provenance.json', {'recipe_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'input_profiles':len(data),'input_cells_each':1024,'endpoint_features':features[-1],
+        'contact_sheet_snapshots':list(range(len(data))),
+        'contact_sheet_rows':rows,'contact_sheet_columns':columns,
         'mass_definition':'Gas from r>=0.001 pc, excluding the star. Positive density-excess mass is Eulerian, not a tracer-defined swept mass.',
         'width_definition':'10--90 crossings of the local density rise and envelope half-height crossings; fractional native cell counts. No physical thickness or convergence claim.'})
     print(case.name,'review products ready',flush=True)
