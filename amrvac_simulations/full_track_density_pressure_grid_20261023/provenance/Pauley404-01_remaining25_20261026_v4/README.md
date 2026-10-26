@@ -1,0 +1,3 @@
+# Remaining original25-Msun endpoint from Pauley404-01
+
+Only m25_n30000_pk1000000 was newly collected; prior17 published cases remain untouched. This completes all four originals on Mac01; four midpoint cases on that host remain active. All102 original pins/165 raw hashes and bytes/empty checksum dry-runs, frozen/native71-save7-Myr checks,71 mass profiles and80 PNGs passed. The binary is retained locally and SHA-pinned but omitted from Git; all raw saved files are in the case tree. Missing separate local rise/outer peak and unresolved legacy rise/flow overlap remain explicit. Sources, validation, mass/image QA and interior flux limitations are retained here. No fit surrogate;12 holdouts stay withheld.

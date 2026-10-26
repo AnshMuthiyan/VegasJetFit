@@ -3,6 +3,12 @@
 Jonathan approved 24 complete stellar-track models, using the current dense finite-GMC model, and then shifted the pressure range to target mostly sub-parsec rising-density structure. This campaign is separate from BoOST and from the earlier 1500-year direct-phase tests. It is not a promise that a selected density/pressure produces a sub-parsec feature: that is an output to measure.
 
 
+## Latest additive delivery: fourth original25-Msun endpoint, 26 October 2026
+
+The remaining Mac01 original case n_ref30000/Pk1e6 now completes its7-Myr MS/RSG history. All four original Mac01 cases are reconciled; the host's four midpoint workers remain active. Campaign total18 validated/published (eight original,ten midpoint),64 still advancing. [New case inventory](completed_endpoint_inventory_20261026_mac01_remaining25_v4.csv), [combined18 inventory](../full_track_campaign_endpoint_inventory_20261026_v4.csv), provenance `Pauley404-01_remaining25_20261026_v4/` and versioned delivery manifest preserve prior17 products. Every71 full DAT/VTU/native CSV/density PNG and80 total PNGs are included.
+
+The separate local rise and compressed outer peak are missing by the documented criteria. Flow candidate0.00576919pc nearly coincides with the legacy first rise R50=0.00578690pc, whose10--90 width spans2.36958native cells and remains unresolved. Endpoint outer density/pressure drifts are each below0.089%. No physical-width/convergence/GRB-wall/surrogate claim;12holdouts remain withheld. Earlier dated sections retain their own delivery epochs.
+
 ## Latest additive delivery: first three 25-Msun endpoints, 26 October 2026
 
 Three original25-Msun MS/RSG histories now reach exactly7Myr, bringing the three campaigns to17 reconciled/published (seven original,ten midpoint);65 cases remain running at this delivery. [New25-Msun subset inventory](completed_endpoint_inventory_20261026_mac01_25_v3.csv) and [combined17 inventory](../full_track_campaign_endpoint_inventory_20261026_v3.csv) preserve differing measurement definitions. ALL213 full DAT/213 full VTU/213 native CSV/213 per-save density PNGs and240 total PNGs are delivered in `results/25Msun/<density>/<pressure>/<case>/`; shared immutable provenance is in `provenance/Pauley404-01_completed25_20261026_v3/`. The parent review sheet now includes all71 saves; existing49-save products are preserved.
