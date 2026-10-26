@@ -1,0 +1,19 @@
+# m40_n5477_pk1000000: complete midpoint full-lifetime simulation
+
+Host Pauley404-03, midpoint campaign. Exact Float64 DAT endpoint 4.77Myr;49 full saves,1024 native conservative cells each. This delivery adds eight complete midpoint40-Msun histories to four previously delivered original-grid cases. The other70 models remain running, including all12 withheld validation cases.
+
+- `raw/`: ALL121 original transferred files, including49 full DAT and49 full VTU snapshots, static/smoke products, complete logs and original validation. All bytes match the retained remote inventory, and checksum dry-run was empty.
+- `native_profiles/`:49 CSVs with native radius bounds/centers, density, radial velocity, pressure, Mach number, cumulative gas mass, positive Eulerian density-excess mass and signed gas-mass change. Positive excess is not tracer-defined swept mass. Gas mass excludes the star and r<0.001pc.
+- `images/`:49 individual density PNGs, outer-atmosphere history, initial phase and flow figures.
+- `reviewed_diagnostics/`: preferred full/inner phase-density and cumulative-mass plots, separate flow candidates, all-save sheet, local-jump native-cell zoom and both legacy and new feature definitions.
+- `independent_validation/`: fresh frozen-campaign runtime validation, exact native age/cadence/field/initial-atmosphere/endpoint outer gates, phase injection crosscheck, campaign pins/context and product/hash/visual QA.
+
+The local_jump_v1 endpoint R50 is 2.4037436pc;10--90 numerical width 0.0458755603pc spans 2.2963 native cells and is UNRESOLVED. Local density contrast is 2290.052. The separate flow-selected termination candidate is 0.579931597pc. No independent compressed outer peak passes the >2-times-initial-density peak criterion. This missing candidate does not prove absence of swept gas.
+
+New local_jump_v1 measures the strongest adjacent positive log-density jump outside0.002pc and beyond1.2 times the separately flow-selected termination radius when available, inside140pc. Its upstream state is a three-cell median and downstream state a four-cell median within a fixed native window.10/50/90 linear-density crossings are interpolated only between adjacent native centers; cell counts are fractional. Original first-prominent-peak baseline-to-peak widths are preserved as LEGACY ENVELOPE measurements; in several cases those span the surrounding cloud gradient. They are not interchangeable with local_jump_v1 and must not be used as resolved wall widths. The first four original-grid inventories used the older peak definition; definitions must be harmonized and physically reviewed before any registered-profile fit. No fitting/training was performed.
+
+DAT Float64 time is exact; VTU Float32 time rounds the endpoint to4.769999874437143Myr. VTU piece vertices include duplicated block edges and number1152; native cell count is1024. No profile is regridded. Units retain365days/year and1.98892e33g/Msun. Source phase rates/speeds pass exact TRACK gates; supplementary first-cell flux estimates are evolved interior values, not recorded boundary Riemann flux. RSG flow in fixed initial gravity differs from its imposed boundary speed/rate.
+
+Endpoint outer40--160pc density/pressure drift 1.8931%/1.8962% passes the same2% endpoint gate. Every transient drift remains in the independent report. n5477/P1e6 approaches this threshold at1.896% and is flagged. This remains a numerical survey without spatial/flux convergence, physical thickness, GRB-wall or surrogate approval.
+
+Shared host provenance: `../../../../../provenance/Pauley404-03_20261026/`. Used wrapper/source snapshots are archived there. A descriptive median-count typo was corrected to match the actual three/four-cell implementation; numeric data were unchanged. The published wrappers also support the local and Git sibling folder names without changing validation. The frozen source, binary, inputs and active guards were never changed.

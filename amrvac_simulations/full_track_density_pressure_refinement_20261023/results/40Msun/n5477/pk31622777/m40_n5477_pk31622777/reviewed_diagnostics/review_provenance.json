@@ -1,0 +1,71 @@
+{
+  "recipe_sha256": "975c572a0a25d68cd9af835f5f6f851fa4476d12a0dc14e64337acc12a829a6c",
+  "input_profiles": 49,
+  "input_cells_each": 1024,
+  "endpoint_features": {
+    "snapshot": 48,
+    "age_myr": 4.769999999999999,
+    "phase": "WR",
+    "inner_rise_candidate": {
+      "peak_pc": 1.4982328392613504,
+      "r10_pc": 1.45186394633864,
+      "r50_pc": 1.4655650819109993,
+      "r90_pc": 1.477460086756822,
+      "width_10_90_pc": 0.025596140418181923,
+      "cells_10_90": 2.0832890165714275,
+      "local_peak_fwhm_pc": 0.48447578023656823,
+      "local_peak_fwhm_cells": 34.15455289625976,
+      "peak_to_local_baseline": 30272.479857437185,
+      "peak_to_initial": 1.2740885369744686,
+      "flags": [
+        "UNRESOLVED_LT5_NATIVE_CELLS"
+      ]
+    },
+    "all_density_rise_candidates": [
+      {
+        "peak_pc": 1.4982328392613504,
+        "r10_pc": 1.45186394633864,
+        "r50_pc": 1.4655650819109993,
+        "r90_pc": 1.477460086756822,
+        "width_10_90_pc": 0.025596140418181923,
+        "cells_10_90": 2.0832890165714275,
+        "local_peak_fwhm_pc": 0.48447578023656823,
+        "local_peak_fwhm_cells": 34.15455289625976,
+        "peak_to_local_baseline": 30272.479857437185,
+        "peak_to_initial": 1.2740885369744686,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ],
+        "width_interpretation": "Numerical profile crossings, not physical shock thickness; broad half-height widths may include the declining initial cloud envelope."
+      }
+    ],
+    "outer_shell_candidate": null,
+    "termination_flow_candidate": {
+      "radius_pc": 0.34101400202110743,
+      "upstream_mach": 458.3709006670074,
+      "downstream_mach": 0.6820715186865234,
+      "pressure_jump": 242903.23947401126,
+      "density_jump": 3.7644970016022956,
+      "flags": []
+    },
+    "all_termination_flow_candidates": [
+      {
+        "radius_pc": 0.34101400202110743,
+        "upstream_mach": 458.3709006670074,
+        "downstream_mach": 0.6820715186865234,
+        "pressure_jump": 242903.23947401126,
+        "density_jump": 3.7644970016022956,
+        "flags": []
+      }
+    ],
+    "interpretation": "Operational native-grid candidates; density peaks are not identified as termination shocks. Missing, injection-adjacent and unresolved features are excluded from surrogate eligibility.",
+    "quality_flags": [
+      "INNER_RISE_CANDIDATE_UNRESOLVED_LT5_NATIVE_CELLS",
+      "OUTER_SHELL_CANDIDATE_MISSING"
+    ],
+    "fit_eligible": false,
+    "fit_eligibility_reason": "No approved surrogate; single survey mesh. Missing or unresolved physical features require independent review and refinement."
+  },
+  "mass_definition": "Gas from r>=0.001 pc, excluding the star. Positive density-excess mass is Eulerian, not a tracer-defined swept mass.",
+  "width_definition": "10--90 crossings of the local density rise and envelope half-height crossings; fractional native cell counts. No physical thickness or convergence claim."
+}
