@@ -1,5 +1,12 @@
 # Full-track density-pressure midpoint refinement
 
+## Latest additive delivery: Mac02 completed40 subset, 26October2026
+
+Two more midpoint40-Msun cases are complete: m40_n17321_pk1000000 and m40_n5477_pk316227766. Start at [the new2 inventory](completed_endpoint_inventory_20261026_mac02_v2.csv) or the [combined14 inventory](../full_track_campaign_endpoint_inventory_20261026_v2.csv). Total14/82 are reconciled and published by this delivery;68 remain running, including12 withheld cases and three25-Msun cases in the same Mac02 farm. Each new case includes all49 DAT/VTU saves,49 native CSVs/density PNGs and reviewed full/inner phase/mass/flow/local-jump products. Widths1.77/2.18 cells remain unresolved; separate termination and outer-density candidate channels are retained.
+
+Immutable new provenance is in `provenance/Pauley404-02_completed40_20261026/`; the new delivery uses `delivery_file_manifest_20261026_mac02_v2.json`. Old inventories, raw products, receipts and manifests are retained. Each manifest refers to bytes at its recorded delivery commit; mutable overview/index notes may change later. No active farm outputs/queue logs were pulled, and the farm was not restarted.
+
+
 This is a separate, additive 46-case refinement of the frozen 24-case
 `van_marle_full_track_grid_20261023` campaign. It contains exactly the
 previously missing points in a 2 stellar-mass x 5 density x 7 boundary-pressure
