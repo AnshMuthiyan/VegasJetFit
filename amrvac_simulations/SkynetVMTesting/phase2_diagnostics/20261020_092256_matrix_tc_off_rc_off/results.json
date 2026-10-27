@@ -1,27 +1,62 @@
 {
-  "purpose": "Source-term isolation at a deliberately reset 4.3 Myr stellar age.",
-  "checkpoint": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/tc_off_rc_off/test0013.dat",
-  "checkpoint_sha256": "ed98023f599fd5623a61a2b2a40213cc2c0bdd3a402d96c68d44aadf0f635bcb",
-  "original_age_years": 1214065.4109451554,
-  "executable": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/positive_amr_final_candidate/amrvac",
-  "executable_sha256": "22d9653ec9c2ed344ae038bb17b61eee0540e770efe74c3da5bd9aa2a9228244",
-  "target_duration_years": 201000.0,
-  "ranks": 1,
+  "purpose": "Compare ghost-cell interpolation using local test0042.dat and verify the prepared standalone TC-off/RC-off restart input.",
+  "scope": "Phase-switch comparisons deliberately reset stellar time without evolving the preceding 85935 years; only physical_restart preserves checkpoint time. Neither test is a full production continuation.",
+  "checkpoint_sha256": "20cdcb6a7490401fec1d0757f06f792f69edae0de3342a6bd01c1cb5a9d43cc0",
+  "user_module_sha256": "e6bf4d2a0f0f37b70849e2f9bee8699998fc663ed649d6185c41f27cf630a8de",
+  "core_source_modified": false,
+  "initial_age_years": 4214065.460420932,
   "cases": [
     {
-      "case": "neither",
+      "case": "linear_ghost_phase_switch_control",
+      "expected_abort_reproduced": true,
+      "abort_iteration": 2620,
+      "abort_radius_pc": 0.2973535075925125,
+      "required_cell_energy_fraction": 0.0011540701183047751
+    },
+    {
+      "case": "physical_restart",
       "returncode": 0,
-      "wall_seconds": 3677.588963043003,
-      "completed": true,
-      "log": "/mnt/c/Users/anshm/Projects/GRB modelling/VegasJetFit/amrvac_simulations/SkynetVMTesting/phase2_diagnostics/20261020_092256_matrix_tc_off_rc_off/neither/run.log",
-      "last_saved_age_years": 4501000.0,
-      "invalid_cells": 0,
-      "passed": true
+      "wall_seconds": 127.15940284729004,
+      "ghost_copy": true,
+      "reset_clock": false,
+      "physics_off": true,
+      "conservative_hook_active": true,
+      "final_age_years": 4214561.001848872,
+      "last_iteration": 8098436,
+      "invalid_saved_cells": 0,
+      "saved_files_checked": 1,
+      "passed": true,
+      "last_guard_lines": [
+        "  4.2145502236992950E+06,  0.0000000000000000E+00,  0.0000000000000000E+00,  1.6764806461840002E+50,  0.0000000000000000E+00,  0.0000000000000000E+00,  0.0000000000000000E+00,  0.0000000000000000E+00",
+        "  4.2145610018488718E+06,  0.0000000000000000E+00,  0.0000000000000000E+00,  1.6764849335594513E+50,  0.0000000000000000E+00,  0.0000000000000000E+00,  0.0000000000000000E+00,  0.0000000000000000E+00"
+      ]
+    },
+    {
+      "case": "copied_ghost_phase_switch",
+      "returncode": 0,
+      "wall_seconds_followup": 126.55064821243286,
+      "ranks": 8,
+      "scope": "Initial gas is local test0042.dat with only the diagnostic stellar clock reset to 4.3 Myr. Continue from its valid +500-year checkpoint to +1000 years. The delivered production input never resets stellar age.",
+      "final_age_years": 4300999.999999999,
+      "last_iteration": 26507,
+      "invalid_saved_cells": 0,
+      "saved_files_checked_followup": 2,
+      "physics_off": true,
+      "conservative_hook_active": true,
+      "passed": true,
+      "last_guard_record": {
+        "age_yr": "  4.3009999999999991E+06",
+        "rescue_events": "  0.0000000000000000E+00",
+        "evaluation_energy_erg": "  0.0000000000000000E+00",
+        "wind_energy_erg": "  1.7104723187674998E+50",
+        "evaluation_fraction": "  0.0000000000000000E+00",
+        "worst_cell_fraction": "  0.0000000000000000E+00",
+        "amr_pair_fallbacks": "  0.0000000000000000E+00",
+        "amr_pair_max_relative_conservation_error": "  0.0000000000000000E+00"
+      }
     }
   ],
-  "start_age_years": 4300000.0,
-  "ghost_copy": true,
-  "primitive_prolong": false,
-  "courant": 0.1,
-  "sts_dtpar": 0.1
+  "prepared_input_sha256": "c9e4747d1d083d46593d42ddc87e6f2e151719fee5647e614b1919a895856c33",
+  "all_checks_passed": true,
+  "production_checkpoint_unchanged": true
 }
