@@ -1,5 +1,9 @@
 # Full-track density-pressure midpoint refinement
 
+Latest additive delivery 20261027_mac01_25_v5: 4complete van_marle_full_track_refinement_20261023 histories;total22reconciled/published,60still advancing in the82-case campaigns. All saved DAT/VTU/native CSV/density PNGs and reviewed diagnostics included. [New inventory](completed_endpoint_inventory_20261027_mac01_25_v5.csv),[combined inventory](../full_track_campaign_endpoint_inventory_20261027_mac01_25_v5.csv),provenance `provenance/Pauley404-01_completed25_20261027_v5/`. Prior case products preserved. Missing/unresolved feature definitions and interior-flux limitations remain explicit;12holdouts withheld;no surrogate/convergence/physical-wall claim. Two distinct4096-cell resolution histories remain separately monitored.
+
+Earlier dated delivery sections retain their own epochs.
+
 ## Latest additive delivery: Mac02 completed40 subset, 26October2026
 
 Two more midpoint40-Msun cases are complete: m40_n17321_pk1000000 and m40_n5477_pk316227766. Start at [the new2 inventory](completed_endpoint_inventory_20261026_mac02_v2.csv) or the [combined14 inventory](../full_track_campaign_endpoint_inventory_20261026_v2.csv). Total14/82 are reconciled and published by this delivery;68 remain running, including12 withheld cases and three25-Msun cases in the same Mac02 farm. Each new case includes all49 DAT/VTU saves,49 native CSVs/density PNGs and reviewed full/inner phase/mass/flow/local-jump products. Widths1.77/2.18 cells remain unresolved; separate termination and outer-density candidate channels are retained.
