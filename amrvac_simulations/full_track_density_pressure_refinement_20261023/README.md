@@ -1,5 +1,9 @@
 # Full-track density-pressure midpoint refinement
 
+Latest additive delivery 20261027_mac02_25_v6: 2 complete full-lifetime histories; 24 total endpoints reconciled and published, with 58 still advancing in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261027_mac02_25_v6.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261027_mac02_25_v6.csv), provenance `provenance/Pauley404-02_completed25_20261027_v6/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
+
+Earlier dated delivery sections retain their own epochs.
+
 Latest additive delivery 20261027_mac01_25_v5: 4complete van_marle_full_track_refinement_20261023 histories;total22reconciled/published,60still advancing in the82-case campaigns. All saved DAT/VTU/native CSV/density PNGs and reviewed diagnostics included. [New inventory](completed_endpoint_inventory_20261027_mac01_25_v5.csv),[combined inventory](../full_track_campaign_endpoint_inventory_20261027_mac01_25_v5.csv),provenance `provenance/Pauley404-01_completed25_20261027_v5/`. Prior case products preserved. Missing/unresolved feature definitions and interior-flux limitations remain explicit;12holdouts withheld;no surrogate/convergence/physical-wall claim. Two distinct4096-cell resolution histories remain separately monitored.
 
 Earlier dated delivery sections retain their own epochs.
