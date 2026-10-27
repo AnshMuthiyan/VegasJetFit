@@ -54,8 +54,12 @@ It is not a general-purpose reader for arbitrary text `.dat` files or MHD data.
 
 Keep each case's `run.par` next to its checkpoint or above its `output/`
 directory. The script uses that file to recover grid stretching; `--par FILE`
-overrides automatic discovery. If no parameter file is found, it assumes this
-campaign's base-cell width ratio of 1.03 and labels that assumption on the plot.
+overrides automatic discovery. Downloaded cases also search the matching
+`VM setup/<case>/run.par` folder. If no parameter file is found, plotting that
+snapshot stops with a request for `--par`; a stretching ratio is never guessed.
+Native checkpoints store the domain and AMR indices but omit the stretching
+ratio. The parameter file supplies it to reconstruct the radius; VTU files,
+when available, provide explicit coordinates for an independent check.
 The script's physical units are fixed to the supplied `mod_usr.t` normalization.
 
 Non-checkpoint files, including `stellar_evolution.dat`, are skipped. Bad native

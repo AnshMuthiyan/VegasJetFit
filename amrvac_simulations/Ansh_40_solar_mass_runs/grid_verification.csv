@@ -1,0 +1,6 @@
+# Purpose: Verify native checkpoint radius reconstruction against matching run.par inputs and explicit VTU coordinates for each downloaded physics case.
+case,native_snapshots,vtu_coordinate_checks,q_base,inner_radius_pc,outer_radius_pc,base_cells,cells_per_block,maximum_relative_radius_error,parameter_file
+tc_off_rc_off,30,30,1.03,0.01,20.0,192,8,5.8171784809670665e-08,C:\Users\anshm\Projects\GRB modelling\VegasJetFit\amrvac_simulations\Ansh_40_solar_mass_runs\tc_off_rc_off\run.par
+tc_off_rc_on,32,32,1.03,0.01,20.0,192,8,5.8171784809670665e-08,C:\Users\anshm\Projects\GRB modelling\VegasJetFit\amrvac_simulations\Ansh_40_solar_mass_runs\tc_off_rc_on\run.par
+tc_on_rc_off,32,32,1.03,0.01,20.0,192,8,5.8171784809670665e-08,C:\Users\anshm\Projects\GRB modelling\VegasJetFit\amrvac_simulations\Ansh_40_solar_mass_runs\tc_on_rc_off\run.par
+tc_on_rc_on,103,102,1.03,0.01,20.0,192,8,5.8171784809670665e-08,C:\Users\anshm\Projects\GRB modelling\VegasJetFit\amrvac_simulations\Ansh_40_solar_mass_runs\tc_on_rc_on\run.par

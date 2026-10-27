@@ -1,0 +1,323 @@
+# Purpose: Explain the parameter and user-module changes needed to test thermal conduction and radiative cooling in Jonathan's full stellar-wind models using stock AMRVAC 3.2.
+
+Turning on conduction and cooling in Jonathan's simulations
+Prepared 2026-10-23
+
+These changes affect the simulation that generates a density profile. Changing
+the HTML fitting function cannot add missing conduction or cooling physics.
+This is a source-reviewed implementation guide, not a run-tested configuration
+or a guarantee of stability. No existing simulation inputs, engine sources,
+archives, or checkpoints were modified to prepare this guide.
+
+1. Choose the correct user module and preserve the physical comparison
+
+   For evolving_20261014, density_sweep_20261014, and
+   density_inner0p01_20261014, use reference_sources/mod_usr_evolving.t as
+   the build folder's mod_usr.t. For cloud_mass_80pc_20261014, use
+   reference_sources/mod_usr_cloud_mass.t. Do not substitute the older,
+   different reference_sources/mod_usr.t.
+
+   Keep the chosen case's matching base .par and case .par. Preserve its
+   density profile, gravity switch, photon rates, radial domain, grid,
+   wind temperatures, and stellar phase history during the first comparison.
+   Jonathan's n0 and n_ref are hydrogen-nuclei densities: rho=1.4*m_p*n_H.
+   They are not interchangeable with Ansh's total-particle ambient density.
+
+   The copied reference sources are not proven byte-for-byte copies of every
+   historical executable's source. Record the actual source and input hashes
+   used for the new runs; compare new matched runs when attributing effects.
+
+2. Change the physics and numerical parameters
+
+   The following is the CONTENT of a proposed physics_tc_rc.par overlay.
+   Create it in the working problem folder only after applying step 3.
+   Pass it LAST, after the original base and case inputs.
+
+   ! Purpose: Initial conservative settings for conduction/cooling tests.
+   &hd_list
+     hd_energy = .true.
+     hd_thermal_conduction = .true.
+     hd_radiative_cooling = .true.
+   /
+   &tc_list
+     tc_saturate = .true.
+   /
+   &rc_list
+     coolcurve = 'SPEX_DM'
+     coolmethod = 'exact'
+     ncool = 4000
+     Tfix = .true.
+     tlow = 5.184d-5
+     rc_split = .false.
+   /
+   &sts_list
+     sts_method = 1
+     sts_dtpar = 0.1d0
+     sts_ncycles = 1000
+     sourcetype_sts = 2
+   /
+   &paramlist
+     courantpar = 0.1d0
+     slowsteps = 50
+   /
+   &methodlist
+     check_small_values = .true.
+     fix_small_values = .true.
+     small_values_method = 'error'
+   /
+   &usr_list
+     legacy_neutral_relaxation = .false.
+   /
+
+   Why these settings:
+
+   - hd_energy is required by both modules. Their activation is automatic
+     through hd_activate(); do not separately initialize them a second time.
+   - tc_saturate limits heat flux across steep hot/cold interfaces. Leave
+     tc_k_para unspecified so stock HD uses its Spitzer normalization.
+     MHD-only transverse-conduction parameters do not belong in this HD case.
+   - SPEX_DM provides the same cooling-table family used in Ansh's run.
+     Its low-temperature branch has a prescribed ionization fraction; it is
+     not coupled self-consistently to Jonathan's photon-budget ionization.
+   - 'exact' integrates the local cooling source. It does not make the whole
+     hydrodynamics/conduction/heating coupling exact or unconditionally stable.
+   - ncool counts cooling-table interpolation points, not radial mesh cells.
+   - STS method 1 is RKL2; sourcetype_sts=2 splits the conductive update.
+     sts_ncycles caps STS subcycles; it is unrelated to CPU core count.
+   - CFL 0.1 and sts_dtpar 0.1 are conservative STARTING choices, not values
+     validated for these new models. Reduce them if a controlled test fails.
+   - Keep the existing threestep/TVDLF/minmod discretization initially.
+     small_values_method='error' stops on detected invalid states instead
+     of silently replacing the failed solution. Explicit finite checks in
+     step 3 remain necessary because comparison-based checks can miss NaNs.
+
+   IMPORTANT: tlow is dimensionless, not kelvin. The example applies only
+   to the existing fixed EOS, unit_velocity=1e7 cm/s, support_kms=0.72:
+
+     tlow = (support_kms*1e5/unit_velocity)**2 = 5.184e-5
+     physical cutoff = tlow*unit_temperature, approximately 38.2 K.
+
+   This matches the existing minimum effective support temperature and lies
+   above SPEX_DM's 10 K table minimum. Keep the separate ionized-pressure
+   floor near 10^4 K in mod_usr. A global 100 K Tfix would heat the colder
+   neutral atmosphere and alter its pressure balance. Writing tlow=100
+   would be a much larger unit error. Recalculate the example if support,
+   units, or EOS change; a physical 100 K cloud is a different model.
+
+   Tfix acts during the cooling update. Other operators can still change
+   temperature, so it does not replace checks between conductive substeps.
+   Keep rc_split=false for the first test; do not change operator ordering
+   as a simultaneous attempt to change the underlying physics.
+
+3. Modify ONLY the selected problem's mod_usr.t
+
+   a) Avoid applying the old neutral cooling and SPEX cooling together.
+
+      Near the other module-level logical declarations, add:
+
+        ! Purpose: Control the pre-existing neutral pressure relaxation.
+        logical :: legacy_neutral_relaxation = .true.
+
+      Add legacy_neutral_relaxation to the existing /usr_list/ namelist in
+      read_case(). Append it to that namelist; do not create a second
+      /usr_list/ reader or a second module with the same name.
+
+      In update_front_and_thermal_state(), find the conditional block that
+      computes trec, decay, and pnew=pfloor+(pnew-pfloor)*decay. Replace
+      THAT conditional block with:
+
+        ! Purpose: Prevent overlapping legacy and standard radiative cooling.
+        if (legacy_neutral_relaxation .and. &
+            .not.hd_radiative_cooling .and. neutral_fraction > zero .and. &
+            rho*unit_density > 0.1d0*ambient_rho .and. t_equiv < 1.0d5) then
+          nh = rho*unit_density/mass_per_h
+          trec = one/(alpha_b*nh)
+          decay = exp(-neutral_fraction*dt_s/trec)
+          pnew = pfloor+(pnew-pfloor)*decay
+        endif
+
+      Both reference modules contain this block. hd_radiative_cooling is
+      already available through use mod_hd. Keep the photon-budget sweep,
+      pfloor construction, pnew=max(pold,pfloor), gravity/atmosphere
+      treatment, and final kinetic+pnew/(hd_gamma-one) energy assignment.
+      Removing the whole thermal-update routine would also remove heating
+      and support that define Jonathan's model.
+
+      For a clean NEW four-case matrix, set legacy_neutral_relaxation=false
+      in ALL four cases. This isolates switching the standard TC/RC modules
+      while keeping the other new inputs identical. The historical off/off
+      archive still contains legacy relaxation and is a separate reference.
+      Retaining that old relaxation in an RC-off case is possible, but the
+      comparison then replaces one cooling prescription with another.
+
+   b) Check finite states BEFORE the heating floor can hide a failure.
+
+      Add this USE at the top of update_front_and_thermal_state(), before
+      its declarations:
+
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+
+      Immediately after loading rho and mom1, before computing kinetic,
+      add:
+
+        if (.not.all(ieee_is_finite([rho,mom1,ps(igrid)%w(i,e_)]))) &
+          call mpistop('Nonfinite state before user thermal update')
+        if (rho <= zero) call mpistop('Nonpositive density')
+
+      Immediately after computing pold, before max(pold,pfloor), add:
+
+        if (.not.ieee_is_finite(pold)) call mpistop('Nonfinite pressure')
+        if (pold <= zero) call mpistop('Nonpositive pressure')
+
+      These checks stop a bad run; they do not repair it. Retain the stock
+      conductive-substep error checks. For interpreting cooling efficiency,
+      also measure the energy added by the support/photoionization floors:
+      these remain prescribed heating and can offset radiative energy loss.
+
+   c) Retain a safe wind-boundary timestep through the RSG-to-WR switch.
+
+      Keep usr_get_dt=>wind_boundary_dt. In the inner-boundary branch of
+      wind_boundary_dt(), after its existing signal calculation, add:
+
+        ! Purpose: Bound the fastest phase before it enters the grid.
+        signal = max(signal, 2.0d8/unit_velocity + &
+                     sqrt(hd_gamma*1.0d4/unit_temperature))
+
+      Keep dtnew=courantpar*dx1/signal AFTER this new line. This bound uses
+      the maximum wind speed and injection temperature of THIS 40-Msun
+      track, not a new wind model. Recalculate it for another track. Check
+      both phase switches explicitly; the change is a conservative timestep
+      bound, not proof that an abrupt transition is resolved accurately.
+      It also applies during the slow RSG phase and can increase runtime.
+      Treat it as a conservative testing choice; optimize phase-aware
+      timestep bounds only after checking transition stability and accuracy.
+
+4. Preserve the current serial and mesh constraints
+
+   Use ONE MPI rank and refine_max_level=1. Jonathan's current photon sweep
+   explicitly rejects npe/=1 and constructs a map of exactly domain_nx1
+   cells. Increasing AMR or MPI ranks requires redesigning that user code;
+   changing a .par switch alone is insufficient. Keep the existing radial
+   mesh for the first TC/RC test. Ansh's AMR-specific refinement handling
+   should not be copied into this fixed-grid problem.
+
+   Later, increase radial resolution on the same physical domain and check
+   shell position, shell mass, and the hot/cold transition. A few cells
+   across a shell do not establish convergence. The archived 80-pc
+   cloudmass_nref0300_full endpoint has only about four shell elements.
+
+5. Start a new physical history and use one output folder
+
+   Begin the new full-track runs at age zero. In the primary input use:
+
+     restart_from_file = 'undefined'
+
+   For these specific 40-Msun tracks, the existing final time is:
+
+     time_max = 4.8749979883267656d2   ! 4.77 Myr in Jonathan's units
+
+   Preserve the MS/RSG/WR boundaries at 4.3 and 4.5 Myr. Do not copy Ansh's
+   slightly different final code time or reset an old gas checkpoint's age
+   to mimic a full conductive/cooled evolution.
+
+   The supplied modules do not serialize all custom restart state:
+   front_pc and ionized_atoms need restoration, and the cloud-mass atmosphere
+   table is built inside init_grid. A native .dat file alone is therefore
+   not a verified restart procedure for these user modules. Before relying
+   on restarts, implement restoration and compare an interrupted/restarted
+   run against uninterrupted evolution. Keep the stellar time unchanged.
+
+   Reuse the working case's existing output folder. If none exists, name
+   the one new output folder 'OUTPUT files'. Give physics cases distinct
+   filename prefixes inside that same folder, for example:
+
+     base_filename = 'OUTPUT files/ion_n10000_tc_on_rc_on'
+
+   Set the COMPLETE base_filename in only ONE supplied input. Remove
+   competing prefix assignments from later inputs: AMRVAC can concatenate
+   prefixes. Keep base_filename out of physics_tc_rc.par. Point all four
+   cases into the same output folder with different prefixes. Reuse fixed
+   smoke-test filenames on retries; preserve completed production records.
+
+6. Rebuild the problem and run an initial test
+
+   Work in the problem folder containing the selected, edited mod_usr.t
+   and the matching original inputs. Stock AMRVAC 3.2 is sufficient.
+   Rebuilding incorporates the changed user module; no engine patch is
+   requested. The examples below assume the matching inputs are called
+   base.par, case.par, and physics_tc_rc.par; substitute their actual names.
+
+   Commands for the VM's tcsh shell:
+
+     setenv OMP_NUM_THREADS 1
+     perl "$AMRVAC_DIR/setup.pl" -d=1 -v=1
+     make -B mod_usr.f F90=mpifort
+     make -j4 F90=mpifort F90FLAGS='-cpp -ffree-form -fimplicit-none -O3 -g -fcheck=bounds -fbacktrace -ffpe-trap=invalid,zero,overflow' >& build_tc_rc.log
+     test -x ./amrvac
+     nohup mpirun --bind-to none -np 1 ./amrvac -i base.par case.par physics_tc_rc.par < /dev/null >& run_tc_rc.log &
+     tail -f run_tc_rc.log
+
+   Check build_tc_rc.log for compilation/link errors before launching.
+   Do not change compiler/MPI family midway through a shared-library build.
+   setup.pl regenerates the problem makefile for the installed 3.2 tree.
+   Ctrl-C in tail only exits the viewer; it does not stop the background run.
+
+   For the FIRST smoke test, set the last input's stoplist to age 1000 yr:
+
+     &stoplist
+       time_max = 1.0220121568819214d-1
+       final_dt_reduction = .true.
+       wall_time_max = 120.d0
+     /
+
+   This smoke test is not the full run. Inspect the final saved age: a wall
+   limit can end a job normally before its physical target. After inspection,
+   restore the full-track stop time, remove the 120-second test limit, and
+   start production fresh. Finishing 1000 yr does not validate the later
+   RSG/WR switches or make the custom restart state safe.
+
+7. Validate the physics changes before interpreting the new fits
+
+   Test the matrix below with matching cloud, gravity, wind, mesh, heating,
+   cutoff policy, and legacy_neutral_relaxation=false. Set the two hd_list
+   booleans in the final overlay; RC settings are inactive when RC is off.
+
+     case              hd_thermal_conduction    hd_radiative_cooling
+     off/off           .false.                  .false.
+     off/on            .false.                  .true.
+     on/off            .true.                   .false.
+     on/on             .true.                   .true.
+
+   Check startup for the Spitzer HD message when TC is enabled and the
+   SPEX cooling message when RC is enabled. Verify saved density, pressure,
+   and temperature are finite and positive, and inspect timesteps and floor
+   heating. Inspect the first wind injection, both stellar phase changes,
+   and the final 4.77-Myr state. Halve courantpar and sts_dtpar to assess
+   temporal sensitivity; repeat on a finer mesh to assess spatial sensitivity.
+
+   If the run fails, stop at the first invalid state and diagnose its source.
+   Do not accept a density plot merely because the executable kept running,
+   hide NaNs with replacement floors, or assume Tfix resolves every failure.
+
+   Fit the resulting new density snapshots only after these checks. Neither
+   a dip nor a minimum fixed at 2R/3 is required by conduction physics.
+   Compare runs at the same stellar age and use R/rho(R) appropriate to each.
+
+Implementation references checked
+
+   Local model definitions:
+     reference_sources/mod_usr_evolving.t
+     reference_sources/mod_usr_cloud_mass.t
+     reference_sources/evolving_base_1024.par
+     reference_sources/cloud_mass_base_2048_80pc.par
+
+   Stock AMRVAC 3.2 parameter readers and source:
+     https://amrvac.org/mod__hd__phys_8t_source.html
+     https://amrvac.org/mod__thermal__conduction_8t_source.html
+     https://amrvac.org/mod__supertimestepping_8t_source.html
+     https://amrvac.org/md_doc_2radiative__cooling.html
+     https://github.com/amrvac/amrvac/releases/tag/v3.2
+
+   The parameter names and snippets were checked against the local official
+   v3.2 validation tree (release commit c45d84650ed3379eb22dcfa6fb927a45734e5d8c).
+   The proposed edits, combined build, and new TC/RC runs have not been executed.

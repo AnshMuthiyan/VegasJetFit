@@ -1,0 +1,14 @@
+Ansh_40_solar_mass_runs
+
+Each tc_* folder contains the downloaded run inputs and an output/ folder.
+All downloaded snapshots (.dat/.vtu), plots, tables and logs are in output/.
+Existing output/ files are retained; filename collisions from the case root
+are preserved separately in output/downloaded_root_files/.
+The four run.par restart paths now point into output/.
+
+Local campaign/ contains the separate original local production campaign,
+including its four TC/RC cases, outputs, build files and validation history.
+Additional plots/ contains the separately generated local campaign plots.
+These run versions remain separate from the downloaded VM results.
+The original directory links have been removed; use these new folder paths.
+SkynetVMTesting remains shared tooling and mixed-mass diagnostic history.

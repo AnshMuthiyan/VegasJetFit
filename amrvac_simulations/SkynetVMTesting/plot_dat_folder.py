@@ -33,13 +33,21 @@ def number(text):
 
 def grid_settings(path, override):
     if override:
-        par = override
+        par = Path(override)
     else:
-        par = next((folder/name for folder in list(path.parents)[:4]
-                    for name in ('run.par','amrvac.par') if (folder/name).is_file()), None)
+        par = None
+        for folder in list(path.resolve().parents)[:4]:
+            candidates = [folder/name for name in ('run.par', 'amrvac.par')]
+            # Downloaded 25-Msun results keep their original inputs in the
+            # parallel VM setup/<physics case>/ folder, not beside each save.
+            candidates.append(folder.parent/'VM setup'/folder.name/'run.par')
+            par = next((candidate for candidate in candidates if candidate.is_file()), None)
+            if par is not None:
+                break
     if par is None:
-        return 'uni', 1.03, None, 'assumed campaign q=1.03; run.par not found'
-    text = par.read_text()
+        raise ValueError('Cannot reconstruct the radius without matching mesh parameters; '
+                         'provide --par /path/to/run.par')
+    text = par.read_text(encoding='utf-8-sig')
     mode = scalar(text, 'stretch_dim(1)', 'none').lower()
     if mode not in ('uni', 'none'):
         raise ValueError('Unsupported grid stretching: ' + mode)
@@ -140,7 +148,8 @@ def read_snapshot(path, par_override=None):
     if not math.isclose(previous,xmax,rel_tol=1e-10,abs_tol=1e-12):
         raise ValueError('AMR cells do not cover the domain')
     return {'age_years':time_code*UNIT_TIME/YEAR_SECONDS,'iteration':iteration,
-            'cells':cells,'invalid_cells':invalid,'grid':grid_note}
+            'cells':cells,'invalid_cells':invalid,'grid':grid_note,
+            'grid_mode':mode,'grid_q':q}
 
 
 def plot_snapshot(snapshot, path, target, args, plt):
@@ -174,9 +183,8 @@ def plot_snapshot(snapshot, path, target, args, plt):
             ax.set_xlabel('Radius [pc]')
         title = ('%s | age = %.6f Myr | iteration %s' %
                  (path.name,snapshot['age_years']/1e6,format(snapshot['iteration'],',')))
-        # A parameter file is needed to recover the stretched grid from the native data.
-        if snapshot['grid'].startswith('assumed'):
-            title += '\nGrid assumed: campaign q=1.03 (no run.par found)'
+        title += '\nGrid from %s%s' % (Path(snapshot['grid']).name,
+                     ' | q=%.6g' % snapshot['grid_q'] if snapshot['grid_q'] is not None else '')
         if snapshot['invalid_cells']:
             title += '\nWARNING: %d invalid cells; gaps shown' % snapshot['invalid_cells']
         fig.suptitle(title,fontsize=11)
@@ -223,8 +231,10 @@ def plot_density_overlay(entries, target, args, plt):
         ax.set_ylabel(r'$\rho$ [g cm$^{-3}$]')
         ax.grid(True,which='major',alpha=.25)
         title = 'Density evolution | %d snapshots' % len(entries)
-        if any(info['grid'].startswith('assumed') for _,info in entries):
-            title += '\nGrid assumed: campaign q=1.03 for snapshots without run.par'
+        ratios = {info['grid_q'] for _,info in entries}
+        title += '\nGrid from matching parameter files'
+        if len(ratios) == 1 and None not in ratios:
+            title += ' | q=%.6g' % next(iter(ratios))
         invalid = sum(info['invalid_cells'] for _,info in entries)
         if invalid:
             title += '\nWARNING: %d invalid cells across snapshots' % invalid
