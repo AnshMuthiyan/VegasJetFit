@@ -1,0 +1,160 @@
+[
+  {
+    "host": "keohane1",
+    "farm": "/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T21:26:25.909498+00:00",
+    "cases": [
+      "m25_n3000_pk3162278",
+      "m25_n5477_pk31622777",
+      "m25_n10000_pk316227766",
+      "m25_n17321_pk316227766",
+      "m40_n5477_pk1000000000",
+      "m40_n17321_pk3162278",
+      "m40_n17321_pk316227766"
+    ],
+    "launch": "PID 752007",
+    "resources": {
+      "available_logical_cores": 16,
+      "existing_amrvac": 4,
+      "new_cases": 7,
+      "free_disk_GiB": 109.7
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane1.json"
+  },
+  {
+    "host": "keohane2",
+    "farm": "/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T21:26:26.762854+00:00",
+    "cases": [
+      "m25_n3000_pk31622777",
+      "m25_n5477_pk100000000",
+      "m25_n17321_pk1000000",
+      "m25_n17321_pk1000000000",
+      "m40_n10000_pk3162278",
+      "m40_n17321_pk10000000",
+      "m40_n17321_pk1000000000"
+    ],
+    "launch": "PID 700770",
+    "resources": {
+      "available_logical_cores": 16,
+      "existing_amrvac": 4,
+      "new_cases": 7,
+      "free_disk_GiB": 110.7
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane2.json"
+  },
+  {
+    "host": "keohane3",
+    "farm": "/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T21:26:27.561044+00:00",
+    "cases": [
+      "m25_n3000_pk316227766",
+      "m25_n5477_pk316227766",
+      "m25_n17321_pk3162278",
+      "m25_n30000_pk3162278",
+      "m40_n10000_pk31622777",
+      "m40_n17321_pk31622777",
+      "m40_n30000_pk3162278"
+    ],
+    "launch": "PID 697757",
+    "resources": {
+      "available_logical_cores": 16,
+      "existing_amrvac": 4,
+      "new_cases": 7,
+      "free_disk_GiB": 110.5
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane3.json"
+  },
+  {
+    "host": "keohane4",
+    "farm": "/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "linux_x86_64",
+    "utc": "2026-10-23T21:26:28.427909+00:00",
+    "cases": [
+      "m25_n5477_pk1000000",
+      "m25_n5477_pk1000000000",
+      "m25_n17321_pk10000000",
+      "m25_n30000_pk31622777",
+      "m40_n10000_pk316227766",
+      "m40_n17321_pk100000000",
+      "m40_n30000_pk31622777",
+      "m40_n30000_pk316227766"
+    ],
+    "launch": "PID 748229",
+    "resources": {
+      "available_logical_cores": 24,
+      "existing_amrvac": 4,
+      "new_cases": 8,
+      "free_disk_GiB": 110.2
+    },
+    "pins_file": "builds/linux_x86_64/pins_keohane4.json"
+  },
+  {
+    "host": "pauley404-01",
+    "farm": "/private/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "arm64",
+    "utc": "2026-10-23T21:26:29.291957+00:00",
+    "cases": [
+      "m25_n5477_pk3162278",
+      "m25_n10000_pk3162278",
+      "m25_n17321_pk31622777",
+      "m25_n30000_pk316227766"
+    ],
+    "launch": "PID 7356",
+    "resources": {
+      "available_logical_cores": 10,
+      "existing_amrvac": 4,
+      "new_cases": 4,
+      "free_disk_GiB": 701.3
+    },
+    "pins_file": "builds/arm64/pins_pauley404-01.json"
+  },
+  {
+    "host": "pauley404-02",
+    "farm": "/private/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "arm64",
+    "utc": "2026-10-23T21:26:30.152185+00:00",
+    "cases": [
+      "m25_n5477_pk10000000",
+      "m25_n10000_pk31622777",
+      "m25_n17321_pk100000000",
+      "m40_n5477_pk316227766",
+      "m40_n17321_pk1000000"
+    ],
+    "launch": "PID 23188",
+    "resources": {
+      "available_logical_cores": 10,
+      "existing_amrvac": 4,
+      "new_cases": 5,
+      "free_disk_GiB": 674.6
+    },
+    "pins_file": "builds/arm64/pins_pauley404-02.json"
+  },
+  {
+    "host": "pauley404-03",
+    "farm": "/private/tmp/van_marle_full_grid_refinement_20261023_farm",
+    "arch": "arm64",
+    "utc": "2026-10-23T21:26:32.178746+00:00",
+    "cases": [
+      "m40_n3000_pk3162278",
+      "m40_n3000_pk31622777",
+      "m40_n3000_pk316227766",
+      "m40_n5477_pk1000000",
+      "m40_n5477_pk3162278",
+      "m40_n5477_pk10000000",
+      "m40_n5477_pk31622777",
+      "m40_n5477_pk100000000"
+    ],
+    "launch": "PID 13904",
+    "resources": {
+      "available_logical_cores": 10,
+      "existing_amrvac": 0,
+      "new_cases": 8,
+      "free_disk_GiB": 514.0
+    },
+    "pins_file": "builds/arm64/pins_pauley404-03.json"
+  }
+]

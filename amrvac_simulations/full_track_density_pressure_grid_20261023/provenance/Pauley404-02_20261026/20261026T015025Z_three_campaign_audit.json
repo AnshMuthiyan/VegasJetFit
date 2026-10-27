@@ -1,0 +1,81 @@
+{
+  "queried_utc": "2026-10-26T01:50:25.614589+00:00",
+  "status": "FOUR_ENDPOINTS_VALIDATED_78_ADVANCING",
+  "unique_cases": 82,
+  "running_advancing": 78,
+  "failed_cases": 0,
+  "completed_cases": [
+    "m40_n10000_pk10000000",
+    "m40_n30000_pk1000000",
+    "m40_n30000_pk1000000000",
+    "m40_n3000_pk100000000"
+  ],
+  "host_process_counts": {
+    "keohane1": 14,
+    "keohane2": 14,
+    "keohane3": 14,
+    "keohane4": 15,
+    "pauley404-01": 8,
+    "pauley404-02": 5,
+    "pauley404-03": 8
+  },
+  "pid_sets_match_prior_status": true,
+  "campaigns": {
+    "grid": {
+      "latest_status": "AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/monitoring/20261026T014800Z_status.json",
+      "prior_status": "AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/monitoring/20261026T013647Z_status.json",
+      "case_count": 24,
+      "running_advancing": 20,
+      "completed_cases": [
+        "m40_n10000_pk10000000",
+        "m40_n30000_pk1000000",
+        "m40_n30000_pk1000000000",
+        "m40_n3000_pk100000000"
+      ],
+      "running_age_ranges_myr": {
+        "Linux": [
+          2.41792298,
+          2.63566502
+        ],
+        "Mac": [
+          5.18906628,
+          5.26378262
+        ]
+      }
+    },
+    "refinement": {
+      "latest_status": "AMRVAC_Bubble_Models/van_marle_full_track_refinement_20261023/monitoring/20261026T014801Z_status.json",
+      "prior_status": "AMRVAC_Bubble_Models/van_marle_full_track_refinement_20261023/monitoring/20261026T013647Z_status.json",
+      "case_count": 46,
+      "running_advancing": 46,
+      "completed_cases": [],
+      "running_age_ranges_myr": {
+        "Linux": [
+          2.02910007,
+          2.29060706
+        ],
+        "Mac": [
+          4.15718365,
+          4.55757611
+        ]
+      }
+    },
+    "holdouts": {
+      "latest_status": "AMRVAC_Bubble_Models/van_marle_full_track_holdouts_20261023/monitoring/20261026T014800Z_status.json",
+      "prior_status": "AMRVAC_Bubble_Models/van_marle_full_track_holdouts_20261023/monitoring/20261026T013647Z_status.json",
+      "case_count": 12,
+      "running_advancing": 12,
+      "completed_cases": [],
+      "running_age_ranges_myr": {
+        "Linux": [
+          2.03253093,
+          2.29344476
+        ]
+      }
+    }
+  },
+  "retained_static_smoke_gate_resource_evidence": "AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/monitoring/20261023T214835Z_three_campaign_gates_resources.json",
+  "static_smoke_pass_records": 164,
+  "endpoint_reconciliation": "AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/results/full_track_endpoints_20261026/Pauley404-02/reconciliation_summary.json",
+  "holdouts_withheld": true
+}

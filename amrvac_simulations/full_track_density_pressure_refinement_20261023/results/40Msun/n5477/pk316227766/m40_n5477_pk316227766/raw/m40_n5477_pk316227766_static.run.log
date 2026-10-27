@@ -1,0 +1,63 @@
+ -----------------------------------------------------------------------------
+ -----------------------------------------------------------------------------
+ |         __  __ ____ ___        _    __  __ ______     ___    ____         |
+ |        |  \/  |  _ \_ _|      / \  |  \/  |  _ \ \   / / \  / ___|        |
+ |        | |\/| | |_) | |_____ / _ \ | |\/| | |_) \ \ / / _ \| |            |
+ |        | |  | |  __/| |_____/ ___ \| |  | |  _ < \ V / ___ \ |___         |
+ |        |_|  |_|_|  |___|   /_/   \_\_|  |_|_| \_\ \_/_/   \_\____|        |
+ -----------------------------------------------------------------------------
+ -----------------------------------------------------------------------------
+ Reading /private/tmp/van_marle_full_grid_refinement_20261023_farm/inputs/m40_n5477_pk316227766_base.par
+ Reading /private/tmp/van_marle_full_grid_refinement_20261023_farm/inputs/m40_n5477_pk316227766_static.par
+ 
+ Output type | tsavestart |  dtsave   | ditsave | itsave(1) | tsave(1)
+         log | 0.000E+00  | ********* |   1000  |      0    | *********
+      normal | 0.000E+00  | 0.102E+01 | ******  |      0    | *********
+       slice | 0.000E+00  | ********* | ******  | ******    | *********
+   collapsed | 0.000E+00  | ********* | ******  | ******    | *********
+    analysis | 0.000E+00  | ********* | ******  | ******    | *********
+ 
+ Stretched dimension            1
+ Using stretched grid with qs=   1.0165144818059082        1.0082234285146860     
+         and first cell sizes=   6.0246702855437824E-004   2.9999999999998626E-004
+         Domain size (cells): 1024 
+                Level one dx: 0.156E+00 
+           Refine estimation: Lohner's scheme
+           restart_from_file:  undefined
+                  converting: F
+
+ EXTERNAL_PRESSURE    3.162277660E+08   4.365995489E-08
+ CLOUD_MASS    5.4770000E+03   1.8000000E+00   6.4272540E+06   4.6171207E+04
+ -------------------------------------------------------------------------------
+ Startup phase took :             0.077 sec
+ -------------------------------------------------------------------------------
+ Start integrating, print status every  3.00E+01 seconds
+   #        it        time          dt  wc-time(s)
+   #         0  0.0000E+00  6.7843E-05  9.9000E-05
+ -------------------------------------------------------------------------------
+ Saving visual data. Coordinate directions and variable names are:
+           1 r               
+           2 rho             
+           3 v1              
+           4 p               
+ time =   0.0000000000000000     
+ -------------------------------------------------------------------------------
+ FRONT          0   6.63817926E-07   1.00000000E-03   0.00000000E+00
+ FRONT       1000   3.38608547E-03   1.00000000E-03   0.00000000E+00
+ FRONT       2000   6.77490142E-03   1.00000000E-03   0.00000000E+00
+ Total timeloop took        :        3.897 sec
+ Time spent on AMR          :        0.000 sec
+                  Percentage:         0.00 %
+ Time spent on IO in loop   :        0.019 sec
+                  Percentage:         0.49 %
+ Time spent on ghost cells  :        0.099 sec
+                  Percentage:         2.54 %
+ Time spent on computing    :        3.778 sec
+                  Percentage:        96.96 %
+ Cells updated / proc / sec :    2.328E+06
+ Total time spent on IO     :        0.019 sec
+ Total timeintegration took :        3.897 sec
+   #      2953   1.022E+00   0.000E+00   3.897E+00
+ -------------------------------------------------------------------------------
+ Finished AMRVAC in :             3.974 sec
+ -------------------------------------------------------------------------------

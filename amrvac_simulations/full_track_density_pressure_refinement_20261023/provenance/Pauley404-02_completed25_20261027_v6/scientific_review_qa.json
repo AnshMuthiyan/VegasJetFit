@@ -1,0 +1,136 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m25_n10000_pk31622777",
+      "local_jump": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": null,
+        "quality_flags": [
+          "NO_STRONG_LOCAL_DENSITY_JUMP"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.0201408409246287,
+        "r10_pc": 0.015781609510321176,
+        "r50_pc": 0.01617209555967727,
+        "r90_pc": 0.0165948063465145,
+        "width_10_90_pc": 0.0008131968361933251,
+        "cells_10_90": 1.9217226306737771,
+        "local_peak_fwhm_pc": 0.1973444182597371,
+        "local_peak_fwhm_cells": 192.05491908600797,
+        "peak_to_local_baseline": 44.848135184330246,
+        "peak_to_initial": 1.0096952472345284,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.015977776552465187,
+        "upstream_mach": 5.463870936835878,
+        "downstream_mach": 0.61219866423576,
+        "pressure_jump": 39.72329198557869,
+        "density_jump": 43.621399015913696,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 64,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 2e-07,
+          "prescribed_speed_kms": 1500,
+          "first_cell_estimated_mdot_msun_yr": 2.024113307884175e-07,
+          "first_cell_speed_kms": 1500.023083267934
+        },
+        {
+          "snapshot": 66,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.507273829456105e-06,
+          "first_cell_speed_kms": 14.058327546486522
+        },
+        {
+          "snapshot": 70,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.507272505968341e-06,
+          "first_cell_speed_kms": 14.058326391313253
+        }
+      ]
+    },
+    {
+      "case": "m25_n17321_pk100000000",
+      "local_jump": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": null,
+        "quality_flags": [
+          "NO_STRONG_LOCAL_DENSITY_JUMP"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.015349060156519587,
+        "r10_pc": 0.00903213717297245,
+        "r50_pc": 0.009398735863284954,
+        "r90_pc": 0.009810827904687383,
+        "width_10_90_pc": 0.0007786907317149337,
+        "cells_10_90": 2.1178787733635502,
+        "local_peak_fwhm_pc": 0.19856352208893818,
+        "local_peak_fwhm_cells": 206.46339772513787,
+        "peak_to_local_baseline": 24.68571874330702,
+        "peak_to_initial": 1.0003514088264622,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.009289705742780159,
+        "upstream_mach": 4.085570542765669,
+        "downstream_mach": 0.5161146499253422,
+        "pressure_jump": 21.489043222234987,
+        "density_jump": 24.314117863586553,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 64,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 2e-07,
+          "prescribed_speed_kms": 1500,
+          "first_cell_estimated_mdot_msun_yr": 2.0253657575915646e-07,
+          "first_cell_speed_kms": 1500.022970373748
+        },
+        {
+          "snapshot": 66,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.479972243845567e-06,
+          "first_cell_speed_kms": 14.061859391476714
+        },
+        {
+          "snapshot": 70,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.48006385367753e-06,
+          "first_cell_speed_kms": 14.061915914920037
+        }
+      ]
+    }
+  ],
+  "visual_qa": "Both 71-save review sheets and inner phase/mass views visually inspected, plus a representative full endpoint flow view. All 160 PNGs integrity-checked. Mass axes cm bottom/pc top and grams left/Msun right are readable.",
+  "flux_interpretation": "First native cell estimates, not boundary Riemann flux measurements or acceptance gates. Prescribed MS/RSG injection rates/speeds pass frozen TRACK checks; single-mesh flux convergence remains unestablished.",
+  "feature_interpretation": "Operational local_jump_v1 search beyond 1.2 times the flow-selected termination candidate is separate from the retained legacy first-rise measurement. Missing separate rise or compressed outer peak does not prove absence of swept gas. No physical-width, convergence, GRB-wall, surrogate or universal-law claim."
+}
