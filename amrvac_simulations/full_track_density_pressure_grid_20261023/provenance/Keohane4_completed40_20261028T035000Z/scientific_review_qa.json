@@ -1,0 +1,97 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m40_n30000_pk100000000",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 0.7304621140346644,
+          "r50_pc": 0.7371386506508073,
+          "r90_pc": 0.7416158264660884,
+          "width_10_90_pc": 0.011153712431423934,
+          "cells_10_90": 1.765887230198814,
+          "contrast": 3115.2070350243803,
+          "upstream_density_g_cm3": 3.8254790486065887e-23,
+          "downstream_density_g_cm3": 1.1917159244557618e-19,
+          "maximum_log_jump_cell": 371,
+          "window_cell_indices": [
+            365,
+            378
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.7545510446582913,
+        "r10_pc": 0.7304651950304544,
+        "r50_pc": 0.7371610438221275,
+        "r90_pc": 0.7416589105436627,
+        "width_10_90_pc": 0.011193715513208358,
+        "cells_10_90": 1.7721937672424133,
+        "local_peak_fwhm_pc": 0.42071249813415423,
+        "local_peak_fwhm_cells": 53.07903349842303,
+        "peak_to_local_baseline": 90909.2642842351,
+        "peak_to_initial": 1.060108398230212,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.14765004034029056,
+        "upstream_mach": 391.6762623287188,
+        "downstream_mach": 0.6795593068022562,
+        "pressure_jump": 177599.7537349298,
+        "density_jump": 3.6898155115731996,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0122796870549239e-06,
+          "first_cell_speed_kms": 2000.0132790758266
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.4013606887060334e-05,
+          "first_cell_speed_kms": 13.68242465166977
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121193225613268e-05,
+          "first_cell_speed_kms": 2000.0133012567112
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121113090434299e-05,
+          "first_cell_speed_kms": 2000.0133043176106
+        }
+      ]
+    }
+  ],
+  "visual_qa": "Complete 49-save density sheet, inner phase/density/cumulative-mass plot, full-domain endpoint density/speed/Mach plot and native-cell local-jump zoom visually inspected for each case. All 59 PNGs per case integrity-checked; all 49 native mass profiles independently reintegrated. Mass axes cm bottom/pc top and g left/Msun right are readable. MS/RSG/WR transitions are visible and retained.",
+  "flux_interpretation": "First native cell estimates are evolved interior flow, not boundary Riemann flux measurements or acceptance gates. Prescribed MS/RSG/WR injection rates and speeds pass frozen TRACK checks; single-mesh flux convergence is unestablished.",
+  "feature_interpretation": "The local_jump_v1 density rise beyond 1.2 times the separately flow-selected termination candidate is distinct from retained legacy peak-envelope crossings. Both new local ramps span fewer than five native cells and are unresolved. No compressed outer density peak passes the established criterion; this does not prove absence of swept gas. No physical-width, convergence, GRB-wall, surrogate or universal-law claim."
+}
