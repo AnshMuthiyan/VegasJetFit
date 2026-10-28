@@ -1,0 +1,114 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m40_n17321_pk3162278",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 1.5020774871785554,
+          "r50_pc": 1.5160271988782819,
+          "r90_pc": 1.5293195750049848,
+          "width_10_90_pc": 0.02724208782642945,
+          "cells_10_90": 2.1443062906581645,
+          "contrast": 5553.546688002967,
+          "upstream_density_g_cm3": 6.3475481225581545e-24,
+          "downstream_density_g_cm3": 3.525140485297229e-20,
+          "maximum_log_jump_cell": 456,
+          "window_cell_indices": [
+            450,
+            463
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 1.5493081091970808,
+        "r10_pc": 1.5021159142415488,
+        "r50_pc": 1.5161317590005476,
+        "r90_pc": 1.5299727341005922,
+        "width_10_90_pc": 0.027856819859043425,
+        "cells_10_90": 2.192205286997307,
+        "local_peak_fwhm_pc": 0.4988761862795552,
+        "local_peak_fwhm_cells": 34.040292814689224,
+        "peak_to_local_baseline": 162499.38247260687,
+        "peak_to_initial": 2.1572618621298143,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.3599766063975629,
+        "upstream_mach": 470.4370844460554,
+        "downstream_mach": 0.6504325103551023,
+        "pressure_jump": 283732.8007388946,
+        "density_jump": 3.738464947021113,
+        "flags": []
+      },
+      "outer_shell_candidate": {
+        "peak_pc": 1.5493081091970808,
+        "r10_pc": 1.5021159142415488,
+        "r50_pc": 1.5161317590005476,
+        "r90_pc": 1.5299727341005922,
+        "width_10_90_pc": 0.027856819859043425,
+        "cells_10_90": 2.192205286997307,
+        "local_peak_fwhm_pc": 0.4988761862795552,
+        "local_peak_fwhm_cells": 34.040292814689224,
+        "peak_to_local_baseline": 162499.38247260687,
+        "peak_to_initial": 2.1572618621298143,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "outer_candidate_interpretation": "The legacy outer compression criterion selects exactly the same density peak/crossings as the legacy inner-rise criterion. These two labels are not independent fronts. No separate physical outer shell is identified; retain both unchanged operational records and the separate flow-selected termination candidate.",
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0120963965824161e-06,
+          "first_cell_speed_kms": 2000.013789894741
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.41835250977831e-05,
+          "first_cell_speed_kms": 13.65651214563643
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121174908628371e-05,
+          "first_cell_speed_kms": 2000.0138138324546
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121145803583115e-05,
+          "first_cell_speed_kms": 2000.013814792361
+        }
+      ],
+      "validation_role": "survey_grid",
+      "withheld_from_training": false
+    }
+  ],
+  "visual_qa": "All49-save native density sheet, full-domain phase/density/cumulative-mass plot, full-domain endpoint density/speed/Mach and endpoint local-jump zoom visually inspected. All59 PNGs integrity-checked and all49 native mass profiles independently reintegrated exactly. cm/pc and g/Msun axes readable.",
+  "flux_interpretation": "First native cell estimates are evolved interior flow, not boundary Riemann flux measurements or acceptance gates. Prescribed MS/RSG/WR injection rates and speeds pass frozen TRACK checks; single-mesh flux convergence unestablished.",
+  "feature_interpretation": "Separate local_jump_v1 rise remains unresolved below five native cells; legacy peak-envelope definition retained separately. The legacy outer compression criterion selects exactly the same density peak/crossings as the legacy inner-rise criterion. These two labels are not independent fronts. No separate physical outer shell is identified; retain both unchanged operational records and the separate flow-selected termination candidate. Broad peak FWHM may include the declining cloud envelope and is not the local ramp width. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from surrogate training and coefficient fitting."
+}
