@@ -1,5 +1,9 @@
 # Full 25/40-Msun density-pressure grid (23 October 2026)
 
+Latest additive delivery 20261028_keohane2_40_v8: 1 complete full-lifetime history; 26 total endpoints reconciled and published, with 56 not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261028_keohane2_40_v8.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261028_keohane2_40_v8.csv), provenance `provenance/Keohane2_completed40_20261028T035000Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
+
+Earlier dated delivery sections retain their own epochs.
+
 Jonathan approved 24 complete stellar-track models, using the current dense finite-GMC model, and then shifted the pressure range to target mostly sub-parsec rising-density structure. This campaign is separate from BoOST and from the earlier 1500-year direct-phase tests. It is not a promise that a selected density/pressure produces a sub-parsec feature: that is an output to measure.
 
 
