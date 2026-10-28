@@ -1,0 +1,99 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m40_n17321_pk31622777",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 1.207310517721616,
+          "r50_pc": 1.2184296773636767,
+          "r90_pc": 1.2281641693811691,
+          "width_10_90_pc": 0.02085365165955322,
+          "cells_10_90": 2.0318083831492117,
+          "contrast": 3911.8972049391955,
+          "upstream_density_g_cm3": 9.56290823503666e-24,
+          "downstream_density_g_cm3": 3.7409113995729926e-20,
+          "maximum_log_jump_cell": 430,
+          "window_cell_indices": [
+            424,
+            437
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 1.2453595151353332,
+        "r10_pc": 1.2073322690025916,
+        "r50_pc": 1.2184923586786898,
+        "r90_pc": 1.228612193731223,
+        "width_10_90_pc": 0.021279924728631494,
+        "cells_10_90": 2.072912688910492,
+        "local_peak_fwhm_pc": 0.5951000156108328,
+        "local_peak_fwhm_cells": 47.42128282461101,
+        "peak_to_local_baseline": 100456.19489708624,
+        "peak_to_initial": 1.4227907414891992,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.27637429748042197,
+        "upstream_mach": 461.9597453734293,
+        "downstream_mach": 0.578315007396571,
+        "pressure_jump": 257885.04883961155,
+        "density_jump": 3.7536595810447064,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0120800671012048e-06,
+          "first_cell_speed_kms": 2000.0137677046814
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.41684175774349e-05,
+          "first_cell_speed_kms": 13.658744045117404
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121162244065003e-05,
+          "first_cell_speed_kms": 2000.0137593281627
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121133306166133e-05,
+          "first_cell_speed_kms": 2000.0137621123433
+        }
+      ],
+      "validation_role": "survey_grid",
+      "withheld_from_training": false
+    }
+  ],
+  "visual_qa": "All49-save native density sheet, full-domain phase/density/cumulative-mass plot, full-domain endpoint density/speed/Mach and endpoint local-jump zoom visually inspected. All59 PNGs integrity-checked and all49 native mass profiles independently reintegrated exactly. cm/pc and g/Msun axes readable.",
+  "flux_interpretation": "First native cell estimates are evolved interior flow, not boundary Riemann flux measurements or acceptance gates. Prescribed MS/RSG/WR injection rates and speeds pass frozen TRACK checks; single-mesh flux convergence unestablished.",
+  "feature_interpretation": "Separate local_jump_v1 rise beyond1.2 times flow-selected termination candidate remains unresolved below five native cells. Legacy peak-envelope definition retained separately. No compressed outer peak passes criterion, which does not imply absence of swept gas. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from surrogate training and coefficient fitting."
+}
