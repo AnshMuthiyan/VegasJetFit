@@ -1,0 +1,572 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "case": "m40_n7830_pk17782794",
+      "status": "PASS",
+      "profiles": 49,
+      "density_pngs": 49,
+      "pngs": 59,
+      "max_mass_reintegration_relative_error": 0.0,
+      "endpoint_local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 1.5143742390090225,
+          "r50_pc": 1.5283397774674485,
+          "r90_pc": 1.5398942085912564,
+          "width_10_90_pc": 0.025519969582233903,
+          "cells_10_90": 1.9941909193188394,
+          "contrast": 2694.0826476456077,
+          "upstream_density_g_cm3": 4.50067113764328e-24,
+          "downstream_density_g_cm3": 1.2125180014684177e-20,
+          "maximum_log_jump_cell": 457,
+          "window_cell_indices": [
+            451,
+            464
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "endpoint_legacy_features": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "inner_rise_candidate": {
+          "peak_pc": 1.5623405102517718,
+          "r10_pc": 1.514393326815834,
+          "r50_pc": 1.5284140824874035,
+          "r90_pc": 1.5404639907513857,
+          "width_10_90_pc": 0.026070663935551686,
+          "cells_10_90": 2.036769806291886,
+          "local_peak_fwhm_pc": 0.5355269215429079,
+          "local_peak_fwhm_cells": 35.95727449541283,
+          "peak_to_local_baseline": 54858.439116200585,
+          "peak_to_initial": 1.6301761410173292,
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "all_density_rise_candidates": [
+          {
+            "peak_pc": 1.5623405102517718,
+            "r10_pc": 1.514393326815834,
+            "r50_pc": 1.5284140824874035,
+            "r90_pc": 1.5404639907513857,
+            "width_10_90_pc": 0.026070663935551686,
+            "cells_10_90": 2.036769806291886,
+            "local_peak_fwhm_pc": 0.5355269215429079,
+            "local_peak_fwhm_cells": 35.95727449541283,
+            "peak_to_local_baseline": 54858.439116200585,
+            "peak_to_initial": 1.6301761410173292,
+            "flags": [
+              "UNRESOLVED_LT5_NATIVE_CELLS"
+            ],
+            "width_interpretation": "Numerical profile crossings, not physical shock thickness; broad half-height widths may include the declining initial cloud envelope."
+          }
+        ],
+        "outer_shell_candidate": null,
+        "termination_flow_candidate": {
+          "radius_pc": 0.35675111255445136,
+          "upstream_mach": 522.9841605906786,
+          "downstream_mach": 0.8018999770963856,
+          "pressure_jump": 314726.88253044424,
+          "density_jump": 3.6929154539179807,
+          "flags": []
+        },
+        "all_termination_flow_candidates": [
+          {
+            "radius_pc": 0.35675111255445136,
+            "upstream_mach": 522.9841605906786,
+            "downstream_mach": 0.8018999770963856,
+            "pressure_jump": 314726.88253044424,
+            "density_jump": 3.6929154539179807,
+            "flags": []
+          }
+        ],
+        "interpretation": "Operational native-grid candidates; density peaks are not identified as termination shocks. Missing, injection-adjacent and unresolved features are excluded from surrogate eligibility.",
+        "quality_flags": [
+          "INNER_RISE_CANDIDATE_UNRESOLVED_LT5_NATIVE_CELLS",
+          "OUTER_SHELL_CANDIDATE_MISSING"
+        ],
+        "fit_eligible": false,
+        "fit_eligibility_reason": "No approved surrogate; single survey mesh. Missing or unresolved physical features require independent review and refinement."
+      },
+      "all_save_sheet_snapshots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ],
+      "images": {
+        "images/density_0000.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "1cf098aebdf9cb0af7b35771e5b5c29c25e87e770b2bec51cbdb37fdfcee7fd3"
+        },
+        "images/density_0001.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "a8440d209bdfd9e3dacaa33657bfc57f008e35a3b64fa223a70379fde23b3ee5"
+        },
+        "images/density_0002.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "b5edf24131f4040905fab5afba08de3446dbcd41c5cfc26666116d9f6d142ac8"
+        },
+        "images/density_0003.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "4b63802a6d773611a28ec87e2d8eb5825fa4f5c444f5db8c04036c89224af5b7"
+        },
+        "images/density_0004.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "cb4d0a72846abcd75af5877674bb85810e19212d88fcde0c0b008456a148d177"
+        },
+        "images/density_0005.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "6c3654fd5f88f433105fcb6e77b929aaf16272bcd55cbcc6118150140a95cb9f"
+        },
+        "images/density_0006.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "83a6db073a7f65a890f550ab409b4922a60853d3c55546a4592bfdef21b84669"
+        },
+        "images/density_0007.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5b545e9b1d02036a4c0900c20592f7564a578ea2622ae87af3c91b13e0cd3dee"
+        },
+        "images/density_0008.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "8515822496cd1f2a18e61f9982b405ee676fddf394617d92d2fec629f222945a"
+        },
+        "images/density_0009.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "17f9553b32e80aca4524f5f0cf3ca8a2c14f0d46b9135f2ffb6c8063a9e58833"
+        },
+        "images/density_0010.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "56c2c2378ed47d4a4cdaeac10b0e19489d5a1edd57614b700108b316f7d642e7"
+        },
+        "images/density_0011.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "d8a9cf79f35e2d0e615d5559ca9178b784ca1ad3387d5c63f44e06b0628c5fb9"
+        },
+        "images/density_0012.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "e6ea2511a5283fe7d233f34fa3f955a428b544b98d2347fe85451879cee03c5c"
+        },
+        "images/density_0013.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "cc9bf0a1411cd3c5debb9fef987ffeb7f27017786b87d640b0317487d3587ff5"
+        },
+        "images/density_0014.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "9dcf74d29ee64336f689c5a3afae5fb1737cf5d7ffef876afd6580cd8d9ec874"
+        },
+        "images/density_0015.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "baae3f4e13b53357de98dce927cd9a8c8362f3c4ec27a9e06a5614ef4e5875e2"
+        },
+        "images/density_0016.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "465d5cead7f32c153ea184a3c3007bf2a7132759baaa0ea9e0a0b8c6f62b067b"
+        },
+        "images/density_0017.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "8595fe1b433e3073f0760d7a27ea43f0a5aeac00a9be0a82e87b2af3bd8e2fec"
+        },
+        "images/density_0018.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "58ba00565d28e3907aecf37a402537710296743623820c476a4a15039f3b39c3"
+        },
+        "images/density_0019.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "a6442979d95a0e2925a04eac276cee122d60bf04b199caaa2f07e8e1e1428275"
+        },
+        "images/density_0020.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "19ecfbc0e94f29beab038253ca1df6170af348f6a05eaab6802dc73a837191bd"
+        },
+        "images/density_0021.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "893286db8995fab0f0073896dd22a553ac6f8386dc0d8174e2902561d58c14e7"
+        },
+        "images/density_0022.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "211e80863cbc55c2cd1332aa51f421a195ad69c00ad9d509e55957b8339d7830"
+        },
+        "images/density_0023.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "baf213f81f0ee9d232f89c09a92703b740ba5215e5b6597256202167cd6a3d44"
+        },
+        "images/density_0024.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "0189c17ac4a54062e07203a376a53a1dfd6cc5a5f22148dc556b87e4eca22feb"
+        },
+        "images/density_0025.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "61a1370cf8c651ad3c3498d34123c3cfecfb03bcd480e4e6bee5a1834499eeff"
+        },
+        "images/density_0026.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "f02b43d5f52d16461260cb703df1dfce2867586294208000855aeda0987d2c21"
+        },
+        "images/density_0027.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5789427e07460b13a5284a7df03353eb7810b3462ccbf716fc0a16ced0beb1a0"
+        },
+        "images/density_0028.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "a3bf4f9a2ea79bd3f97fa9fba6d339b3fa356da91dcf3cab1a7ffe178eea4305"
+        },
+        "images/density_0029.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "8aa93d46b253909cc06793eead392dc4926d35c10b337e75bf6e5069bdc40dcb"
+        },
+        "images/density_0030.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "37dda17176925340dd02a76520eeb272208dcfbf01fc7f269ad7b4d18fcbbfa5"
+        },
+        "images/density_0031.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "9a5f5d841b9b749b42624347bd95df71aa4c6dcd007403c6f311debfa2e2f0b6"
+        },
+        "images/density_0032.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "af99e26eda8503bf3615dcc28c7e8e3c94b8fa52d675e65eae07ff151cc1beb6"
+        },
+        "images/density_0033.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "c393cbf3ffd5057326dbf744ea1690ad5e0c5415dd333a91debff7d44152c393"
+        },
+        "images/density_0034.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "caea339fa1be0d65ef6e9b5f34259beb667b685580df9bab6958e2bd3976f6c2"
+        },
+        "images/density_0035.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "f7f89300500ebe24fb205a61ec18ef06078a98d7c82e9b59ed37899afb01a2e3"
+        },
+        "images/density_0036.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "b6e895014e655021f22a6cf30c42fd4d9f814f64e81ef6defb4e5e04168eba5e"
+        },
+        "images/density_0037.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "52c21c8caa8aabc5dc30082a6ecf5391839552bcd9c765713a2c45c9b9d199e9"
+        },
+        "images/density_0038.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "8514033ce7f5f2d1595dcfe3e8d861e670db52852c67e49e7cd32e7895325ad2"
+        },
+        "images/density_0039.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "de4347d611453badd089243e70ec2ecca0bd2ca5794a1738862b3cb9ff5395fb"
+        },
+        "images/density_0040.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "4800ee327d30b8a757833c23be5665f110ee7bb761c555511703c84e0f91f9dd"
+        },
+        "images/density_0041.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "215274b3e8fad8a2fdd72533692500d5bcfa0c3720a4084915a2e5d6ef86da88"
+        },
+        "images/density_0042.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5dc09d96ebe0838bf4db88f3ec690e3fb98a566507c6372df15b9fbfbe93aba0"
+        },
+        "images/density_0043.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "90422e2b15ab5019774e4cca88432b779c1340b407f0a1b027c594607ed6bd45"
+        },
+        "images/density_0044.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "0d167f3d91200ab64d12b26c1895636fd69d1b6152eaf33a58475a84e4a7c0a0"
+        },
+        "images/density_0045.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "9b84eab3ae7d54dc9f3e958655b686efd361e86ce8566fb0a9d8537cec0736fa"
+        },
+        "images/density_0046.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "d06b706f06eba21c8c27c7cdb85a931680d4f699db08b6ffdf0d7835b1caaf59"
+        },
+        "images/density_0047.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "84cfb159b42890c0ee8e4e2d7353fd22d3a2666c1546c67460f66f6e567f4085"
+        },
+        "images/density_0048.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "e92310229b2c90370daeb9fae733ae5f21313656a52568fb6f89a49a3682a0f6"
+        },
+        "images/endpoint_flow_features.png": {
+          "size": [
+            1350,
+            1350
+          ],
+          "sha256": "7b62cfadc01d707dc0a561955bdaf413402cc3ec34c1c2dfdc18999cd2f1992d"
+        },
+        "images/outer_atmosphere_history.png": {
+          "size": [
+            1200,
+            600
+          ],
+          "sha256": "f45f1b6d4a213623cd8496b31e17199d2a67179f74106de445859a54ad0dc176"
+        },
+        "images/phases_full.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "e751f0381d7936471c61062920c69a5496807a5deced554010f262d926dbb7cc"
+        },
+        "images/phases_inner.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "75dbdf740df3c2657324d35c6f0d961d87c58a7c6e3e6045a02c8f630c8f39a8"
+        },
+        "reviewed_diagnostics/all_save_review.png": {
+          "size": [
+            2340,
+            1950
+          ],
+          "sha256": "7c650316f32ec3d9e814ea2b1422519d30719d0b37b841855d0dfafabec97a4f"
+        },
+        "reviewed_diagnostics/endpoint_flow_full.png": {
+          "size": [
+            1350,
+            1350
+          ],
+          "sha256": "485c031517246ce21194a6157589cf40fa07eff3054382f23d48673f71327b43"
+        },
+        "reviewed_diagnostics/endpoint_flow_inner.png": {
+          "size": [
+            1350,
+            1350
+          ],
+          "sha256": "041b67739a065251263eef7558e1c21d21daa02f2bd311fa3f79056d42fbe429"
+        },
+        "reviewed_diagnostics/endpoint_local_jump.png": {
+          "size": [
+            1440,
+            800
+          ],
+          "sha256": "be7b21205c7b6893ef8aa8f163416a59537fb87a5bdd1eb586e3228cfd819370"
+        },
+        "reviewed_diagnostics/phases_full.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "d92f7c86481febb80903478a071e31ca92ab6ef72e1004e9c42ffcff688ebc1d"
+        },
+        "reviewed_diagnostics/phases_inner.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "7c43ab0760d9a52b4a0b3e4aec596a7915ae16f0b9247b70497afa9ae8dffaf1"
+        }
+      }
+    }
+  ],
+  "recipe_sha256": "457949170430b71410b4415f0cea999858f84bcab6cac90927d94f5290a24ab6"
+}
