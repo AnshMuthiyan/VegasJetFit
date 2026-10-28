@@ -1,0 +1,100 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m40_n17321_pk1000000000",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 0.33688838441547153,
+          "r50_pc": 0.3399621529049734,
+          "r90_pc": 0.3421954670176486,
+          "width_10_90_pc": 0.005307082602177049,
+          "cells_10_90": 1.7280685179911188,
+          "contrast": 2240.648206286357,
+          "upstream_density_g_cm3": 9.935668265074209e-23,
+          "downstream_density_g_cm3": 2.2262337276394808e-19,
+          "maximum_log_jump_cell": 283,
+          "window_cell_indices": [
+            277,
+            290
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.34566446231608894,
+        "r10_pc": 0.3368979195211105,
+        "r50_pc": 0.3400037767474627,
+        "r90_pc": 0.34227228102156293,
+        "width_10_90_pc": 0.005374361500452451,
+        "cells_10_90": 1.7498627797406812,
+        "local_peak_fwhm_pc": 0.19101257376374886,
+        "local_peak_fwhm_cells": 50.21504366977621,
+        "peak_to_local_baseline": 43940.317000075825,
+        "peak_to_initial": 1.0322075952868308,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.07473409400869002,
+        "upstream_mach": 287.0440903700991,
+        "downstream_mach": 0.7503128956755513,
+        "pressure_jump": 94077.52416204487,
+        "density_jump": 3.615848692948851,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "outer_candidate_interpretation": "No peak passes the unchanged operational outer-compression criterion. This does not establish absence of swept gas. The density rise and separate flow-selected termination candidate retain distinct definitions.",
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0119393643992423e-06,
+          "first_cell_speed_kms": 2000.0121100005101
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.367332057977957e-05,
+          "first_cell_speed_kms": 13.738876982637132
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121210173379838e-05,
+          "first_cell_speed_kms": 2000.0120819229592
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0120846751900743e-05,
+          "first_cell_speed_kms": 2000.0120843436905
+        }
+      ],
+      "validation_role": "survey_grid",
+      "withheld_from_training": false
+    }
+  ],
+  "visual_qa": "All49-save native density sheet, full-domain phase/density/cumulative-mass plot, full-domain endpoint density/speed/Mach and endpoint local-jump zoom visually inspected. All59 PNGs integrity-checked and all49 native mass profiles independently reintegrated exactly. cm/pc and g/Msun axes readable.",
+  "flux_interpretation": "First native cell estimates are evolved interior flow, not boundary Riemann flux measurements or acceptance gates. Prescribed MS/RSG/WR injection rates and speeds pass frozen TRACK checks; single-mesh flux convergence unestablished.",
+  "feature_interpretation": "Separate local_jump_v1 rise remains unresolved below five native cells; legacy peak-envelope definition retained separately. No peak passes the unchanged operational outer-compression criterion. This does not establish absence of swept gas. The density rise and separate flow-selected termination candidate retain distinct definitions. Broad peak FWHM may include the declining cloud envelope and is not the local ramp width. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from surrogate training and coefficient fitting."
+}
