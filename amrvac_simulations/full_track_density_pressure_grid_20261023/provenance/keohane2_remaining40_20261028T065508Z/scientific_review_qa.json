@@ -1,0 +1,275 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m40_n10000_pk100000000",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 0.9283025351403226,
+          "r50_pc": 0.9368196114768009,
+          "r90_pc": 0.9427444499029942,
+          "width_10_90_pc": 0.014441914762671648,
+          "cells_10_90": 1.8165732201653668,
+          "contrast": 2988.0165051787276,
+          "upstream_density_g_cm3": 9.308289034659791e-24,
+          "downstream_density_g_cm3": 2.781332127053762e-20,
+          "maximum_log_jump_cell": 399,
+          "window_cell_indices": [
+            393,
+            406
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.958171901889772,
+        "r10_pc": 0.9283097997567373,
+        "r50_pc": 0.9368526735749236,
+        "r90_pc": 0.9430803986250645,
+        "width_10_90_pc": 0.014770598868327212,
+        "cells_10_90": 1.8574471165214277,
+        "local_peak_fwhm_pc": 0.4388546275283318,
+        "local_peak_fwhm_cells": 45.4823432002147,
+        "peak_to_local_baseline": 48377.15108859179,
+        "peak_to_initial": 1.1245953880496555,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.2228324558338058,
+        "upstream_mach": 441.9435174604794,
+        "downstream_mach": 0.607375755586814,
+        "pressure_jump": 229954.60607196123,
+        "density_jump": 3.730046177324719,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.012136929520108e-06,
+          "first_cell_speed_kms": 2000.0137679030674
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.417298169751128e-05,
+          "first_cell_speed_kms": 13.65808725439007
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.012118951250364e-05,
+          "first_cell_speed_kms": 2000.0137752922194
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121140005999392e-05,
+          "first_cell_speed_kms": 2000.0137704923368
+        }
+      ]
+    },
+    {
+      "case": "m40_n3000_pk1000000",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 2.7089187963979513,
+          "r50_pc": 2.7293602115095874,
+          "r90_pc": 2.755649502467737,
+          "width_10_90_pc": 0.04673070606978591,
+          "cells_10_90": 2.0614146675360416,
+          "contrast": 2758.973378845815,
+          "upstream_density_g_cm3": 1.1309287660904435e-24,
+          "downstream_density_g_cm3": 3.1202023590144794e-21,
+          "maximum_log_jump_cell": 526,
+          "window_cell_indices": [
+            520,
+            533
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS",
+            "LEGACY_10_90_WIDTH_SPANS_BROAD_ENVELOPE"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS",
+          "LEGACY_10_90_WIDTH_SPANS_BROAD_ENVELOPE"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 3.443266186244586,
+        "r10_pc": 2.7111734221412576,
+        "r50_pc": 2.742823788810811,
+        "r90_pc": 3.2431858847938897,
+        "width_10_90_pc": 0.5320124626526321,
+        "cells_10_90": 21.618541313551646,
+        "local_peak_fwhm_pc": 1.0242160681434092,
+        "local_peak_fwhm_cells": 38.31933246138158,
+        "peak_to_local_baseline": 59661.31024496645,
+        "peak_to_initial": 1.9241806087148445,
+        "flags": []
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.6109275569623331,
+        "upstream_mach": 435.07845890393827,
+        "downstream_mach": 0.9232203139015654,
+        "pressure_jump": 213957.5728303922,
+        "density_jump": 3.6741049989412042,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121237188326923e-06,
+          "first_cell_speed_kms": 2000.0142006309927
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.431816251476707e-05,
+          "first_cell_speed_kms": 13.63701375758585
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0121226642760256e-05,
+          "first_cell_speed_kms": 2000.014170425748
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.012119100716734e-05,
+          "first_cell_speed_kms": 2000.0141949664321
+        }
+      ]
+    },
+    {
+      "case": "m40_n3000_pk1000000000",
+      "local_jump": {
+        "snapshot": 48,
+        "age_myr": 4.769999999999999,
+        "phase": "WR",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": {
+          "r10_pc": 0.3365278208876184,
+          "r50_pc": 0.33929725219337775,
+          "r90_pc": 0.3420890265682291,
+          "width_10_90_pc": 0.005561205680610692,
+          "cells_10_90": 1.811446579870335,
+          "contrast": 627.3438248166323,
+          "upstream_density_g_cm3": 6.019043057917546e-23,
+          "downstream_density_g_cm3": 3.7760094936899915e-20,
+          "maximum_log_jump_cell": 283,
+          "window_cell_indices": [
+            277,
+            290
+          ],
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "quality_flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.34566446231608894,
+        "r10_pc": 0.3365270222382474,
+        "r50_pc": 0.3393342958897002,
+        "r90_pc": 0.3421645575358784,
+        "width_10_90_pc": 0.005637535297631002,
+        "cells_10_90": 1.8362037038622816,
+        "local_peak_fwhm_pc": 0.21535281433373676,
+        "local_peak_fwhm_cells": 55.430829617871325,
+        "peak_to_local_baseline": 8831.991567902667,
+        "peak_to_initial": 1.0076185898118482,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.0812372051820933,
+        "upstream_mach": 139.87027567151378,
+        "downstream_mach": 0.858646419167439,
+        "pressure_jump": 22239.843910820662,
+        "density_jump": 3.60477489904732,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "interior_wind_samples": [
+        {
+          "snapshot": 42,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 1e-06,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0119834385866924e-06,
+          "first_cell_speed_kms": 1999.9994056579917
+        },
+        {
+          "snapshot": 44,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 5e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 4.1787750431274275e-05,
+          "first_cell_speed_kms": 14.17848754202572
+        },
+        {
+          "snapshot": 46,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.0120429956603677e-05,
+          "first_cell_speed_kms": 1999.9994865975689
+        },
+        {
+          "snapshot": 48,
+          "phase": "WR",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 2000,
+          "first_cell_estimated_mdot_msun_yr": 1.012049172614278e-05,
+          "first_cell_speed_kms": 1999.9994623964465
+        }
+      ]
+    }
+  ],
+  "visual_qa": "All49-save native density sheets, full-domain phase/density/cumulative-mass plots, full-domain endpoint density/speed/Mach and endpoint local-jump zooms visually inspected for every listed case. All59 PNGs per case integrity-checked; all49 native mass profiles per case reintegrate exactly. cm/pc and g/Msun axes readable. No interpolation or convergence inferred from overlaid curves.",
+  "flux_interpretation": "First native cell estimates are evolved interior flow, not boundary Riemann flux measurements or acceptance gates. Prescribed MS/RSG/WR injection rates and speeds pass frozen TRACK checks; single-mesh flux convergence is unestablished.",
+  "feature_interpretation": "Separate local_jump_v1 density rise beyond1.2 times flow-selected termination candidate is unresolved below five native cells. Legacy peak-envelope diagnostics retained separately; n3000/Pk1e6 legacy width spans a broad envelope and is not a local-ramp width. No compressed outer candidate passes criterion; this does not establish absence of swept gas. No physical-width, convergence, GRB-wall, surrogate or universal-law claim."
+}
