@@ -1,0 +1,8 @@
+# Withheld full-track validation holdouts: never training data
+
+Latest additive delivery 20261028_keohane3_withheld40_v14: 1 complete full-lifetime history; 34 total endpoints reconciled and published, with 48 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261028_keohane3_withheld40_v14.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261028_keohane3_withheld40_v14.csv), provenance `provenance/keohane3_withheld_validation40_20261028T110114Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
+WITHHELD VALIDATION ONLY: every case in this dataset remains excluded from surrogate training and coefficient fitting. The combined inventory records validation_role and withheld_from_training explicitly.
+
+Earlier dated delivery sections retain their own epochs.
+
+All12 reserved holdout cases remain excluded from surrogate training and coefficient fitting. This separately labeled dataset contains only independently reconciled, checksum-verified complete histories. Publication does not change their validation-only role. Read WITHHELD_VALIDATION_ONLY.json, each case README and explicit validation_role/withheld_from_training inventory columns. No surrogate or physical-width claim.

@@ -1,0 +1,18 @@
+from pathlib import Path
+import unittest
+from stage_completed_delivery import publication_policy
+
+class WithheldPublicationPolicyTests(unittest.TestCase):
+    rows=[('van_marle_full_track_grid_20261023','full_track_density_pressure_grid_20261023',False),('van_marle_full_track_refinement_20261023','full_track_density_pressure_refinement_20261023',False),('van_marle_full_track_holdouts_20261023','full_track_density_pressure_holdouts_20261023',True)]
+    def test_three_campaign_roles(self):
+        for campaign,dataset,held in self.rows:
+            with self.subTest(campaign=campaign):
+                p=publication_policy(Path(campaign),Path(dataset));self.assertIs(p['withheld_from_training'],held);self.assertEqual(p['validation_role'],'withheld_validation_holdout' if held else 'survey_grid')
+    def test_six_cross_dataset_mixups_rejected(self):
+        for campaign,good,held in self.rows:
+            for _,dataset,_ in self.rows:
+                if good!=dataset:
+                    with self.subTest(campaign=campaign,dataset=dataset),self.assertRaises(AssertionError):publication_policy(Path(campaign),Path(dataset))
+    def test_unknown_campaign_rejected(self):
+        with self.assertRaises(AssertionError):publication_policy(Path('unknown'),Path(self.rows[0][1]))
+if __name__=='__main__':unittest.main()
