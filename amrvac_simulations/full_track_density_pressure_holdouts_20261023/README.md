@@ -1,5 +1,10 @@
 # Withheld full-track validation holdouts: never training data
 
+Latest additive delivery 20261028_keohane4_withheld40_v27: 1 complete full-lifetime history; 47 total endpoints reconciled and published, with 35 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261028_keohane4_withheld40_v27.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261028_keohane4_withheld40_v27.csv), provenance `provenance/keohane4_m40_n24762_pk56234133/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
+WITHHELD VALIDATION ONLY: every case in this dataset remains excluded from surrogate training and coefficient fitting. The combined inventory records validation_role and withheld_from_training explicitly.
+
+Earlier dated delivery sections retain their own epochs.
+
 Latest additive delivery 20261028_keohane4_withheld40_v21: 1 complete full-lifetime history; 41 total endpoints reconciled and published, with 41 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261028_keohane4_withheld40_v21.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261028_keohane4_withheld40_v21.csv), provenance `provenance/Keohane4_withheld40_20261028T150701Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
 WITHHELD VALIDATION ONLY: every case in this dataset remains excluded from surrogate training and coefficient fitting. The combined inventory records validation_role and withheld_from_training explicitly.
 

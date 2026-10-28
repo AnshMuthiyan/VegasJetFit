@@ -1,0 +1,131 @@
+"""Read-only remote completion gate and NEW selected-case collection.
+
+Explicit campaign, host, cases and new destination are required. Never launches,
+restarts or changes remote files. Never copies mutable queue logs or other cases.
+Independent scientific validation must follow collection.
+"""
+from pathlib import Path
+from datetime import datetime, timezone
+import argparse
+import csv
+import hashlib
+import json
+import shlex
+import subprocess
+
+
+def digest(p):
+    h=hashlib.sha256()
+    with p.open('rb') as f:
+        for chunk in iter(lambda:f.read(1048576),b''):h.update(chunk)
+    return h.hexdigest()
+
+
+def write_new(path,value):
+    with path.open('x') as f:json.dump(value,f,indent=2);f.write('\n')
+
+
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('campaign',type=Path)
+    parser.add_argument('host')
+    parser.add_argument('destination',type=Path)
+    parser.add_argument('cases',nargs='+')
+    args=parser.parse_args()
+    root=args.campaign.resolve();dest=args.destination.resolve()
+    assert not dest.exists(), 'Refusing existing destination'
+    dispatch=next(d for d in json.loads((root/'dispatch_records.json').read_text()) if d['host']==args.host)
+    assert len(args.cases)==len(set(args.cases)) and set(args.cases)<=set(dispatch['cases'])
+    with (root/'manifest.csv').open() as f:rows={r['case']:r for r in csv.DictReader(f)}
+    selected={c:rows[c] for c in args.cases}
+    pins=json.loads((root/dispatch['pins_file']).read_text())
+    config=dict(farm=dispatch['farm'],rows=selected,pins=pins,host=args.host)
+    code='CONFIG='+repr(config)+'\n'+r'''
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib,json
+farm=Path(CONFIG['farm'])
+def record(p):
+ h=hashlib.sha256()
+ with p.open('rb') as f:
+  for c in iter(lambda:f.read(1048576),b''):h.update(c)
+ return dict(bytes=p.stat().st_size,sha256=h.hexdigest())
+pins=json.loads((farm/'build_pins.json').read_text())
+assert pins==CONFIG['pins'],'Original pin map mismatch'
+root_files={n:record(farm/n) for n in [*pins,'build_pins.json']}
+assert all(root_files[n]['sha256']==v for n,v in pins.items()),'Original file SHA mismatch'
+cases=[]
+for case,row in CONFIG['rows'].items():
+ d=farm/'runs'/case
+ assert not (d/'FAILED.json').exists(), 'FAILED evidence present: '+case
+ complete=json.loads((d/'COMPLETE.json').read_text())
+ assert complete['status']=='VALIDATED_FULL_TRACK'
+ assert json.loads((d/'manifest_row.json').read_text())==row
+ stages={}
+ for stage in ('static','smoke','full'):
+  prefix=d/(case+'_'+stage)
+  rc=Path(str(prefix)+'.run.exit').read_text().strip()
+  log=Path(str(prefix)+'.run.log').read_text()
+  err=Path(str(prefix)+'.run.err').stat().st_size
+  assert rc=='0' and log.count('Finished AMRVAC')==1 and err==0,(case,stage,rc,err)
+  stages[stage]=dict(exit=rc,finished=log.count('Finished AMRVAC'),stderr_bytes=err)
+ validation=json.loads((d/'validation.json').read_text());assert validation['status']=='PASS'
+ count=int(row['expected_vtus'])
+ for extension in ('dat','vtu'):
+  paths=sorted((d/'output').glob(case+'_full[0-9][0-9][0-9][0-9].'+extension))
+  assert len(paths)==count and [p.stem[-4:] for p in paths]==[f'{i:04}' for i in range(count)]
+ files={str(p.relative_to(d)):record(p) for p in sorted(d.rglob('*')) if p.is_file()}
+ cases.append(dict(case=case,complete=complete,stages=stages,manifest_row=row,
+   dat_count=count,vtu_count=count,files=files))
+queue_err=farm/'queue.err'
+print(json.dumps(dict(queried_utc=datetime.now(timezone.utc).isoformat(),host=CONFIG['host'],farm=str(farm),
+ scope='Only explicit completed cases and immutable pinned files; active cases/queue logs excluded',
+ queue_finished=(farm/'queue.finished').exists(),queue_error_bytes_at_check=queue_err.stat().st_size if queue_err.exists() else None,
+ pins=pins,root_files=root_files,cases=cases)))
+'''
+    ssh=['ssh','-n','-x','-o','ForwardX11=no','-o','BatchMode=yes','-o','ConnectTimeout=10']
+    py='/opt/homebrew/bin/python3' if dispatch['arch']=='arm64' else 'python3'
+    p=subprocess.run([*ssh,args.host,py+' -c '+shlex.quote(code)],capture_output=True,text=True,timeout=90)
+    assert p.returncode==0,p.stderr
+    gate=json.loads(p.stdout)
+    assert gate['queue_error_bytes_at_check'] in (None,0),gate['queue_error_bytes_at_check']
+    dest.mkdir(parents=True,exist_ok=False)
+    write_new(dest/'remote_completion_gate.json',gate)
+    stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    write_new(root/'monitoring'/(stamp+'_'+args.host+'_completed_subset_remote_gate.json'),gate)
+    names=sorted(gate['root_files'])
+    files_list=dest/'immutable_provenance_files.txt'
+    with files_list.open('x') as f:f.write('\n'.join(names)+'\n')
+    provenance=dest/'farm_provenance';provenance.mkdir()
+    transport='ssh -x -o ForwardX11=no -o BatchMode=yes -o ConnectTimeout=10'
+    source=args.host+':'+dispatch['farm']+'/'
+    def rsync(arguments):
+        p=subprocess.run(['rsync',*arguments,'-e',transport],capture_output=True,text=True,timeout=300)
+        assert p.returncode==0,p.stderr
+        return p.stdout
+    rsync(['-aR','--files-from='+str(files_list),source,str(provenance)+'/'])
+    checks={}
+    checks['farm_provenance']=rsync(['-aincR','--files-from='+str(files_list),source,str(provenance)+'/'])
+    assert not checks['farm_provenance'],checks['farm_provenance']
+    for name,expected in gate['root_files'].items():
+        p=provenance/name;assert p.stat().st_size==expected['bytes'] and digest(p)==expected['sha256'],name
+    for c in gate['cases']:
+        raw=dest/c['case']/'raw';raw.mkdir(parents=True,exist_ok=False)
+        source_case=source+'runs/'+c['case']+'/'
+        rsync(['-a','--ignore-existing',source_case,str(raw)+'/'])
+        checks[c['case']]=rsync(['-ainc','--delete',source_case,str(raw)+'/'])
+        assert not checks[c['case']],checks[c['case']]
+        actual={str(p.relative_to(raw)) for p in raw.rglob('*') if p.is_file()}
+        assert actual==set(c['files'])
+        for name,expected in c['files'].items():
+            p=raw/name;assert p.stat().st_size==expected['bytes'] and digest(p)==expected['sha256'],name
+    write_new(dest/'collection_provenance.json',dict(status='PASS',host=args.host,
+        campaign=root.name,cases=args.cases,raw_files=sum(len(c['files']) for c in gate['cases']),
+        original_pins_verified=len(pins),remote_local_checksum_dry_runs=checks,
+        all_remote_local_sha256_and_bytes_match=True,active_outputs_excluded=True,
+        collector_sha256=digest(Path(__file__).resolve())))
+    print(json.dumps(dict(status='COLLECTED_CHECKSUM_PASS',destination=str(dest),cases=args.cases,
+        raw_files=sum(len(c['files']) for c in gate['cases']),original_pins_verified=len(pins))))
+
+
+if __name__=='__main__':main()

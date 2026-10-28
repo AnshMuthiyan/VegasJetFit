@@ -1,0 +1,59 @@
+{
+  "source_parent": "van_marle_25_finite_gmc_1d/mod_usr_25_track.t",
+  "source_sha256": "1f67f0d084a59d9bcb2eeba27f544cba9e15afe7288933f72eef3bf3a4054e91",
+  "count": 12,
+  "cells": 1024,
+  "first_width_pc": 0.0003,
+  "qstretch": 1.008223428514686,
+  "outer_pc": 160.0,
+  "pressure_is_independent": true,
+  "ionization": false,
+  "cooling": false,
+  "conduction": false,
+  "gravity": "fixed initial star+cloud mass field; not evolving self-gravity",
+  "support_kms": 0.72,
+  "n_gmc_cm3": 1000,
+  "n_ext_cm3": 10,
+  "gmc_pc": 15,
+  "r_flat_pc": 0.2,
+  "cloud_pc": 2,
+  "edge_width_pc": 0.5,
+  "parent_campaign": "van_marle_full_track_grid_20261023",
+  "parent_manifest_sha256": "4d1e8c75645bb1213810b31f2a09a759988d1075091aca3393bd6d7bd0fef731",
+  "purpose": "Within-range Latin-hypercube holdouts reserved for surrogate validation; same physics and mesh",
+  "holdout_n_ref_cm3_at_1pc": [
+    3635,
+    5335,
+    7830,
+    11494,
+    16870,
+    24762
+  ],
+  "holdout_external_pressure_over_k_K_cm3": [
+    1778279,
+    5623413,
+    17782794,
+    56234133,
+    177827941,
+    562341325
+  ],
+  "pressure_permutation_by_mass": {
+    "25": [
+      3,
+      0,
+      5,
+      2,
+      1,
+      4
+    ],
+    "40": [
+      1,
+      4,
+      2,
+      5,
+      0,
+      3
+    ]
+  },
+  "original_case_count": 24
+}
