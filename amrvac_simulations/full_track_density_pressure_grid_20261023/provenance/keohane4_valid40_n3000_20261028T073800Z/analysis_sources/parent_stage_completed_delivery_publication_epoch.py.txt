@@ -1,0 +1,133 @@
+"""Stage an independently reconciled NEW subset additively; no Git/network calls.
+
+Explicit roots, version tag and previous inventory are required. Scientific
+review/QA must already exist. Reject any existing case/provenance destination.
+The operator must check remote changes, inspect/stage exact publication paths,
+normal-push, verify committed bytes and retain a separate publication receipt.
+"""
+from pathlib import Path
+from datetime import datetime,timezone
+import argparse,csv,hashlib,json,shutil
+
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument('campaign',type=Path)
+    ap.add_argument('host_root',type=Path)
+    ap.add_argument('dataset',type=Path)
+    ap.add_argument('tag')
+    ap.add_argument('previous_inventory',type=Path)
+    ap.add_argument('host_label')
+    args=ap.parse_args()
+    root=args.campaign.resolve();host=args.host_root.resolve();pub=args.dataset.resolve()
+    repo=Path('/Users/jkeohane/GRBs/VegasJetFit_wind_bubble_handoff')
+    assert pub.parent==repo/'amrvac_simulations' and pub.is_dir()
+    assert '/' not in args.tag and '/' not in args.host_label
+    qa=json.loads((host/'products_integrity_mass_qa.json').read_text())
+    science=json.loads((host/'scientific_review_qa.json').read_text())
+    collection=json.loads((host/'collection_provenance.json').read_text())
+    remote=json.loads((host/'remote_completion_gate.json').read_text())
+    assert qa['status']=='PASS' and science['status']=='PASS_WITH_SCIENTIFIC_LIMITATIONS'
+    assert collection['status']=='PASS' and collection['all_remote_local_sha256_and_bytes_match']
+    with (root/'manifest.csv').open() as f:rows={r['case']:r for r in csv.DictReader(f)}
+    cases=sorted(host.glob('m*_n*_pk*'))
+    assert {c.name for c in cases}==set(collection['cases'])=={c['case'] for c in science['cases']}
+    assert {c.name for c in cases}=={c['case'] for c in qa['cases']}
+    previous=list(csv.DictReader(args.previous_inventory.open()))
+    assert len({r['case'] for r in previous}) == len(previous)
+    assert not {r['case'] for r in previous}.intersection(c.name for c in cases)
+    new_total=len(previous)+len(cases);remaining=82-new_total
+    paths=[];inventory=[]
+    def copyfile(src,dst):
+        assert not dst.exists(),dst
+        dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dst);paths.append(dst)
+    def copytree(src,dst):
+        assert not dst.exists(),dst
+        shutil.copytree(src,dst);paths.extend(p for p in dst.rglob('*') if p.is_file())
+    def newtext(dst,text):
+        assert not dst.exists(),dst
+        dst.parent.mkdir(parents=True,exist_ok=True);dst.write_text(text);paths.append(dst)
+    for case in cases:
+        row=rows[case.name];g=json.loads((case/'independent_validation/independent_gates.json').read_text())
+        q=next(x for x in qa['cases'] if x['case']==case.name)
+        s=next(x for x in science['cases'] if x['case']==case.name)
+        count=int(row['expected_vtus']);mass=int(row['star_mass_msun'])
+        assert g['status']=='PASS' and g['saves']==count==q['profiles']==q['density_pngs']
+        assert abs(g['endpoint_myr']-float(row['endpoint_myr']))<1e-9
+        rel=Path('results')/(str(mass)+'Msun')/('n'+row['n_ref_cm3_at_1pc'])/('pk'+row['external_pressure_over_k_K_cm3'])/case.name
+        dest=pub/rel;assert not dest.exists();dest.mkdir(parents=True)
+        for name in ('raw','images','native_profiles','reviewed_diagnostics'):copytree(case/name,dest/name)
+        copyfile(case/'feature_diagnostics.json',dest/'feature_diagnostics.json')
+        copyfile(case/'independent_validation/independent_gates.json',dest/'independent_validation/independent_gates.json')
+        copyfile(case/'independent_validation/grid_runtime_view/validation.json',dest/'independent_validation/frozen_runtime_validation.json')
+        context=case/'independent_validation/campaign_validation_context.json'
+        if context.exists():copyfile(context,dest/'independent_validation/campaign_validation_context.json')
+        local=s['local_jump']['candidate'];legacy=s['legacy_inner'];flow=s['termination_flow_candidate'];outer=s['outer_shell_candidate']
+        quality='; '.join([*s['local_jump']['quality_flags'],
+            *(['LEGACY_RISE_UNRESOLVED'] if legacy and legacy['cells_10_90']<5 else []),
+            *(['OUTER_CANDIDATE_MISSING'] if outer is None else []),'NO_APPROVED_SURROGATE'])
+        inv=dict(case=case.name,host=remote['host'],mass_Msun=mass,n_ref_cm3=row['n_ref_cm3_at_1pc'],
+            P_over_k_K_cm3=row['external_pressure_over_k_K_cm3'],endpoint_Myr=g['endpoint_myr'],saves=count,
+            inner_R50_pc=local['r50_pc'] if local else '',inner_width_10_90_pc=local['width_10_90_pc'] if local else '',
+            inner_width_native_cells=local['cells_10_90'] if local else '',
+            termination_flow_candidate_pc=flow['radius_pc'] if flow else '',
+            outer_shell_candidate=outer['r50_pc'] if outer else 'MISSING',quality=quality,
+            measurement_definition='local_jump_v1_upstream3_downstream4_native_medians' if local else 'local_jump_v1_missing_beyond_1p2_flow_termination;legacy_peak_retained_separately',
+            relative_path=str(rel),legacy_first_rise_R50_pc=legacy['r50_pc'] if legacy else '',
+            legacy_first_rise_width_native_cells=legacy['cells_10_90'] if legacy else '',
+            legacy_first_rise_contrast=legacy['peak_to_local_baseline'] if legacy else '')
+        inventory.append(inv)
+        phases='MS to 6.5 Myr (2e-7 Msun/yr, 1500 km/s), RSG to 7 Myr (1e-5 Msun/yr, 15 km/s); no WR' if mass==25 else 'MS to 4.3 Myr (1e-6 Msun/yr, 2000 km/s), RSG to 4.5 Myr (5e-5 Msun/yr, 15 km/s), WR to 4.77 Myr (1e-5 Msun/yr, 2000 km/s)'
+        text=f'''# {case.name}: complete {mass}-Msun history
+
+Exact Float64 DAT endpoint {g['endpoint_myr']:.15g} Myr, {count} full saves from age zero at 0.1-Myr cadence plus endpoint. Wind: {phases}; no SN. n_ref = {row['n_ref_cm3_at_1pc']} cm^-3 at 1 pc; external P/k_B = {row['external_pressure_over_k_K_cm3']} K cm^-3. Effective external confinement may represent surrounding cloud weight; fixed initial star+cloud gravity is already modeled and must not be double-counted. Neutral support/relaxation retained; no evolving self-gravity/photoionization/tabulated cooling/conduction.
+
+Original static/smoke/full guards exited 0 with one finish and empty stderr; {collection['original_pins_verified']} original source/binary/runtime/input pins passed. The new selected pull matches every remote/local SHA256 and byte count with empty checksum dry-runs. `raw/` preserves all completed case files, including static/smoke saves, full DAT/VTU pairs, logs, original validation and COMPLETE marker. Other active outputs/queue logs were excluded. Shared dataset provenance: `provenance/{args.host_label}/`.
+
+`native_profiles/` contains {count} CSVs of 1024 native conservative cells. The VTU representation has 1152 interpolated vertices. Float64 DAT controls age/cadence; Float32 VTU labels retain rounding. Units cm, g, s; 365-day year; AMRVAC Msun = 1.98892e33 g. Cumulative gas excludes the star and r < 0.001 pc. Positive density-excess mass is Eulerian, not tracer-defined swept mass; signed gas change is retained. Independent mass reintegration passed. `images/` has every density PNG; preferred full/inner phase/mass/flow and all-save sheet are in `reviewed_diagnostics/`. All {q['pngs']} PNGs were integrity-checked; visual QA is described in shared scientific_review_qa.json. Mass axes: cm bottom/pc top, g left/Msun right.
+
+Native/frozen-runtime positivity, analytic initial atmosphere, exact endpoint/cadence and phase-rate/speed gates passed. Endpoint outer 40--160 pc density drift = {100*g['max_outer_density_drift']:.8g}%, pressure drift = {100*g['max_outer_pressure_drift']:.8g}% (<2%); the full transient history is retained. local_jump_v1 is an operational search beyond 1.2 times the separately flow-selected termination candidate when present. Missing separate rise/outer peaks do not prove absence of swept gas; legacy peak-envelope diagnostics remain separately defined. Exact endpoint candidate records below are numerical diagnostics, not physical shock thickness, converged GRB-wall evidence or an approved fit surrogate.
+
+```json
+{json.dumps(dict(local_jump=s['local_jump'],legacy_first_rise=legacy,termination_flow_candidate=flow,outer_shell_candidate=outer),indent=2)}
+```
+
+Prescribed injection rates/speeds pass TRACK gates. Shared scientific_review_qa.json retains first-cell evolved flux/speed estimates, which are not boundary Riemann flux measurements; single-mesh flux convergence remains unestablished. Keep all 12 holdouts withheld. No surrogate training/MCMC/silent extrapolation or universal-law fit.
+'''
+        newtext(dest/'README.md',text)
+        with (case/'README.md').open('x') as f:f.write(text)
+    prov=pub/'provenance'/args.host_label;assert not prov.exists();prov.mkdir()
+    for p in sorted((host/'farm_provenance').rglob('*')):
+        if p.is_file() and p.name!='amrvac':copyfile(p,prov/'farm_provenance'/p.relative_to(host/'farm_provenance'))
+    for name in ('remote_completion_gate.json','collection_provenance.json','immutable_provenance_files.txt','reconciliation_summary.json','products_integrity_mass_qa.json','scientific_review_qa.json','verify_products.py.txt'):
+        copyfile(host/name,prov/name)
+    if (host/'local_selection_provenance.json').exists():
+        copyfile(host/'local_selection_provenance.json',prov/'local_selection_provenance.json')
+        copytree(host/'source_collection_evidence',prov/'source_collection_evidence')
+    copytree(host/'analysis_sources',prov/'analysis_sources')
+    copyfile(Path(__file__),prov/'stage_completed_delivery.py.txt')
+    newtext(prov/'README.md',f'# Validated subset {args.host_label}\n\n{len(cases)} explicit completed cases only; active outputs and queue logs excluded. Exact pins, raw SHA/byte counts, checksum dry-runs and independent frozen-runtime/native/phase/mass/image gates passed. The binary is retained locally and SHA-pinned, and is omitted from Git. Full saved files are in the case trees. Exact analysis sources and scientific limitations are retained here. Prior products are preserved. All 12 holdouts remain withheld; no surrogate or convergence claim.\n')
+    fields=list(previous[0])+[k for k in inventory[0] if k not in previous[0]]
+    invpath=pub/('completed_endpoint_inventory_'+args.tag+'.csv')
+    with invpath.open('x',newline='') as f:w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(inventory)
+    paths.append(invpath);shutil.copyfile(invpath,host/('endpoint_inventory_'+args.tag+'.csv'))
+    combined=repo/'amrvac_simulations'/('full_track_campaign_endpoint_inventory_'+args.tag+'.csv')
+    with combined.open('x',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(previous+[dict(x,relative_path=pub.name+'/'+x['relative_path']) for x in inventory])
+    shutil.copyfile(combined,host/('endpoint_inventory_all'+str(new_total)+'_'+args.tag+'.csv'))
+    current=f'Latest additive delivery {args.tag}: {len(cases)} complete full-lifetime {"history" if len(cases)==1 else "histories"}; {new_total} total endpoints reconciled and published, with {remaining} cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory]({invpath.name}), [combined inventory](../{combined.name}), provenance `provenance/{args.host_label}/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.\n'
+    readme=pub/'README.md';s=readme.read_text();first,rest=s.split('\n',1);readme.write_text(first+'\n\n'+current+'\nEarlier dated delivery sections retain their own epochs.\n'+rest);paths.append(readme)
+    index=repo/'amrvac_simulations/RESULTS_INDEX.md'
+    index_current=current.replace(']('+invpath.name+')',']('+pub.name+'/'+invpath.name+')').replace('](../'+combined.name+')',']('+combined.name+')')
+    index.write_text(index.read_text()+'\n'+index_current);paths.append(index)
+    # Manifest paths are repository-relative, so all shared indexes are covered.
+    records={str(p.relative_to(repo)):dict(bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(set(paths+[combined]))}
+    manifest=pub/('delivery_file_manifest_'+args.tag+'.json')
+    with manifest.open('x') as f:json.dump(dict(utc=datetime.now(timezone.utc).isoformat(),case_count=len(cases),scope='New completed subset;prior case products unchanged;manifest applies at delivery commit',path_base='repository_root',files=records),f,indent=2);f.write('\n')
+    stage=[str(p.relative_to(repo)) for p in sorted(set(paths+[combined,manifest]))]
+    assert not any((repo/p).is_symlink() or '__pycache__' in p or p.endswith('.pyc') for p in stage)
+    with (host/'publication_paths.json').open('x') as f:json.dump(stage,f,indent=2);f.write('\n')
+    print(json.dumps(dict(cases=len(cases),published_after_delivery=new_total,remaining=remaining,manifest_files=len(records),publication_paths=len(stage),manifest=str(manifest.relative_to(repo)))))
+
+
+if __name__=='__main__':main()
