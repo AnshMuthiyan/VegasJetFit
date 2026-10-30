@@ -1,0 +1,725 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "case": "m25_n10000_pk1000000000",
+      "status": "PASS",
+      "profiles": 71,
+      "density_pngs": 71,
+      "pngs": 80,
+      "max_mass_reintegration_relative_error": 0.0,
+      "endpoint_local_jump": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": null,
+        "quality_flags": [
+          "NO_STRONG_LOCAL_DENSITY_JUMP"
+        ]
+      },
+      "endpoint_legacy_features": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "inner_rise_candidate": {
+          "peak_pc": 0.015767058626969657,
+          "r10_pc": 0.008321408196704055,
+          "r50_pc": 0.00871844747237628,
+          "r90_pc": 0.009159429980135242,
+          "width_10_90_pc": 0.0008380217834311875,
+          "cells_10_90": 2.314054672305936,
+          "local_peak_fwhm_pc": 0.19747596405597975,
+          "local_peak_fwhm_cells": 207.43790756939825,
+          "peak_to_local_baseline": 14.187276787272232,
+          "peak_to_initial": 0.9869330969153202,
+          "flags": [
+            "UNRESOLVED_LT5_NATIVE_CELLS"
+          ]
+        },
+        "all_density_rise_candidates": [
+          {
+            "peak_pc": 0.015767058626969657,
+            "r10_pc": 0.008321408196704055,
+            "r50_pc": 0.00871844747237628,
+            "r90_pc": 0.009159429980135242,
+            "width_10_90_pc": 0.0008380217834311875,
+            "cells_10_90": 2.314054672305936,
+            "local_peak_fwhm_pc": 0.19747596405597975,
+            "local_peak_fwhm_cells": 207.43790756939825,
+            "peak_to_local_baseline": 14.187276787272232,
+            "peak_to_initial": 0.9869330969153202,
+            "flags": [
+              "UNRESOLVED_LT5_NATIVE_CELLS",
+              "NONLOCAL_HALF_HEIGHT_ENVELOPE"
+            ],
+            "width_interpretation": "Numerical profile crossings, not physical shock thickness; broad half-height widths may include the declining initial cloud envelope."
+          }
+        ],
+        "outer_shell_candidate": null,
+        "termination_flow_candidate": {
+          "radius_pc": 0.00856235041587292,
+          "upstream_mach": 3.1502058095904024,
+          "downstream_mach": 0.621950923138644,
+          "pressure_jump": 13.123558399843331,
+          "density_jump": 13.994545964883107,
+          "flags": []
+        },
+        "all_termination_flow_candidates": [
+          {
+            "radius_pc": 0.00856235041587292,
+            "upstream_mach": 3.1502058095904024,
+            "downstream_mach": 0.621950923138644,
+            "pressure_jump": 13.123558399843331,
+            "density_jump": 13.994545964883107,
+            "flags": []
+          }
+        ],
+        "interpretation": "Operational native-grid candidates; density peaks are not identified as termination shocks. Missing, injection-adjacent and unresolved features are excluded from surrogate eligibility.",
+        "quality_flags": [
+          "INNER_RISE_CANDIDATE_UNRESOLVED_LT5_NATIVE_CELLS",
+          "OUTER_SHELL_CANDIDATE_MISSING"
+        ],
+        "fit_eligible": false,
+        "fit_eligibility_reason": "No approved surrogate; single survey mesh. Missing or unresolved physical features require independent review and refinement."
+      },
+      "all_save_sheet_snapshots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70
+      ],
+      "images": {
+        "images/density_0000.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "0cc9537b1a12494c91c77e0ec1afe4205ee6078ef6d4ca38ff4f783d33481746"
+        },
+        "images/density_0001.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "78e2f313d1c568bc75b76b6865ecab11f23fc5af2666ce163d6e898db16d049e"
+        },
+        "images/density_0002.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5416e671f7ec15cd801cefb3a1ea3569aede835cfcc2e709cd1b8461e8cf5add"
+        },
+        "images/density_0003.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "f0989f4cc94a92fa8e6f8a58f08c3444bab5fdc7caf2759441d3f3fb8282bf85"
+        },
+        "images/density_0004.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "9d017889e0892b53dc9b4d0e6aea6aeed3369e97b5179ddb9b4be441c0aaa6be"
+        },
+        "images/density_0005.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "685b8c9eb8653e5a37c295bc51a5ed12f2abaef461e467bfe3793578dc1a0565"
+        },
+        "images/density_0006.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "e46c7f8366ae0dde1956cf3afbe5d25a470699d1af59fc241f7804e273ebe049"
+        },
+        "images/density_0007.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "c56439339a2e749f2438925ae8d185c268da4065e8c15755d8d7fb2921a5c015"
+        },
+        "images/density_0008.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "072b6bbe98d45379f19f0e8401d79bfded5a6f3f54cfdab204a7ab29d6fcff8e"
+        },
+        "images/density_0009.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "68cf1fed911eb5fc3e61c4103ebb1f9433cf91b945766297b706db136559677c"
+        },
+        "images/density_0010.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5c075712de726a8255f374f8e885fd1578f69417965f461ffefac4c24842cea7"
+        },
+        "images/density_0011.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "8999019b50c5957ec033988e9fd3d6cf6a438e35842fefb775bbdaa10f79a8b1"
+        },
+        "images/density_0012.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "318e45f98f4f36e4c7e1f7506658d77b29fd4907b80d95ab9740ad6215223c15"
+        },
+        "images/density_0013.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "b43bedc3b44016189fc20b257a2ea70b280e92dac96f5d8106647b4b7663aa5f"
+        },
+        "images/density_0014.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "de4cd5cbdcc497a8741457ff811be7d17dd8a99654b6353d6646d03f00f6c165"
+        },
+        "images/density_0015.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "1e7e3631084a92a60ad6d99419def658284c0600e436c461916de7bd2e1fdf01"
+        },
+        "images/density_0016.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "ea0a511bc602e7d0d3014763016b4835b45895d2721f3a91d91657f7e12db9f4"
+        },
+        "images/density_0017.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "b8336cff2983740d5a3f3c019265f56d02dfb7c7149ce805cd0fbc786344b34f"
+        },
+        "images/density_0018.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "627963b82603e475cfc0cedb78236be89a670c36e3639bcf5381352716b3b705"
+        },
+        "images/density_0019.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "de42504d96927552ba0f0b9c967c1b47f5d01da6885952327032351857313a5c"
+        },
+        "images/density_0020.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "e93528b01032be4e12d8d1a181210bc5fc56bd93b243809dc704b6ef284e2c5c"
+        },
+        "images/density_0021.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "094c2e0a8f2dee287f83a3c5722cc291dbdf81f739ba6b0d6d996d6b7b375801"
+        },
+        "images/density_0022.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "1e66049f0db72324ccf695ca69fd615f33a61b186158fd182bc5f99bda32aca9"
+        },
+        "images/density_0023.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5f94a964d753d69821da056a96fa6c7706a5fd671ecc7735af7e797356569f12"
+        },
+        "images/density_0024.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "034fbbc5b62ff0033f8d6fd90c23501ad97d54dd21818d32137ea0583d79ec19"
+        },
+        "images/density_0025.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "41e4842b6e8b7b253b70df32049c854ce382fc4c8852a3c835bbb316f278ed2c"
+        },
+        "images/density_0026.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "a068ee8616080cf0511f0d73e9614ef390e10ad4b3292d22ac4d2466bbff05c2"
+        },
+        "images/density_0027.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "87c5ed53fa1f7d52bde2dbba246772a310986a5cf70663c1717a4b97d603c107"
+        },
+        "images/density_0028.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "38625ceabda02ff89a680f922befe7d8bcd509fcec2ef0a8fa5f496e6f6dafed"
+        },
+        "images/density_0029.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5b3f3a289329a39e78f9a3a36d935f83af1aee2cec39e8e059ff63713d02141e"
+        },
+        "images/density_0030.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "810261c899544c4b25d01d25c53addf852ebaa843a84aa00d1a07ba1c39d6de6"
+        },
+        "images/density_0031.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "92d9453db7e1f73b46483243ee0ad55f1cc1b0a1fde7602283103eda320cb419"
+        },
+        "images/density_0032.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "7f88edece955e9894d821c2b11abb8083bfedc14a9b608182c30c26c4ffac459"
+        },
+        "images/density_0033.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "e4377b5d1df9cf75dbe049b10cf702d8ce1d2e2c215e41d53e8dff1b5787ddba"
+        },
+        "images/density_0034.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "a537d21aeb3c78a0c778b39bf261a69a074e2d5fc6543fc57ac8ea5d66e529a1"
+        },
+        "images/density_0035.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "2cb601ffa13925ec31fa7c12162a636e5be513aa5c231d0aa74783efccbfe86c"
+        },
+        "images/density_0036.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "203c525a7e43540af28b341941c74d1a6f9f17aae92eb96d7763eceafb0608d8"
+        },
+        "images/density_0037.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "fc0e81b7b3cfa70f3a0080f977152c42b713bea49405769e5587de49bda9d7f3"
+        },
+        "images/density_0038.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "928afcf84d03dc2d37f8c12826ebce7fd327e7ee1a86916c2f530c072f157beb"
+        },
+        "images/density_0039.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "1944244d428b15964d4a56c45c4e44f0534e0d32ce0b95b3778651bfb559b0da"
+        },
+        "images/density_0040.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "6fe41780c94a740ed14971f716b7c94d87ddd9fcfc322b749ed9e3dc69b709c0"
+        },
+        "images/density_0041.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "8dcc263a621b47bdfcadc00eb3b1abc9e1b090c930a14895776f36f7bcc07b7a"
+        },
+        "images/density_0042.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "0b63790e994943125ed29d66f74994a7a166c0612b162549b2dfad32adb22d8c"
+        },
+        "images/density_0043.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "fc58814e9f0e89435185373bab132893e84b7f8fda2b2bb503711dced0e34982"
+        },
+        "images/density_0044.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "9e928755d23a050be6686e8fcbcbf9b00319dd945e6fc70992fee4a5ab705128"
+        },
+        "images/density_0045.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "f5b8132f5b0fcf03ca5c37d5231dd8b32dde396dd0ce3929bcb1cb544e6876e8"
+        },
+        "images/density_0046.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "551eca49043bf4b73a93707806af2d5ca6096995cd184622cff82b4b0b613fcb"
+        },
+        "images/density_0047.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "6e7c8f83b7c98526c230fed030205b5330829fb127b46a949c8ff17c0d774316"
+        },
+        "images/density_0048.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "875239b9ee63937ea960a746cd4955ca7b7cd11e86db2831935a6a5d5aa358e6"
+        },
+        "images/density_0049.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "acf707fd44af93b7dd024d6eea8e1af04b91eae36310d721987ef7a2df9cc0ba"
+        },
+        "images/density_0050.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "2630c602362300425ed0c3405c57a416f2ba3c600f393a53d6426b75399d2894"
+        },
+        "images/density_0051.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "677324d8c5d2faf968166df6fe4551c85712ae48d4b10a4a8d2f0197e645b217"
+        },
+        "images/density_0052.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "c25918a703e94b076559ae84b9c5acc23e6dab6d4936e32090e97dbb0acd9add"
+        },
+        "images/density_0053.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "b81057e127b1c53cc10c807e72c340cca71c1d67aeccded1cb763f94f80f04ae"
+        },
+        "images/density_0054.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "1ca5ed53dd192314acda9f65e49029ccc6a88201f475e64904a6968091726ff7"
+        },
+        "images/density_0055.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "6c8c262576924ef0e92cc1a0335653c6d7f36516741873ea89e8fd494ca8ff25"
+        },
+        "images/density_0056.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5bf4951c29b8864e64176e389520dbfcc1cebe9a7a35265733559ff3d80f1b7f"
+        },
+        "images/density_0057.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "50859e65eb03729a7c1f5b8d50f80fd7ddbfeb8cff0d542efd36fad36fb2e6b5"
+        },
+        "images/density_0058.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "981fa434df9146fd05e04df7a4d2b8568af48e5532772deb07d58e219364671f"
+        },
+        "images/density_0059.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "1741565ee927f856ee90c9426b5b38213f5b7b54dd08a1578ffbc94fa39c9539"
+        },
+        "images/density_0060.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "7f1959e73a55ba0b7ce52c53962ed671df99c598ef94cb01a4f9328787ef6aa5"
+        },
+        "images/density_0061.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "90640b2eb1053ce7b7330cbb0ecf6e4e52b5310e8b7080585bee3cb4cdee533d"
+        },
+        "images/density_0062.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "e242e3ade250e346bdb031ce9532abf3984c5cf6fdc9f0d3368a124a3be8cc23"
+        },
+        "images/density_0063.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "2c9289a9e696cf4072dfc55c2f92b8da78ef7857640d833517a446fa786d46ad"
+        },
+        "images/density_0064.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "3c130d0b52cd9a081b34982c2464064503bb32fd8c23025acc6409bfc9b05777"
+        },
+        "images/density_0065.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "55facec3a4c534681604a5fdf931cd21f951f37111ed47ce473b8a88baf7ff18"
+        },
+        "images/density_0066.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "5c69a860c796be3a8174a7593a06e52f092c01f5f964faba9d5446dba56475e7"
+        },
+        "images/density_0067.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "a421b39ac06a37325dde38155ce9855c718452eb781415bd159cdd37708294f5"
+        },
+        "images/density_0068.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "61b51c3a4340d64992eb7dbc94fbecd90fdc48c99e4df6cdf88277b510c2c6af"
+        },
+        "images/density_0069.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "6929d3af448ddc0392cb95c1d91d69e9ca58ffb52647d99e71036800e0395467"
+        },
+        "images/density_0070.png": {
+          "size": [
+            1040,
+            650
+          ],
+          "sha256": "af977a990808e5d65c9f0565e229b24a3923036625bbb77fdb39927f7002e5ea"
+        },
+        "images/endpoint_flow_features.png": {
+          "size": [
+            1350,
+            1350
+          ],
+          "sha256": "a3ffca090276c0cc8e5e7618cead9f888930edc5c3c01f77370363ac58d13b72"
+        },
+        "images/outer_atmosphere_history.png": {
+          "size": [
+            1200,
+            600
+          ],
+          "sha256": "9d3783a2adb7978664bf3f49a484ee5384ff36ec266b2096b03cb487c3e447df"
+        },
+        "images/phases_full.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "5f29cf016ef0d15b21539f9ea00a4992790e368c4f130c05b762019a1da52ac9"
+        },
+        "images/phases_inner.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "2da75010af6ce37d940a72d6c58671a8c8113d6a9e68887d3c532b6467fcf626"
+        },
+        "reviewed_diagnostics/all_save_review.png": {
+          "size": [
+            2340,
+            3064
+          ],
+          "sha256": "be920f2e149ff02107bdd71490524154a702b999faf855d4fe979cd5f81d3002"
+        },
+        "reviewed_diagnostics/endpoint_flow_full.png": {
+          "size": [
+            1350,
+            1350
+          ],
+          "sha256": "3a7720e4def94bc03614b41243a509e5ccaf15fb2602030d3c3e19287d4f927e"
+        },
+        "reviewed_diagnostics/endpoint_flow_inner.png": {
+          "size": [
+            1350,
+            1350
+          ],
+          "sha256": "173d386ba54ace93b68276fcaa743de7f05cc409cfa03dbae449ce345ef7226c"
+        },
+        "reviewed_diagnostics/phases_full.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "f4c2601a19f5b0cb45c313ce9c6b73e64c234b6fd25d94ac361c918b5f4048a6"
+        },
+        "reviewed_diagnostics/phases_inner.png": {
+          "size": [
+            1350,
+            1200
+          ],
+          "sha256": "c40400bdbc536a7b76c3ea786c8271a1f52c1f5c8e9c39181233dc45a8bbddc0"
+        }
+      }
+    }
+  ],
+  "recipe_sha256": "3b94214eb0d0302adf9b7ccca3353c1542f485d2a618486cf977eb2edb7e6391"
+}
