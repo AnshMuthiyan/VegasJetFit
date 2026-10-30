@@ -1,0 +1,61 @@
+from pathlib import Path
+import json,hashlib,subprocess,shlex,os
+from datetime import datetime,timezone
+H=Path("/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/results/full_track_endpoints_20261030/Keohane1_original25_pair_20261030T134700Z");gate=json.loads((H/'remote_completion_gate.json').read_text());farm=gate['farm'];host=gate['host']
+assert host=='keohane1' and [c['case'] for c in gate['cases']]==["m25_n3000_pk1000000","m25_n3000_pk1000000000"]
+PY=Path('/Users/jkeohane/GRBs/.venv/bin/python')
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+def new(name,v):
+ with (H/name).open('x') as f:json.dump(v,f,indent=2);f.write('\n')
+new('initial_collector_transfer_metadata_failure.json',dict(status='PRESERVED_TRANSFER_METADATA_FAILURE',observed_utc=datetime.now(timezone.utc).isoformat(),failed_command='collect_completed_subset.py original keohane1 NEW selected case',failed_assertion="farm_provenance checksum dry-run was not empty",dry_run_stdout='.d..t.... inputs/\n',scope='Directory timestamp mismatch only; no AMRVAC case failure or source/input hash mismatch. Original collector not rerun. Complete only this NEW partial transfer after independently verifying unchanged remote files and aligning local copied inputs-directory metadata. No remote mutations.'))
+remote=r'''
+from pathlib import Path
+import json,hashlib
+g=CONFIG;farm=Path(g['farm'])
+def rec(p):return dict(bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+assert json.loads((farm/'build_pins.json').read_text())==g['pins']
+assert {n:rec(farm/n) for n in g['root_files']}==g['root_files']
+for c in g['cases']:
+ d=farm/'runs'/c['case']
+ assert not (d/'FAILED.json').exists()
+ assert {str(p.relative_to(d)):rec(p) for p in d.rglob('*') if p.is_file()}==c['files']
+ for stage in ['static','smoke','full']:
+  b=d/(c['case']+'_'+stage)
+  assert Path(str(b)+'.run.exit').read_text().strip()=='0'
+  assert Path(str(b)+'.run.log').read_text().count('Finished AMRVAC')==1
+  assert Path(str(b)+'.run.err').stat().st_size==0
+s=(farm/'inputs').stat()
+print(json.dumps(dict(status='PASS_REMOTE_ALL_ORIGINAL_HASHES_AND_GUARDS_RECHECKED',inputs_atime_ns=s.st_atime_ns,inputs_mtime_ns=s.st_mtime_ns,inputs_mode=s.st_mode&0o7777)))
+'''
+cmd='CONFIG='+repr(gate)+'\n'+remote
+q=subprocess.run(['ssh','-n','-x','-o','ForwardX11=no','-o','BatchMode=yes','-o','ConnectTimeout=10',host,'python3 -c '+shlex.quote(cmd)],text=True,capture_output=True,timeout=90)
+assert q.returncode==0,q.stderr
+e=json.loads(q.stdout);new('remote_transfer_recheck.json',e)
+provenance=H/'farm_provenance';local=provenance/'inputs';assert local.is_dir()
+before=dict(mtime_ns=local.stat().st_mtime_ns,mode=local.stat().st_mode&0o7777)
+assert before['mode']==e['inputs_mode']
+os.utime(local,ns=(e['inputs_atime_ns'],e['inputs_mtime_ns']))
+transport='ssh -x -o ForwardX11=no -o BatchMode=yes -o ConnectTimeout=10'
+source=host+':'+farm+'/'
+def sync(args):
+ q=subprocess.run(['rsync',*args,'-e',transport],text=True,capture_output=True,timeout=300)
+ assert q.returncode==0,q.stderr
+ return q.stdout
+checks={}
+checks['farm_provenance']=sync(['-aincR','--files-from='+str(H/'immutable_provenance_files.txt'),source,str(provenance)+'/'])
+assert checks['farm_provenance']=='',checks
+for n,v in gate['root_files'].items():
+ p=provenance/n;assert p.stat().st_size==v['bytes'] and sha(p)==v['sha256']
+for c in gate['cases']:
+ raw=H/c['case']/'raw';raw.mkdir(parents=True,exist_ok=False)
+ sc=source+'runs/'+c['case']+'/'
+ sync(['-a','--ignore-existing',sc,str(raw)+'/'])
+ checks[c['case']]=sync(['-ainc','--delete',sc,str(raw)+'/'])
+ assert checks[c['case']]=='',checks
+ actual={str(p.relative_to(raw)) for p in raw.rglob('*') if p.is_file()}
+ assert actual==set(c['files'])
+ for n,v in c['files'].items():
+  p=raw/n;assert p.stat().st_size==v['bytes'] and sha(p)==v['sha256']
+new('local_transfer_metadata_reconciliation.json',dict(status='PASS_LOCAL_DIRECTORY_TIMESTAMP_ALIGNED_AND_EMPTY_CHECKSUM_DRY_RUN',before=before,after_mtime_ns=local.stat().st_mtime_ns,remote_metadata_receipt='remote_transfer_recheck.json',original_failure_preserved=True,remote_mutations=False))
+new('collection_provenance.json',dict(status='PASS',host=host,campaign='van_marle_full_track_grid_20261023',cases=[c['case'] for c in gate['cases']],raw_files=sum(len(c['files']) for c in gate['cases']),original_pins_verified=len(gate['pins']),remote_local_checksum_dry_runs=checks,all_remote_local_sha256_and_bytes_match=True,active_outputs_excluded=True,collector_sha256=sha(Path('/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/collect_completed_subset.py')),transfer_metadata_reconciliation='local_transfer_metadata_reconciliation.json'))
+print(json.dumps(dict(status='COLLECTED_CHECKSUM_PASS',raw_files=165,pins=len(gate['pins']),empty_dry_runs=checks)))
