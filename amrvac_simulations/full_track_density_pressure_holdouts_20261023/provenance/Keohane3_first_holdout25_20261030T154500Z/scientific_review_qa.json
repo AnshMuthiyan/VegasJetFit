@@ -1,0 +1,75 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m25_n7830_pk562341325",
+      "local_jump": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": null,
+        "quality_flags": [
+          "NO_STRONG_LOCAL_DENSITY_JUMP"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.016613395976545937,
+        "r10_pc": 0.010613723533797333,
+        "r50_pc": 0.011036887756120826,
+        "r90_pc": 0.011489337224907607,
+        "width_10_90_pc": 0.000875613691110274,
+        "cells_10_90": 2.2969935709674445,
+        "local_peak_fwhm_pc": 0.1894083125916614,
+        "local_peak_fwhm_cells": 198.2559227679747,
+        "peak_to_local_baseline": 18.36159428033156,
+        "peak_to_initial": 1.0220204844520928,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.010780650455775673,
+        "upstream_mach": 3.566089615045823,
+        "downstream_mach": 0.774282467523722,
+        "pressure_jump": 17.18714806707523,
+        "density_jump": 18.19528276775846,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "outer_candidate_interpretation": "No strong separate local_jump_v1 rise passes the unchanged search beyond1.2 times the flow-selected termination candidate. The retained legacy first rise lies within one unresolved numerical ramp width of that transition and has an unresolved numerical10--90 width of2.29699357097native cells. No peak passes the outer-compression criterion; this does not establish absence of swept gas. Broad legacy FWHM can include the declining cloud envelope and is not a resolved local ramp. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from training/coefficient fitting.",
+      "interior_wind_samples": [
+        {
+          "snapshot": 64,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 2e-07,
+          "prescribed_speed_kms": 1500,
+          "first_cell_estimated_mdot_msun_yr": 2.0229846774273717e-07,
+          "first_cell_speed_kms": 1500.024188074925
+        },
+        {
+          "snapshot": 66,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.350569167133995e-06,
+          "first_cell_speed_kms": 14.089300137490998
+        },
+        {
+          "snapshot": 70,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.350570220845196e-06,
+          "first_cell_speed_kms": 14.089300872283372
+        }
+      ],
+      "validation_role": "withheld_validation_holdout",
+      "withheld_from_training": true
+    }
+  ],
+  "visual_qa": "For every case: all71-save native density sheet, full/inner MS/RSG phase-density/cumulative-mass figures and full/inner endpoint density/speed/Mach figures visually inspected. All80 PNGs integrity-checked and all71 native mass profiles independently reintegrated exactly. Full-domain cm/pc and g/Msun axes readable. Separate local-jump zoom absent when candidate missing.",
+  "flux_interpretation": "Evolved interior first-cell estimates are distinct from prescribed TRACK injection rate/speed gates. 25-Msun track has no WR phase; single-mesh flux convergence is unestablished.",
+  "feature_interpretation": "m25_n7830_pk562341325: No strong separate local_jump_v1 rise passes the unchanged search beyond1.2 times the flow-selected termination candidate. The retained legacy first rise lies within one unresolved numerical ramp width of that transition and has an unresolved numerical10--90 width of2.29699357097native cells. No peak passes the outer-compression criterion; this does not establish absence of swept gas. Broad legacy FWHM can include the declining cloud envelope and is not a resolved local ramp. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from training/coefficient fitting."
+}
