@@ -1,0 +1,55 @@
+"""Independent integrity/mass/all-save QA for this immutable completed subset."""
+from pathlib import Path
+import hashlib,json
+import numpy as np
+from PIL import Image
+
+HERE=Path(__file__).resolve().parent
+PC=3.085677581e18
+reports=[]
+for case in sorted(HERE.glob('m25_n*_pk*')):
+    gate=json.loads((case/'independent_validation/independent_gates.json').read_text())
+    assert gate['status']=='PASS' and gate['saves']==71
+    runtime=json.loads((case/'independent_validation/grid_runtime_view/validation.json').read_text())
+    assert runtime['status']=='PASS' and set(runtime['phase_samples'])=={'MS','RSG'}
+    assert abs(gate['endpoint_myr']-7)<1e-9
+    review=json.loads((case/'reviewed_diagnostics/review_provenance.json').read_text())
+    assert review['input_profiles']==71 and review['contact_sheet_snapshots']==list(range(71))
+    assert review['contact_sheet_rows']*review['contact_sheet_columns']>=71
+    local=json.loads((case/'reviewed_diagnostics/local_jump_diagnostics.json').read_text())
+    assert len(local['snapshots'])==71 and all(not s['fit_eligible'] for s in local['snapshots'])
+    profiles=sorted((case/'native_profiles').glob('snapshot_*.csv'))
+    assert len(profiles)==71 and len(list((case/'images').glob('density_*.png')))==71
+    initial=np.genfromtxt(profiles[0],delimiter=',',names=True)
+    maxerr=0.;mass0=None
+    for p in profiles:
+        d=np.genfromtxt(p,delimiter=',',names=True)
+        assert len(d)==1024 and np.isfinite(d.view(float)).all()
+        assert np.all(d['rho_g_cm3']>0) and np.all(d['p_dyn_cm2']>0)
+        assert np.all(d['r_hi_cm']>d['r_lo_cm'])
+        volume=4*np.pi/3*(d['r_hi_cm']**3-d['r_lo_cm']**3)
+        mass=np.cumsum(d['rho_g_cm3']*volume)
+        error=float(np.max(abs(mass/d['cumulative_gas_g']-1)))
+        assert error<1e-11,error
+        maxerr=max(maxerr,error)
+        excess=np.cumsum(np.maximum(0,d['rho_g_cm3']-initial['rho_g_cm3'])*volume)
+        assert np.allclose(excess,d['cumulative_positive_excess_g'],rtol=1e-11,atol=1e10)
+        assert np.all(np.diff(d['cumulative_gas_g'])>0)
+        if mass0 is None:mass0=mass
+        assert np.allclose(mass-mass0,d['cumulative_gas_change_g'],rtol=1e-9,atol=1e21)
+    pngs=sorted([*case.glob('images/*.png'),*case.glob('reviewed_diagnostics/*.png')])
+    images={}
+    for p in pngs:
+        with Image.open(p) as image:
+            size=image.size;image.verify()
+        images[str(p.relative_to(case))]=dict(size=list(size),sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+    reviewed=json.loads((case/'reviewed_diagnostics/feature_diagnostics_reviewed.json').read_text())
+    reports.append(dict(case=case.name,status='PASS',profiles=71,density_pngs=71,
+        pngs=len(pngs),max_mass_reintegration_relative_error=maxerr,
+        endpoint_local_jump=local['snapshots'][-1],endpoint_legacy_features=reviewed[-1],
+        all_save_sheet_snapshots=review['contact_sheet_snapshots'],images=images))
+with (HERE/'products_integrity_mass_qa.json').open('x') as f:
+    json.dump(dict(status='PASS',cases=reports,recipe_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()),f,indent=2,allow_nan=False);f.write('\n')
+print(json.dumps(dict(status='PASS',cases=len(reports),profiles=sum(r['profiles'] for r in reports),
+    density_pngs=sum(r['density_pngs'] for r in reports),total_pngs=sum(r['pngs'] for r in reports),
+    max_mass_reintegration_relative_error=max(r['max_mass_reintegration_relative_error'] for r in reports))))
