@@ -1,5 +1,9 @@
 # Full 25/40-Msun density-pressure grid (23 October 2026)
 
+Latest additive delivery 20261030_keohane1_original25_next_v35: 1 complete full-lifetime history; 55 total endpoints reconciled and published, with 27 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261030_keohane1_original25_next_v35.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261030_keohane1_original25_next_v35.csv), provenance `provenance/Keohane1_original25_next_20261030T094200Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
+
+Earlier dated delivery sections retain their own epochs.
+
 Latest additive delivery 20261030_keohane3_original25_next_v34: 1 complete full-lifetime history; 54 total endpoints reconciled and published, with 28 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261030_keohane3_original25_next_v34.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261030_keohane3_original25_next_v34.csv), provenance `provenance/Keohane3_next25_20261030T074100Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
 
 Earlier dated delivery sections retain their own epochs.
@@ -118,3 +122,5 @@ physics change, launch or restart. Endpoint reconciliation and validated
 full-grid publication remain pending.
 
 Last monitor touched 2026-10-26 01:48 UTC: root/campaign docs and NEW status/audit; parent exact-native scripts/reader/license, four completed immutable endpoint trees,196 density PNGs/196 native CSVs/232 total PNGs with preferred reviewed full/inner phase/mass/flow views and all-save visual QA. Commands: read-only statuses/assignment/age/PID/stderr audits, completed-only NEW transfer/SHA/checksum gates, frozen-runtime+native validators, diagnostics and additive Git preparation. Remaining78 cases and final publication verification remain with this monitor;12 holdouts strictly withheld. No launch/restart/retry or frozen physics/guard/network/Xcode change.
+
+Dated annotation correction (30 October 2026): [case-specific legacy widths for the preceding two 25-Msun deliveries](results/25Msun/n30000/pk10000000/m25_n30000_pk10000000/reviewed_diagnostics/PRIOR_ENDPOINT_ANNOTATION_CORRIGENDUM.md). Their structured numerical records were already correct; both widths remain unresolved. Original delivered files are preserved.
