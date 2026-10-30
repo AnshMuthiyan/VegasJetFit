@@ -1,0 +1,142 @@
+{
+  "status": "PASS_WITH_SCIENTIFIC_LIMITATIONS",
+  "cases": [
+    {
+      "case": "m25_n3000_pk31622777",
+      "local_jump": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": null,
+        "quality_flags": [
+          "NO_STRONG_LOCAL_DENSITY_JUMP"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.036216816869256346,
+        "r10_pc": 0.033964601862318686,
+        "r50_pc": 0.03460837386248388,
+        "r90_pc": 0.03509038275863342,
+        "width_10_90_pc": 0.0011257808963147375,
+        "cells_10_90": 1.9636576357359843,
+        "local_peak_fwhm_pc": 0.17947553488810056,
+        "local_peak_fwhm_cells": 155.06427220034553,
+        "peak_to_local_baseline": 66.81069119391105,
+        "peak_to_initial": 1.06660207830201,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.03362313094918061,
+        "upstream_mach": 6.649935675273929,
+        "downstream_mach": 0.7992972020986214,
+        "pressure_jump": 63.84085964398847,
+        "density_jump": 66.38200317783355,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "outer_candidate_interpretation": "No strong separate local_jump_v1 rise passes the unchanged search beyond1.2 times the flow-selected termination candidate. The retained legacy first rise lies within one unresolved numerical ramp width of that transition and has an unresolved numerical10--90 width of1.96365763574native cells. No peak passes the outer-compression criterion; this does not establish absence of swept gas. Broad legacy FWHM can include the declining cloud envelope and is not a resolved local ramp. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from training/coefficient fitting.",
+      "interior_wind_samples": [
+        {
+          "snapshot": 64,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 2e-07,
+          "prescribed_speed_kms": 1500,
+          "first_cell_estimated_mdot_msun_yr": 2.0244470196619276e-07,
+          "first_cell_speed_kms": 1500.0230723156972
+        },
+        {
+          "snapshot": 66,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.504016905502638e-06,
+          "first_cell_speed_kms": 14.058709801073396
+        },
+        {
+          "snapshot": 70,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.5040150949463e-06,
+          "first_cell_speed_kms": 14.058708710384758
+        }
+      ],
+      "validation_role": "survey_grid",
+      "withheld_from_training": false
+    },
+    {
+      "case": "m25_n5477_pk100000000",
+      "local_jump": {
+        "snapshot": 70,
+        "age_myr": 6.999999999999998,
+        "phase": "RSG",
+        "method": "local_jump_v1",
+        "fit_eligible": false,
+        "candidate": null,
+        "quality_flags": [
+          "NO_STRONG_LOCAL_DENSITY_JUMP"
+        ]
+      },
+      "legacy_inner": {
+        "peak_pc": 0.023422745740332464,
+        "r10_pc": 0.019995182452812663,
+        "r50_pc": 0.02045320140054001,
+        "r90_pc": 0.020974280823592786,
+        "width_10_90_pc": 0.000979098370780123,
+        "cells_10_90": 2.1364712843917175,
+        "local_peak_fwhm_pc": 0.1879705642215952,
+        "local_peak_fwhm_cells": 179.80888142852015,
+        "peak_to_local_baseline": 42.49648686263134,
+        "peak_to_initial": 1.0248168606841905,
+        "flags": [
+          "UNRESOLVED_LT5_NATIVE_CELLS"
+        ]
+      },
+      "termination_flow_candidate": {
+        "radius_pc": 0.02036954259315603,
+        "upstream_mach": 5.335100800127125,
+        "downstream_mach": 0.4159831957592322,
+        "pressure_jump": 40.14016483705272,
+        "density_jump": 42.28900374479328,
+        "flags": []
+      },
+      "outer_shell_candidate": null,
+      "outer_candidate_interpretation": "No strong separate local_jump_v1 rise passes the unchanged search beyond1.2 times the flow-selected termination candidate. The retained legacy first rise lies within one unresolved numerical ramp width of that transition and has an unresolved numerical10--90 width of2.13647128439native cells. No peak passes the outer-compression criterion; this does not establish absence of swept gas. Broad legacy FWHM can include the declining cloud envelope and is not a resolved local ramp. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from training/coefficient fitting.",
+      "interior_wind_samples": [
+        {
+          "snapshot": 64,
+          "phase": "MS",
+          "prescribed_mdot_msun_yr": 2e-07,
+          "prescribed_speed_kms": 1500,
+          "first_cell_estimated_mdot_msun_yr": 2.0246060940808701e-07,
+          "first_cell_speed_kms": 1500.0229690360075
+        },
+        {
+          "snapshot": 66,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.482110396174708e-06,
+          "first_cell_speed_kms": 14.061566890279677
+        },
+        {
+          "snapshot": 70,
+          "phase": "RSG",
+          "prescribed_mdot_msun_yr": 1e-05,
+          "prescribed_speed_kms": 15,
+          "first_cell_estimated_mdot_msun_yr": 9.482114209245648e-06,
+          "first_cell_speed_kms": 14.061569241474889
+        }
+      ],
+      "validation_role": "survey_grid",
+      "withheld_from_training": false
+    }
+  ],
+  "visual_qa": "For every case: all71-save native density sheet, full/inner MS/RSG phase-density/cumulative-mass figures and full/inner endpoint density/speed/Mach figures visually inspected. All80 PNGs integrity-checked and all71 native mass profiles independently reintegrated exactly. Full-domain cm/pc and g/Msun axes readable. Separate local-jump zoom absent when candidate missing.",
+  "flux_interpretation": "Evolved interior first-cell estimates are distinct from prescribed TRACK injection rate/speed gates. 25-Msun track has no WR phase; single-mesh flux convergence is unestablished.",
+  "feature_interpretation": "m25_n3000_pk31622777: No strong separate local_jump_v1 rise passes the unchanged search beyond1.2 times the flow-selected termination candidate. The retained legacy first rise lies within one unresolved numerical ramp width of that transition and has an unresolved numerical10--90 width of1.96365763574native cells. No peak passes the outer-compression criterion; this does not establish absence of swept gas. Broad legacy FWHM can include the declining cloud envelope and is not a resolved local ramp. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from training/coefficient fitting.; m25_n5477_pk100000000: No strong separate local_jump_v1 rise passes the unchanged search beyond1.2 times the flow-selected termination candidate. The retained legacy first rise lies within one unresolved numerical ramp width of that transition and has an unresolved numerical10--90 width of2.13647128439native cells. No peak passes the outer-compression criterion; this does not establish absence of swept gas. Broad legacy FWHM can include the declining cloud envelope and is not a resolved local ramp. No physical-width/convergence/GRB-wall/surrogate/universal-law claim. All12 holdouts remain excluded from training/coefficient fitting."
+}
