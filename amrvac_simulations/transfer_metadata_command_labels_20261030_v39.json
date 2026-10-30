@@ -1,0 +1,73 @@
+{
+  "status": "ADDITIVE_TRANSFER_COMMAND_LABEL_CLARIFICATION",
+  "utc": "2026-10-30T13:53:22.056742+00:00",
+  "explanation": "The metadata-reconciliation recipe retained a generic original/keohane1 label in its failed_command description. The actual command arguments below and the original host/case pin/hash receipts identify the correct campaign and host. This clarifies only descriptive transfer metadata; native data, checksums, gate outcomes, publication roles and original files are unchanged.",
+  "entries": [
+    {
+      "campaign": "van_marle_full_track_grid_20261023",
+      "host": "keohane1",
+      "cases": [
+        "m25_n3000_pk1000000",
+        "m25_n3000_pk1000000000"
+      ],
+      "endpoint_publication_commit": "a781b9a4c50575b84e9ec8b1005ad95b2032c8d7",
+      "original_failure_receipt_label": "collect_completed_subset.py original keohane1 NEW selected case",
+      "actual_collector_argv": [
+        "/Users/jkeohane/GRBs/.venv/bin/python",
+        "-B",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/collect_completed_subset.py",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023",
+        "keohane1",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/results/full_track_endpoints_20261030/Keohane1_original25_pair_20261030T134700Z",
+        "m25_n3000_pk1000000",
+        "m25_n3000_pk1000000000"
+      ],
+      "remote_gate_sha256": "d7b703ebc203cfe3b56969c21ce7d740b8504ddd84eb5788062bb81fda80ff5e",
+      "collection_sha256": "193aa10b4886dcabf953f8d0cf32605147501fd2291e81c65081150e3581e37d"
+    },
+    {
+      "campaign": "van_marle_full_track_grid_20261023",
+      "host": "keohane3",
+      "cases": [
+        "m25_n10000_pk1000000"
+      ],
+      "endpoint_publication_commit": "4d634357893a91f702f3bba0bcc2c5b2fff70bdb",
+      "original_failure_receipt_label": "collect_completed_subset.py original keohane1 NEW selected case",
+      "actual_collector_argv": [
+        "/Users/jkeohane/GRBs/.venv/bin/python",
+        "-B",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/collect_completed_subset.py",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023",
+        "keohane3",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/results/full_track_endpoints_20261030/Keohane3_original25_next_20261030T134700Z",
+        "m25_n10000_pk1000000"
+      ],
+      "remote_gate_sha256": "130ca0b1e01c15388d24ae30b189b5886b8ecdcd0c229eb256d6c8988648298f",
+      "collection_sha256": "b42c0d521af9eeffa6bbc6967f86f8def6aa3586e13b7b58fce022007dd157e4"
+    },
+    {
+      "campaign": "van_marle_full_track_refinement_20261023",
+      "host": "keohane1",
+      "cases": [
+        "m25_n10000_pk316227766",
+        "m25_n5477_pk31622777"
+      ],
+      "endpoint_publication_commit": "f9823a27714ff03ede44aeb2580415f90d01c016",
+      "original_failure_receipt_label": "collect_completed_subset.py original keohane1 NEW selected case",
+      "actual_collector_argv": [
+        "/Users/jkeohane/GRBs/.venv/bin/python",
+        "-B",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_grid_20261023/collect_completed_subset.py",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_refinement_20261023",
+        "keohane1",
+        "/Users/jkeohane/GRBs/AMRVAC_Bubble_Models/van_marle_full_track_refinement_20261023/results/full_track_endpoints_20261030/Keohane1_midpoint25_pair_20261030T134700Z",
+        "m25_n10000_pk316227766",
+        "m25_n5477_pk31622777"
+      ],
+      "remote_gate_sha256": "b8a3873d91dceb0e9f808088c83b755baf569f6ae62a5400d21a21905d207f7b",
+      "collection_sha256": "4a4e6a057e4f86dbdbd8a72226ca2436c9b2abe95a778d3a8572becd98de4439"
+    }
+  ],
+  "original_published_files_preserved": true,
+  "remote_mutations": false
+}
