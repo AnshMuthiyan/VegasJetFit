@@ -1,5 +1,9 @@
 # Full-track density-pressure midpoint refinement
 
+Latest additive delivery 20261031_keohane2_final_midpoint25_v59: 1 complete full-lifetime history; 81 total endpoints reconciled and published, with 1 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261031_keohane2_final_midpoint25_v59.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261031_keohane2_final_midpoint25_v59.csv), provenance `provenance/Keohane2_final_midpoint25_20261031T035400Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
+
+Earlier dated delivery sections retain their own epochs.
+
 Latest additive delivery 20261031_keohane3_final_midpoint25_v58: 1 complete full-lifetime history; 80 total endpoints reconciled and published, with 2 cases not yet published in the 82-case campaigns. All saved DAT/VTU files, native CSVs, density PNGs and reviewed diagnostics are included. [New inventory](completed_endpoint_inventory_20261031_keohane3_final_midpoint25_v58.csv), [combined inventory](../full_track_campaign_endpoint_inventory_20261031_keohane3_final_midpoint25_v58.csv), provenance `provenance/Keohane3_final_midpoint25_20261031T005000Z/`. Prior case products are preserved. Missing or unresolved density features and interior-flux limitations remain explicit; all 12 holdouts remain withheld. No surrogate, convergence or physical-wall claim. Two distinct 4096-cell resolution histories remain separately monitored.
 
 Earlier dated delivery sections retain their own epochs.
