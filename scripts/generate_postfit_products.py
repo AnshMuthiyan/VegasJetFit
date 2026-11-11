@@ -64,6 +64,7 @@ MODEL_CLASS_MAP: dict[str, str] = {
     "EmpiricalBubbleVegasDylanSpectrumModel": (
         "jetfit.models.empiricalBubbleVegasDylanSpectrum:EmpiricalBubbleVegasDylanSpectrumModel"
     ),
+    "SpheroidShellVegasModel": "jetfit.models.spheroidShellVegas:SpheroidShellVegasModel",
 }
 
 THESIS_LOG10_PARAMS = {"E52", "lf0", "n017", "nt", "rt", "eps_e", "eps_b"}

@@ -40,6 +40,7 @@ MODEL_CLASS_MAP: dict[str, str] = {
     "EmpiricalBubbleVegasDylanSpectrumModel": (
         "jetfit.models.empiricalBubbleVegasDylanSpectrum:EmpiricalBubbleVegasDylanSpectrumModel"
     ),
+    "SpheroidShellVegasModel": "jetfit.models.spheroidShellVegas:SpheroidShellVegasModel",
 }
 
 TIME_COLUMN_CANDIDATES = ("time_days", "time", "t_days", "t", "days")
